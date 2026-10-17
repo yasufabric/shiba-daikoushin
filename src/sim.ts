@@ -40,6 +40,8 @@ import {
   START_SHIBAS,
   STEP_BLACK,
   STEP_TAN,
+  TRICKLE_COUNT,
+  TRICKLE_EVERY,
   WAVE_EVERY,
   BEAM_TIME,
 } from './balance'
@@ -194,7 +196,7 @@ function boot(sim: Sim): void {
   sim.floatDmg = 0
   sim.outcome = 'play'
   sim.rewardT = 0
-  sim.nextCat = CLASH_AT
+  sim.nextCat = TRICKLE_EVERY
   sim.guard = false
   sim.deny0 = 0
   sim.deny1 = 0
@@ -206,6 +208,7 @@ function boot(sim: Sim): void {
   for (let i = 0; i < START_SHIBAS; i++) {
     spawnShiba(sim, KIND_TAN, OPEN_LANE[i] ?? 0, OPEN_Y[i] ?? 480)
   }
+  for (let i = 0; i < TRICKLE_COUNT; i++) spawnCat(sim, i)
 }
 
 function clear(units: Unit[]): void {
@@ -256,7 +259,7 @@ function spawnCat(sim: Sim, lane: number): boolean {
   unit.dps = CAT_DPS
   unit.speed = CAT_SPEED
   unit.fly = 0
-  unit.y = 8 + (lane % 3) * 6
+  unit.y = 22 + (lane % 4) * 16
   unit.x = laneW * (lane + 0.5)
   sim.aliveCats += 1
   return true
@@ -302,8 +305,9 @@ export function step(sim: Sim, dt: number, input: Input = NO_INPUT): void {
 
   let waves = 0
   while (sim.time >= sim.nextCat && sim.time < BOSS_AT && waves < 3) {
+    const every = sim.time >= CLASH_AT ? WAVE_EVERY : TRICKLE_EVERY
     spawnWave(sim)
-    sim.nextCat += WAVE_EVERY
+    sim.nextCat += every
     waves += 1
   }
   if (sim.time >= BOSS_AT && !sim.boss) {
@@ -381,7 +385,8 @@ function laneBack(sim: Sim, lane: number): number {
 }
 
 function spawnWave(sim: Sim): void {
-  const size = 8 + Math.floor(Math.max(0, sim.time - CLASH_AT) / 12)
+  const horde = sim.time >= CLASH_AT
+  const size = horde ? 8 + Math.floor((sim.time - CLASH_AT) / 12) : TRICKLE_COUNT
   for (let i = 0; i < size; i++) spawnCat(sim, nextLane(sim, i))
 }
 

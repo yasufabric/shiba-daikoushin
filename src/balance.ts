@@ -25,6 +25,8 @@ export const CAT_DPS = 9
 export const CAT_SPEED = 50
 export const CASTLE_HP = 11000
 export const WAVE_EVERY = 3.2
+export const TRICKLE_EVERY = 3.2
+export const TRICKLE_COUNT = 2
 export const GUARD_CATS = 16
 
 export const COST_TAN = 26
