@@ -6,6 +6,7 @@ import {
   CLASH_AT,
   COST_TAN,
   COUNT_TAN,
+  FIELD_H,
   LOSE_HOLD,
   MATCH_SECONDS,
   START_BONES,
@@ -78,6 +79,33 @@ describe('deploy', () => {
     expect(sim.aliveShibas).toBe(START_SHIBAS)
     expect(sim.deny0).toBeGreaterThan(0)
     expect(sim.sfxDeploy).toBe(0)
+  })
+})
+
+describe('cats', () => {
+  it('trickles onto the field within ten seconds and swarms during the clash', () => {
+    const sim = createSim({ tutorial: false, seed: 7 })
+    expect(sim.aliveCats).toBeGreaterThan(0)
+    let highest = FIELD_H
+    for (let i = 0; i < sim.cats.length; i++) {
+      const cat = sim.cats[i]
+      if (cat?.alive && cat.y < highest) highest = cat.y
+    }
+    expect(highest).toBeLessThan(120)
+
+    let openingPeak = 0
+    let clashPeak = 0
+    const steps = Math.round(80 * 30)
+    for (let i = 0; i < steps; i++) {
+      step(sim, 1 / 30, NO_INPUT)
+      if (sim.time <= 10) openingPeak = Math.max(openingPeak, sim.aliveCats)
+      if (sim.time >= CLASH_AT && sim.time < BOSS_AT) clashPeak = Math.max(clashPeak, sim.aliveCats)
+    }
+    expect(openingPeak).toBeGreaterThan(0)
+    expect(openingPeak).toBeLessThan(12)
+    expect(clashPeak).toBeGreaterThan(10)
+    expect(clashPeak).toBeGreaterThan(openingPeak)
+    expect(sim.boss).toBe(false)
   })
 })
 
