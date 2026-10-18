@@ -766,4 +766,28 @@ describe('soldiers', () => {
     const lanes = createSim({ tutorial: false, seed: 4 })
     expect(canCall(lanes)).toBe(false)
   })
+
+  it('walks dogs around a pond instead of through or into it', () => {
+    const sim = createSim({ tutorial: false, seed: 4, free: true, stage: 4 })
+    for (const dog of sim.cats) dog.alive = false
+    sim.aliveCats = 0
+    for (const shiba of sim.shibas) shiba.alive = false
+    sim.aliveShibas = 0
+    sim.toSend = 5
+    sim.nextCat = 1e9
+    const pond = STAGES[4]?.rocks[0]
+    expect(pond).toBeDefined()
+    if (!pond) return
+    spawnCat(sim, 1, BREED_CORGI, { x: pond.x, y: pond.y - pond.r - 30 })
+    const dog = sim.cats.find((c) => c.alive)
+    expect(dog).toBeDefined()
+    if (!dog) return
+    let closest = Infinity
+    for (let i = 0; i < 30 * 40 && dog.y < pond.y + pond.r + 30; i++) {
+      step(sim, 1 / 30, NO_INPUT)
+      closest = Math.min(closest, Math.hypot(dog.x - pond.x, dog.y - pond.y))
+    }
+    expect(dog.y).toBeGreaterThan(pond.y + pond.r)
+    expect(closest).toBeGreaterThanOrEqual(pond.r)
+  })
 })

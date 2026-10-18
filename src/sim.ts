@@ -4,6 +4,7 @@ import {
   BONE_RATE,
   DOG_COUNT,
   STAGES,
+  type Rock,
   STAR2_AT,
   STAR3_AT,
   HOME_HP,
@@ -389,7 +390,7 @@ export function createSim(opts?: SimOptions): Sim {
   return sim
 }
 
-const OLD_STAGE: (typeof STAGES)[number] = { count: DOG_COUNT, hp: 1, dps: 1, dachsEvery: 5, goldenEvery: 9, bulldogEvery: 7 }
+const OLD_STAGE: (typeof STAGES)[number] = { count: DOG_COUNT, hp: 1, dps: 1, dachsEvery: 5, goldenEvery: 9, bulldogEvery: 7, rocks: [] }
 
 /** Can the next wave be called now? Free play, before the boss, with dogs left and a wait to skip. */
 export function canCall(sim: Sim): boolean {
@@ -936,6 +937,27 @@ function stepToward(unit: Unit, tx: number, ty: number, dist: number): void {
   const go = Math.min(len, dist)
   unit.x += (dx / len) * go
   unit.y += (dy / len) * go
+  walkAround(unit, go)
+}
+
+/** Rocks of the stage being stepped; set by moveFree. */
+let activeRocks: readonly Rock[] = []
+
+/** Push a unit out of any rock, sliding it along the edge so it walks around instead of sticking. */
+function walkAround(unit: Unit, step: number): void {
+  for (const rock of activeRocks) {
+    const ox = unit.x - rock.x
+    const oy = unit.y - rock.y
+    const gap = rock.r + 7
+    const d = Math.hypot(ox, oy)
+    if (d >= gap) continue
+    const nx = d < 0.5 ? 0 : ox / d
+    const ny = d < 0.5 ? -1 : oy / d
+    // Slide to whichever side the unit is already on; dead centre goes right, and the slide itself keeps it there.
+    const side = ox < 0 ? -1 : 1
+    unit.x = rock.x + nx * gap - ny * side * step * 0.6
+    unit.y = rock.y + ny * gap + nx * side * step * 0.6
+  }
 }
 
 /** The shiba a dog goes for: the nearest in sight, with 黒 counted as nearer than it is. */
@@ -1053,6 +1075,7 @@ function recallAt(sim: Sim, x: number, y: number): void {
 
 /** Free placement: every shiba and dog walks to the nearest foe it can see and bites on the beat; dogs with nothing in sight head for the 柴の家. */
 function moveFree(sim: Sim, rawDt: number): void {
+  activeRocks = spec(sim).rocks
   // Movement runs slower; bites keep their beat.
   const dt = rawDt * FREE_PACE
   const beat = rawDt

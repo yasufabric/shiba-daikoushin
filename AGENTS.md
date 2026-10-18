@@ -170,3 +170,6 @@ Tapping one of your own shibas (within `RECALL_TAP` px of its middle) sends it h
 
 ## Renderer effects and the clock
 Ghosts, booms and sparks are stamped with `sim.time`. START resets the clock to 0, so `draw` calls `forgetEffects` when time drops, and every age check ignores negative ages. A negative boom age once painted a screen-sized white rectangle on stage 2.
+
+## 岩と池 (obstacles)
+Each stage lists `rocks` in `balance.ts` (field coordinates, `pond` is drawn as water). They block ground units of both sides: `stepToward` ends with `walkAround`, which pushes a unit to radius `r + 7` and slides it along the edge to the side it is already on (dead centre goes right). Stage 1 has none; keep them out of the deploy zone (y > 440) and away from the top spawn rows. Drawn by `paintRocks` under the units, sealed with the 1px outline, in palette greys and sky blues.

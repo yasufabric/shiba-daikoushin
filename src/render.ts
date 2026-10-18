@@ -96,7 +96,7 @@ import {
   WHITE_DARK,
   WHITE_MID,
 } from './palette'
-import { canCall, costOf, dogsLeft, levelCost, type Outcome, type Sim, type Unit } from './sim'
+import { canCall, costOf, spec, dogsLeft, levelCost, type Outcome, type Sim, type Unit } from './sim'
 import { createSheets, type Sheets } from './sprites'
 
 const BUCKETS = 96
@@ -427,6 +427,7 @@ export function draw(
   g.rect(px(at(FIELD_X)), py(at(FIELD_Y)), at(FIELD_W), at(FIELD_H) + frame.dockDy)
   g.clip()
   paintHome(g, renderer)
+  paintRocks(g, sim)
   paintUnits(g, renderer, sim)
   if (sim.free) paintRoles(g, sim)
   if (sim.free) paintAttacks(g, sim)
@@ -1531,6 +1532,44 @@ function paintDamage(ctx: CanvasRenderingContext2D, renderer: Renderer, sim: Sim
   const x = (frame.internalW - digits * step) >> 1
   const y = py(at(FIELD_Y) + Math.round(at(FIELD_H) * 0.38) - rise)
   drawNumber(ctx, renderer, sim.floatDmg | 0, x, y, pop)
+}
+
+/** A filled pixel ellipse, one row at a time so every edge stays on whole pixels. */
+function fillEllipse(ctx: CanvasRenderingContext2D, cx: number, cy: number, rx: number, ry: number, color: string): void {
+  ctx.fillStyle = color
+  for (let dy = -ry; dy <= ry; dy++) {
+    const half = Math.round(rx * Math.sqrt(Math.max(0, 1 - (dy * dy) / (ry * ry + 0.5))))
+    ctx.fillRect(cx - half, cy + dy, half * 2 + 1, 1)
+  }
+}
+
+/** 岩 and 池: sealed with the 1px outline, lit from the top left. They sit on the meadow under the units. */
+function paintRocks(ctx: CanvasRenderingContext2D, sim: Sim): void {
+  if (!sim.free) return
+  for (const rock of spec(sim).rocks) {
+    const cx = px(at(FIELD_X + rock.x))
+    const cy = fpy(rock.y)
+    const rx = rock.r
+    const ry = Math.round(rock.r * 0.62)
+    fillEllipse(ctx, cx, cy, rx + 1, ry + 1, LINE)
+    if (rock.pond) {
+      fillEllipse(ctx, cx, cy, rx, ry, MEADOW_DARK)
+      fillEllipse(ctx, cx, cy, rx - 2, ry - 2, SKY)
+      fillEllipse(ctx, cx, cy - 1, rx - 5, Math.max(1, ry - 5), SKY_LIGHT)
+      // Two ripples that drift with the clock.
+      const t = Math.floor(sim.time * 2) & 3
+      ctx.fillStyle = WHITE
+      ctx.fillRect(cx - 5 + t, cy - 1, 4, 1)
+      ctx.fillRect(cx + 2 - t, cy + 2, 3, 1)
+    } else {
+      fillEllipse(ctx, cx, cy, rx, ry, WHITE_DARK)
+      fillEllipse(ctx, cx - 1, cy - 2, rx - 2, ry - 2, WHITE_MID)
+      fillEllipse(ctx, cx - 3, cy - 4, Math.max(1, rx - 6), Math.max(1, ry - 5), WHITE)
+      ctx.fillStyle = LINE
+      ctx.fillRect(cx + 2, cy - 1, 3, 1)
+      ctx.fillRect(cx + 4, cy, 1, 2)
+    }
+  }
 }
 
 function paintDock(ctx: CanvasRenderingContext2D, renderer: Renderer, sim: Sim): void {

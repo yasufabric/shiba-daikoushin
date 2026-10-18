@@ -244,13 +244,39 @@ export interface StageSpec {
   dachsEvery: number
   goldenEvery: number
   bulldogEvery: number
+  /** 岩 and 池 on the field: ground units walk around them. */
+  rocks: readonly Rock[]
+}
+export interface Rock {
+  x: number
+  y: number
+  r: number
+  /** A pond is drawn as water; both block the same way. */
+  pond?: boolean
 }
 export const STAGES: readonly StageSpec[] = [
-  { count: 70, hp: 0.85, dps: 0.85, dachsEvery: 0, goldenEvery: 0, bulldogEvery: 9 },
-  { count: 90, hp: 1, dps: 1, dachsEvery: 7, goldenEvery: 14, bulldogEvery: 8 },
-  { count: 110, hp: 1.2, dps: 1.15, dachsEvery: 5, goldenEvery: 9, bulldogEvery: 7 },
-  { count: 130, hp: 1.5, dps: 1.35, dachsEvery: 4, goldenEvery: 8, bulldogEvery: 6 },
-  { count: 150, hp: 1.9, dps: 1.6, dachsEvery: 4, goldenEvery: 6, bulldogEvery: 5 },
+  { count: 70, hp: 0.85, dps: 0.85, dachsEvery: 0, goldenEvery: 0, bulldogEvery: 9, rocks: [] },
+  { count: 90, hp: 1, dps: 1, dachsEvery: 7, goldenEvery: 14, bulldogEvery: 8, rocks: [
+      { x: 58, y: 230, r: 10 },
+      { x: 140, y: 300, r: 10 },
+    ] },
+  { count: 110, hp: 1.2, dps: 1.15, dachsEvery: 5, goldenEvery: 9, bulldogEvery: 7, rocks: [
+      { x: 97, y: 210, r: 22, pond: true },
+      { x: 38, y: 330, r: 10 },
+      { x: 158, y: 340, r: 10 },
+    ] },
+  { count: 130, hp: 1.5, dps: 1.35, dachsEvery: 4, goldenEvery: 8, bulldogEvery: 6, rocks: [
+      { x: 48, y: 190, r: 20, pond: true },
+      { x: 148, y: 260, r: 20, pond: true },
+      { x: 97, y: 350, r: 10 },
+    ] },
+  { count: 150, hp: 1.9, dps: 1.6, dachsEvery: 4, goldenEvery: 6, bulldogEvery: 5, rocks: [
+      { x: 97, y: 250, r: 26, pond: true },
+      { x: 34, y: 180, r: 10 },
+      { x: 160, y: 180, r: 10 },
+      { x: 48, y: 350, r: 10 },
+      { x: 146, y: 350, r: 10 },
+    ] },
 ]
 /** Home HP left (share of full) for 3 and 2 stars at a win; any win is at least 1. */
 export const STAR3_AT = 0.7
