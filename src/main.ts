@@ -10,8 +10,7 @@ import {
   CARD_Y,
 } from './balance'
 import { cannonReady, createSim, fillMarch, NO_INPUT, step, type Input, type Outcome } from './sim'
-import { INTERNAL_H, INTERNAL_W } from './palette'
-import { createRenderer, draw, pixelScale } from './render'
+import { createRenderer, draw, screenToWorld, type ScreenInsets } from './render'
 
 const canvasEl = document.querySelector<HTMLCanvasElement>('#game')
 if (!canvasEl) throw new Error('canvas unavailable')
@@ -47,6 +46,11 @@ const devOn = new URLSearchParams(location.search).has('dev')
 let viewW = 1
 let viewH = 1
 let dpr = 1
+let placedW = 0
+let placedH = 0
+let placedTop = -1
+let placedLeft = -1
+const insets: ScreenInsets = { top: 0, right: 0, bottom: 0, left: 0 }
 let timeScale = 1
 let tutorialStored = seenTutorial()
 const frameDts = new Float64Array(90)
@@ -118,23 +122,68 @@ if (devOn) {
   window.__shiba = dev
 }
 
-function resize(): void {
+function readCssPx(value: string): number {
+  const n = Number.parseFloat(value)
+  return n > 0 ? n : 0
+}
+
+function readInsets(): void {
+  const probe = document.getElementById('insets')
+  if (!probe) {
+    insets.top = 0
+    insets.right = 0
+    insets.bottom = 0
+    insets.left = 0
+    return
+  }
+  const style = getComputedStyle(probe)
+  insets.top = readCssPx(style.paddingTop)
+  insets.right = readCssPx(style.paddingRight)
+  insets.bottom = readCssPx(style.paddingBottom)
+  insets.left = readCssPx(style.paddingLeft)
+}
+
+function viewportCss(): { w: number; h: number; top: number; left: number } {
+  const vv = window.visualViewport
+  if (vv && vv.width > 0 && vv.height > 0) {
+    return { w: vv.width, h: vv.height, top: vv.offsetTop, left: vv.offsetLeft }
+  }
+  return { w: window.innerWidth, h: window.innerHeight, top: 0, left: 0 }
+}
+
+function syncViewport(): void {
   const raw = window.devicePixelRatio || 1
   dpr = raw >= 1.5 ? 2 : 1
-  viewW = window.innerWidth
-  viewH = window.innerHeight
-  canvas.width = Math.max(1, Math.floor(viewW * dpr))
-  canvas.height = Math.max(1, Math.floor(viewH * dpr))
+  const box = viewportCss()
+  viewW = box.w
+  viewH = box.h
+  readInsets()
+  if (placedW !== viewW || placedH !== viewH || placedTop !== box.top || placedLeft !== box.left) {
+    canvas.style.top = `${box.top}px`
+    canvas.style.left = `${box.left}px`
+    canvas.style.width = `${viewW}px`
+    canvas.style.height = `${viewH}px`
+    placedW = viewW
+    placedH = viewH
+    placedTop = box.top
+    placedLeft = box.left
+  }
+  const nextW = Math.max(1, Math.floor(viewW * dpr))
+  const nextH = Math.max(1, Math.floor(viewH * dpr))
+  if (canvas.width !== nextW || canvas.height !== nextH) {
+    canvas.width = nextW
+    canvas.height = nextH
+    ctx.imageSmoothingEnabled = false
+  }
+}
+
+function blockScroll(ev: Event): void {
+  ev.preventDefault()
 }
 
 function toLogical(ev: PointerEvent): { x: number; y: number } {
   const rect = canvas.getBoundingClientRect()
-  const scale = pixelScale(rect.width, rect.height)
-  const ox = (rect.width - INTERNAL_W * scale) / 2
-  const oy = (rect.height - INTERNAL_H * scale) / 2
-  const ix = Math.round((ev.clientX - rect.left - ox) / scale)
-  const iy = Math.round((ev.clientY - rect.top - oy) / scale)
-  return { x: ix * 2, y: iy * 2 }
+  return screenToWorld(ev.clientX, ev.clientY, rect.left, rect.top)
 }
 
 function hitCard(x: number, y: number, cardX: number): boolean {
@@ -220,10 +269,16 @@ function frame(now: number): void {
   } else {
     advance(dt)
   }
-  draw(ctx, renderer, sim, viewW, viewH, dpr)
+  syncViewport()
+  draw(ctx, renderer, sim, viewW, viewH, dpr, insets)
   requestAnimationFrame(frame)
 }
 
-window.addEventListener('resize', resize)
-resize()
+window.addEventListener('resize', syncViewport)
+window.addEventListener('orientationchange', syncViewport)
+window.visualViewport?.addEventListener('resize', syncViewport)
+window.visualViewport?.addEventListener('scroll', syncViewport)
+document.addEventListener('touchmove', blockScroll, { passive: false })
+document.addEventListener('gesturestart', blockScroll)
+syncViewport()
 requestAnimationFrame(frame)

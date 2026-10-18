@@ -28,6 +28,7 @@ import {
   PALETTE,
 } from './palette'
 import { VIEW_H, VIEW_W } from './balance'
+import { fitView } from './render'
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..')
 
@@ -93,6 +94,37 @@ describe('palette', () => {
         expect(allowed.has(hex), `${path} ${token}`).toBe(true)
       }
     }
+  })
+})
+
+describe('viewport', () => {
+  it('covers phone sizes with an integer scale and no gap', () => {
+    const phones = [
+      { w: 390, h: 844, scale: 2, iw: 195, ih: 422 },
+      { w: 375, h: 667, scale: 1, iw: 375, ih: 667 },
+      { w: 430, h: 932, scale: 2, iw: 215, ih: 466 },
+      { w: 360, h: 800, scale: 1, iw: 360, ih: 800 },
+    ]
+    for (const phone of phones) {
+      const fit = fitView(phone.w, phone.h)
+      expect(fit.scale, `${phone.w}x${phone.h}`).toBe(phone.scale)
+      expect(fit.internalW).toBe(phone.iw)
+      expect(fit.internalH).toBe(phone.ih)
+      expect(Number.isInteger(fit.scale)).toBe(true)
+      expect(fit.internalW * fit.scale).toBeGreaterThanOrEqual(phone.w)
+      expect(fit.internalH * fit.scale).toBeGreaterThanOrEqual(phone.h)
+      expect(fit.internalW * fit.scale - phone.w).toBeLessThan(fit.scale)
+      expect(fit.internalH * fit.scale - phone.h).toBeLessThan(fit.scale)
+    }
+  })
+
+  it('grows an odd viewport instead of leaving a bar', () => {
+    const fit = fitView(393, 852)
+    expect(fit.scale).toBe(2)
+    expect(fit.internalW).toBe(197)
+    expect(fit.internalH).toBe(426)
+    expect(fit.internalW * fit.scale).toBeGreaterThanOrEqual(393)
+    expect(fit.internalH * fit.scale).toBeGreaterThanOrEqual(852)
   })
 })
 

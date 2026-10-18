@@ -122,9 +122,128 @@ export interface Renderer {
   boomsLeft: number
 }
 
+export interface ViewFit {
+  scale: number
+  cssW: number
+  cssH: number
+  internalW: number
+  internalH: number
+}
+
+export interface ScreenInsets {
+  top: number
+  right: number
+  bottom: number
+  left: number
+}
+
+/** Largest integer scale that fits the 195×422 design, then grow the buffer so it covers the viewport. */
+export function fitView(cssW: number, cssH: number): ViewFit {
+  const w = Math.max(1, Math.round(cssW))
+  const h = Math.max(1, Math.round(cssH))
+  let scale = Math.min((w / INTERNAL_W) | 0, (h / INTERNAL_H) | 0)
+  if (scale < 1) scale = 1
+  return {
+    scale,
+    cssW: w,
+    cssH: h,
+    internalW: Math.ceil(w / scale),
+    internalH: Math.ceil(h / scale),
+  }
+}
+
 export function pixelScale(cssW: number, cssH: number): number {
-  const scale = Math.min((cssW / INTERNAL_W) | 0, (cssH / INTERNAL_H) | 0)
-  return scale > 0 ? scale : 1
+  return fitView(cssW, cssH).scale
+}
+
+interface Frame {
+  scale: number
+  cssW: number
+  cssH: number
+  internalW: number
+  internalH: number
+  shiftX: number
+  topDy: number
+  dockDy: number
+  ox: number
+  oy: number
+}
+
+const frame: Frame = {
+  scale: 1,
+  cssW: INTERNAL_W,
+  cssH: INTERNAL_H,
+  internalW: INTERNAL_W,
+  internalH: INTERNAL_H,
+  shiftX: 0,
+  topDy: 0,
+  dockDy: 0,
+  ox: 0,
+  oy: 0,
+}
+
+const ZERO_INSETS: ScreenInsets = { top: 0, right: 0, bottom: 0, left: 0 }
+
+function applyFrame(cssW: number, cssH: number, insets: ScreenInsets): void {
+  const fit = fitView(cssW, cssH)
+  const safeTop = Math.max(0, Math.round(insets.top / fit.scale))
+  const safeBottom = Math.max(0, Math.round(insets.bottom / fit.scale))
+  const safeLeft = Math.max(0, Math.round(insets.left / fit.scale))
+  const safeRight = Math.max(0, Math.round(insets.right / fit.scale))
+  const extraW = fit.internalW - INTERNAL_W
+  const extraH = fit.internalH - INTERNAL_H
+  let shiftX = extraW > 0 ? extraW >> 1 : 0
+  if (extraW > 0) {
+    const minShift = Math.min(safeLeft, extraW)
+    const maxShift = Math.max(minShift, extraW - safeRight)
+    if (shiftX < minShift) shiftX = minShift
+    if (shiftX > maxShift) shiftX = maxShift
+  }
+  const destW = fit.internalW * fit.scale
+  const destH = fit.internalH * fit.scale
+  frame.scale = fit.scale
+  frame.cssW = fit.cssW
+  frame.cssH = fit.cssH
+  frame.internalW = fit.internalW
+  frame.internalH = fit.internalH
+  frame.shiftX = shiftX
+  frame.topDy = safeTop
+  frame.dockDy = extraH - safeTop - safeBottom
+  frame.ox = destW > fit.cssW ? -((destW - fit.cssW) >> 1) : 0
+  frame.oy = destH > fit.cssH ? -((destH - fit.cssH) >> 1) : 0
+}
+
+function ensureView(renderer: Renderer): void {
+  const view = renderer.view
+  if (view.width === frame.internalW && view.height === frame.internalH) return
+  view.width = frame.internalW
+  view.height = frame.internalH
+  renderer.pen.imageSmoothingEnabled = false
+}
+
+function px(designX: number): number {
+  return designX + frame.shiftX
+}
+
+function py(designY: number): number {
+  return designY + frame.topDy
+}
+
+function pyDock(designY: number): number {
+  return designY + frame.topDy + frame.dockDy
+}
+
+export function screenToWorld(
+  clientX: number,
+  clientY: number,
+  rectLeft: number,
+  rectTop: number,
+): { x: number; y: number } {
+  const ix = Math.round((clientX - rectLeft - frame.ox) / frame.scale) - frame.shiftX
+  const iyRaw = Math.round((clientY - rectTop - frame.oy) / frame.scale) - frame.topDy
+  const panel = at(PANEL_Y) + frame.dockDy
+  const iy = iyRaw >= panel ? iyRaw - frame.dockDy : iyRaw
+  return { x: ix * 2, y: iy * 2 }
 }
 
 export function createRenderer(): Renderer {
@@ -189,7 +308,10 @@ export function draw(
   cssW: number,
   cssH: number,
   dpr: number,
+  insets: ScreenInsets = ZERO_INSETS,
 ): void {
+  applyFrame(cssW, cssH, insets)
+  ensureView(renderer)
   const g = renderer.pen
   g.setTransform(1, 0, 0, 1, 0, 0)
   g.imageSmoothingEnabled = false
@@ -204,14 +326,15 @@ export function draw(
   }
 
   g.fillStyle = NIGHT
-  g.fillRect(0, 0, INTERNAL_W, INTERNAL_H)
+  g.fillRect(0, 0, frame.internalW, frame.internalH)
   g.save()
   g.translate(sx, sy)
   paintBackdrop(g, sim.time)
   paintCastle(g, renderer, sim)
   g.save()
   g.beginPath()
-  g.rect(at(FIELD_X), at(FIELD_Y), at(FIELD_W), at(FIELD_H))
+  const fieldExtra = frame.dockDy > 0 ? frame.dockDy : 0
+  g.rect(px(at(FIELD_X)), py(at(FIELD_Y)), at(FIELD_W), at(FIELD_H) + fieldExtra)
   g.clip()
   paintUnits(g, renderer, sim)
   paintGhosts(g, renderer, sim)
@@ -225,52 +348,94 @@ export function draw(
   else if (sim.outcome === 'won' || sim.outcome === 'lost') paintBanner(g, sim)
   else if (sim.tutorial) paintPaw(g, renderer, sim.time)
 
-  const scale = pixelScale(cssW, cssH)
-  const ox = ((cssW - INTERNAL_W * scale) / 2) | 0
-  const oy = ((cssH - INTERNAL_H * scale) / 2) | 0
+  const destW = frame.internalW * frame.scale
+  const destH = frame.internalH * frame.scale
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
   ctx.imageSmoothingEnabled = false
   ctx.fillStyle = NIGHT
-  ctx.fillRect(0, 0, cssW, cssH)
-  ctx.drawImage(renderer.view, ox, oy, INTERNAL_W * scale, INTERNAL_H * scale)
+  ctx.fillRect(0, 0, frame.cssW, frame.cssH)
+  ctx.drawImage(renderer.view, frame.ox, frame.oy, destW, destH)
 }
 
-function paintBackdrop(ctx: CanvasRenderingContext2D, time: number): void {
-  const fx = at(FIELD_X)
-  const fy = at(FIELD_Y)
-  const fw = at(FIELD_W)
-  const fh = at(FIELD_H)
-  ctx.fillStyle = NIGHT_1
-  ctx.fillRect(0, 0, INTERNAL_W, 16)
-  ctx.fillStyle = NIGHT_2
-  ctx.fillRect(0, 16, INTERNAL_W, fy - 16)
+function paintLane(ctx: CanvasRenderingContext2D, x: number, laneW: number, lane: number, fy: number, fh: number, rows: number, scroll: number): void {
+  if (laneW <= 0) return
+  if ((lane & 1) === 1) {
+    ctx.fillStyle = NIGHT_2
+    ctx.fillRect(x, fy, laneW, fh)
+  }
+  if (laneW < 2) return
   ctx.fillStyle = NIGHT_3
-  ctx.fillRect(0, fy - 2, INTERNAL_W, 2)
-  ctx.fillStyle = NIGHT_1
-  ctx.fillRect(fx, fy, fw, fh)
+  const dashX = x + (laneW >> 1)
+  for (let row = 0; row < rows; row++) {
+    const y = fy + ((row * 12 + scroll) % fh)
+    ctx.fillRect(dashX, y, 1, 4)
+  }
+}
+
+function paintLanes(
+  ctx: CanvasRenderingContext2D,
+  fx: number,
+  fy: number,
+  fw: number,
+  fh: number,
+  rows: number,
+  scroll: number,
+  width: number,
+): void {
   let x = fx
   for (let lane = 0; lane < LANE_COUNT; lane++) {
     const laneW = LANE_PX[lane] ?? 0
-    if ((lane & 1) === 1) {
-      ctx.fillStyle = NIGHT_2
-      ctx.fillRect(x, fy, laneW, fh)
-    }
+    paintLane(ctx, x, laneW, lane, fy, fh, rows, scroll)
     x += laneW
   }
-  ctx.fillStyle = NIGHT_3
-  const scroll = Math.floor(time * 36) % 12
-  x = fx
-  for (let lane = 0; lane < LANE_COUNT; lane++) {
+  if (width === INTERNAL_W && fx === at(FIELD_X)) return
+  let left = fx
+  let lane = 0
+  while (left > 0) {
+    lane = (lane - 1 + LANE_COUNT) % LANE_COUNT
     const laneW = LANE_PX[lane] ?? 0
-    const dashX = x + (laneW >> 1)
-    for (let row = 0; row < 28; row++) {
-      const y = fy + ((row * 12 + scroll) % fh)
-      ctx.fillRect(dashX, y, 1, 4)
-    }
-    x += laneW
+    const drawX = Math.max(0, left - laneW)
+    paintLane(ctx, drawX, left - drawX, lane, fy, fh, rows, scroll)
+    left = drawX
   }
+  let right = fx + fw
+  lane = 0
+  while (right < width) {
+    const laneW = LANE_PX[lane] ?? 0
+    const drawW = Math.min(laneW, width - right)
+    paintLane(ctx, right, drawW, lane, fy, fh, rows, scroll)
+    right += drawW
+    lane = (lane + 1) % LANE_COUNT
+  }
+}
+
+function paintBackdrop(ctx: CanvasRenderingContext2D, time: number): void {
+  const width = frame.internalW
+  const fx = px(at(FIELD_X))
+  const fy = py(at(FIELD_Y))
+  const fw = at(FIELD_W)
+  const fieldExtra = frame.dockDy > 0 ? frame.dockDy : 0
+  const fh = at(FIELD_H) + fieldExtra
+  const skyTop = 16 + frame.topDy
+  ctx.fillStyle = NIGHT_1
+  ctx.fillRect(0, 0, width, skyTop)
+  ctx.fillStyle = NIGHT_2
+  ctx.fillRect(0, skyTop, width, Math.max(0, fy - skyTop))
+  ctx.fillStyle = NIGHT_3
+  ctx.fillRect(0, fy - 2, width, 2)
+  const panel = pyDock(at(PANEL_Y))
+  const groundH = Math.max(fh, panel - fy)
+  ctx.fillStyle = NIGHT_1
+  if (frame.internalW === INTERNAL_W && frame.shiftX === 0 && fieldExtra === 0 && frame.topDy === 0) {
+    ctx.fillRect(fx, fy, fw, fh)
+  } else {
+    ctx.fillRect(0, fy, width, groundH)
+  }
+  const rows = fieldExtra > 0 ? Math.ceil(fh / 12) + 2 : 28
+  const scroll = Math.floor(time * 36) % 12
+  paintLanes(ctx, fx, fy, fw, fh, rows, scroll, frame.internalW)
   ctx.fillStyle = LINE
-  ctx.fillRect(0, at(PANEL_Y), INTERNAL_W, 1)
+  ctx.fillRect(0, panel, width, 1)
 }
 
 function paintCastle(ctx: CanvasRenderingContext2D, renderer: Renderer, sim: Sim): void {
@@ -279,8 +444,8 @@ function paintCastle(ctx: CanvasRenderingContext2D, renderer: Renderer, sim: Sim
     return
   }
   const sprite = sim.boss ? renderer.sheets.castle : renderer.sheets.castleDim
-  const x = (INTERNAL_W - BOSS_W) >> 1
-  const y = 0
+  const x = (frame.internalW - BOSS_W) >> 1
+  const y = frame.topDy
   ctx.drawImage(sprite, x, y)
   if (!sim.boss) return
   const barW = 60
@@ -316,16 +481,16 @@ function drawShiba(ctx: CanvasRenderingContext2D, renderer: Renderer, sim: Sim, 
   const fighting = foeNear(sim, unit.lane, unit.y, true)
   const pose = poseOf(moved, fighting)
   const flash = fighting && hitFrame(sim.time)
-  const dx = at(FIELD_X + unit.x) - (CROWD_PX >> 1)
-  const dy = at(FIELD_Y + unit.y) - CROWD_PX - celebrateHop(sim, index)
+  const dx = px(at(FIELD_X + unit.x)) - (CROWD_PX >> 1)
+  const dy = py(at(FIELD_Y + unit.y)) - CROWD_PX - celebrateHop(sim, index)
   blitCrowd(ctx, renderer, unit.kind === KIND_BLACK ? 1 : 0, pose, sim.time, unit.lane, 0, flash, dx, dy)
 }
 
 function drawCat(ctx: CanvasRenderingContext2D, renderer: Renderer, sim: Sim, index: number): void {
   const cat = sim.cats[index]
   if (!cat?.alive) return
-  const dx = at(FIELD_X + cat.x) - (CAT_PX >> 1)
-  const dy = at(FIELD_Y + cat.y) - CAT_PX
+  const dx = px(at(FIELD_X + cat.x)) - (CAT_PX >> 1)
+  const dy = py(at(FIELD_Y + cat.y)) - CAT_PX
   if (cat.fly === 1) {
     if (renderer.catFly[index] !== 1) {
       renderer.catFly[index] = 1
@@ -354,8 +519,8 @@ function noteDeaths(renderer: Renderer, sim: Sim): void {
     const unit = shibas[i]
     const alive = unit?.alive ? 1 : 0
     if ((renderer.shibaOn[i] ?? 0) === 1 && alive === 0 && unit) {
-      const dx = at(FIELD_X + unit.x) - (CROWD_PX >> 1)
-      const dy = at(FIELD_Y + unit.y) - CROWD_PX
+      const dx = px(at(FIELD_X + unit.x)) - (CROWD_PX >> 1)
+      const dy = py(at(FIELD_Y + unit.y)) - CROWD_PX
       spawnGhost(renderer, sim, dx, dy, unit.kind === KIND_BLACK ? 1 : 0)
       spawnBoom(renderer, sim, dx + (CROWD_PX >> 1), dy + (CROWD_PX >> 1))
     }
@@ -582,8 +747,8 @@ function paintBeam(ctx: CanvasRenderingContext2D, sim: Sim): void {
   if (sim.beam <= 0) return
   const p = 1 - sim.beam / BEAM_TIME
   const clamped = p < 0 ? 0 : p > 1 ? 1 : p
-  const y = at(FIELD_Y) + Math.round(clamped * at(FIELD_H)) - 6
-  const x = at(FIELD_X)
+  const y = py(at(FIELD_Y) + Math.round(clamped * at(FIELD_H)) - 6)
+  const x = px(at(FIELD_X))
   const w = at(FIELD_W)
   const phase = Math.floor(sim.time * 16) & 3
   for (let row = 0; row < 12; row++) {
@@ -599,19 +764,19 @@ function paintDamage(ctx: CanvasRenderingContext2D, renderer: Renderer, sim: Sim
   const digits = digitCount(sim.floatDmg)
   const step = pop ? 14 : 10
   const rise = Math.round((1 - sim.floatT / FLOAT_TIME) * 28)
-  const x = (INTERNAL_W - digits * step) >> 1
-  const y = at(FIELD_Y) + Math.round(at(FIELD_H) * 0.38) - rise
+  const x = (frame.internalW - digits * step) >> 1
+  const y = py(at(FIELD_Y) + Math.round(at(FIELD_H) * 0.38) - rise)
   drawNumber(ctx, renderer, sim.floatDmg | 0, x, y, pop)
 }
 
 function paintDock(ctx: CanvasRenderingContext2D, renderer: Renderer, sim: Sim): void {
-  const y = at(PANEL_Y)
+  const y = pyDock(at(PANEL_Y))
   ctx.fillStyle = NIGHT
-  ctx.fillRect(0, y + 1, INTERNAL_W, INTERNAL_H - y - 1)
-  ctx.drawImage(renderer.sheets.bone, at(BONE_X), at(BONE_Y))
-  drawNumber(ctx, renderer, sim.bones | 0, at(BONE_X) + 14, at(BONE_Y) + 1, false)
-  paintCard(ctx, renderer, at(CARD_X0) + denyShift(sim.deny0), 0, sim.costTan, sim.bones >= sim.costTan, sim.tutorial, sim.time)
-  paintCard(ctx, renderer, at(CARD_X1) + denyShift(sim.deny1), 1, sim.costBlack, sim.bones >= sim.costBlack, false, sim.time)
+  ctx.fillRect(0, y + 1, frame.internalW, Math.max(0, frame.internalH - y - 1))
+  ctx.drawImage(renderer.sheets.bone, px(at(BONE_X)), pyDock(at(BONE_Y)))
+  drawNumber(ctx, renderer, sim.bones | 0, px(at(BONE_X)) + 14, pyDock(at(BONE_Y)) + 1, false)
+  paintCard(ctx, renderer, px(at(CARD_X0) + denyShift(sim.deny0)), 0, sim.costTan, sim.bones >= sim.costTan, sim.tutorial, sim.time)
+  paintCard(ctx, renderer, px(at(CARD_X1) + denyShift(sim.deny1)), 1, sim.costBlack, sim.bones >= sim.costBlack, false, sim.time)
   paintCannon(ctx, sim)
 }
 
@@ -630,7 +795,7 @@ function paintCard(
   hint: boolean,
   time: number,
 ): void {
-  const y = at(CARD_Y)
+  const y = pyDock(at(CARD_Y))
   const w = at(CARD_W)
   const h = at(CARD_H)
   ctx.fillStyle = affordable ? NIGHT_1 : NIGHT
@@ -651,8 +816,8 @@ function paintCard(
 
 function paintCannon(ctx: CanvasRenderingContext2D, sim: Sim): void {
   const ready = cannonReady(sim)
-  const cx = at(CANNON_X)
-  const cy = at(CANNON_Y)
+  const cx = px(at(CANNON_X))
+  const cy = py(at(CANNON_Y))
   const size = 18
   const x = cx - 9
   const y = cy - 9
@@ -674,8 +839,8 @@ function paintCannon(ctx: CanvasRenderingContext2D, sim: Sim): void {
 
 function paintPaw(ctx: CanvasRenderingContext2D, renderer: Renderer, time: number): void {
   const bob = BOB[Math.floor(time * 6) & 7] ?? 0
-  const x = at(CARD_X0) + ((at(CARD_W) - pawArt.w) >> 1)
-  const y = at(CARD_Y) - pawArt.h - 2 + bob
+  const x = px(at(CARD_X0) + ((at(CARD_W) - pawArt.w) >> 1))
+  const y = pyDock(at(CARD_Y) - pawArt.h - 2 + bob)
   ctx.drawImage(renderer.sheets.paw, x, y)
 }
 
@@ -689,12 +854,12 @@ function celebrateHop(sim: Sim, index: number): number {
 function paintCastleBlast(ctx: CanvasRenderingContext2D, sim: Sim): void {
   if (sim.rewardT <= 0) return
   const age = BANNER_HOLD - sim.rewardT
-  const frame = Math.floor(age * 12)
-  const cx = INTERNAL_W >> 1
-  const cy = BOSS_H >> 1
-  if (frame < 3) {
-    const size = 48 + frame * 16
-    ctx.fillStyle = frame === 0 ? WHITE : frame === 1 ? GOLD_LIGHT : FUR_BODY
+  const blast = Math.floor(age * 12)
+  const cx = frame.internalW >> 1
+  const cy = (BOSS_H >> 1) + frame.topDy
+  if (blast < 3) {
+    const size = 48 + blast * 16
+    ctx.fillStyle = blast === 0 ? WHITE : blast === 1 ? GOLD_LIGHT : FUR_BODY
     ctx.fillRect(cx - (size >> 1), cy - (size >> 1), size, size)
     return
   }
@@ -736,8 +901,8 @@ function paintBanner(ctx: CanvasRenderingContext2D, sim: Sim): void {
   const gh = GLYPH_H * scale
   const gap = scale
   const width = word.length * gw + (word.length - 1) * gap
-  const x = (INTERNAL_W - width) >> 1
-  const y = at(FIELD_Y) + ((at(FIELD_H) - gh) >> 1)
+  const x = (frame.internalW - width) >> 1
+  const y = py(at(FIELD_Y) + ((at(FIELD_H) - gh) >> 1))
   const pad = 6
   ctx.fillStyle = NIGHT
   ctx.fillRect(x - pad, y - pad, width + pad * 2, gh + pad * 2)
@@ -772,11 +937,11 @@ function drawLetter(
 
 function paintReward(ctx: CanvasRenderingContext2D, renderer: Renderer, sim: Sim): void {
   ctx.fillStyle = NIGHT
-  ctx.fillRect(0, 0, INTERNAL_W, INTERNAL_H)
+  ctx.fillRect(0, 0, frame.internalW, frame.internalH)
   const w = 96
   const h = 112
   const bob = BOB[Math.floor(sim.time * 3) & 7] ?? 0
-  const x = (INTERNAL_W - w) >> 1
+  const x = (frame.internalW - w) >> 1
   const y = 120 + bob
   ctx.fillStyle = GOLD
   ctx.fillRect(x - 2, y - 2, w + 4, h + 4)
