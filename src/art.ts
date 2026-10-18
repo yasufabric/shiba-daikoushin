@@ -167,19 +167,21 @@ const BLACK: Record<string, string> = {
 /** 胡麻柴: red fur with dark tips on the crown and back. */
 const SESAME: Record<string, string> = {
   ...RED,
+  h: FUR_BODY,
   s: FUR_DARK,
+  m: FUR_DARK,
 }
 
 /** 白柴: cream fur. Ears and curl keep an orange shade. */
 const CREAM: Record<string, string> = {
   ...RED,
-  L: FUR_MID,
-  o: FUR_LIGHT,
+  L: WHITE_DARK,
+  o: WHITE,
   h: WHITE,
-  m: FUR_BODY,
-  c: WHITE,
-  e: WHITE,
-  s: FUR_LIGHT,
+  m: WHITE_MID,
+  c: FUR_LIGHT,
+  e: WHITE_MID,
+  s: WHITE,
   q: DANGER,
 }
 
@@ -320,12 +322,25 @@ const CROWD_POSES: readonly CrowdPose[] = [
   { left: true, right: true, wag: true, mouth: 'smile' },
 ]
 
+/** Dark specks for 胡麻柴: only the sesame coat paints 's' dark, every other coat paints it as plain fur. The crown and back (above `top`) are speckled thickest. */
+function speckle(rows: string[], top: number): string[] {
+  return rows.map((line, y) =>
+    [...line]
+      .map((ch, x) => {
+        if (ch !== 'o' && ch !== 'h') return ch
+        const n = (x * 7 + y * 13 + x * y * 3) % 11
+        return n < (y <= top ? 6 : 4) ? 's' : ch
+      })
+      .join(''),
+  )
+}
+
 function crowdRows(pose: CrowdPose): string[] {
   const body = mirror([...CROWD_HALF], CROWD_SWAP, 'o', 'm')
   const left = pose.left ? PAW_DOWN : PAW_UP
   const right = pose.right ? PAW_DOWN : PAW_UP
   const feet = mirrorPair(left, right, CROWD_SWAP, 'o', 'm')
-  const g = [...body, ...feet]
+  const g = speckle([...body, ...feet], 8)
   if (pose.mouth === 'shut') stamp(g, 8, 12, ['wwww'])
   if (pose.mouth === 'bark') stamp(g, 7, 11, ['nnnnnn', 'nppppn'])
   stamp(g, 16, 13, pose.wag ? CURL_WAG : CURL_UP)
@@ -402,7 +417,7 @@ export type Face = 'open' | 'blink' | 'smug'
 
 function hero(face: Face, reward: boolean): string[] {
   const half = HERO_HALF.map((line) => line.replace(/O/g, 'o'))
-  const g = mirror(half, HERO_SWAP, 'o', 'm').map((line) => `${line}....`)
+  const g = speckle(mirror(half, HERO_SWAP, 'o', 'm'), 14).map((line) => `${line}....`)
   if (face === 'blink') {
     for (const y of [11, 12]) {
       for (let x = 0; x < HERO_PX; x++) {
