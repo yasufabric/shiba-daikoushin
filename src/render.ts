@@ -8,6 +8,7 @@ import {
   CARD_X0,
   CARD_Y,
   CASTLE_HP,
+  HOME_HP,
   FIELD_H,
   FIELD_W,
   FIELD_X,
@@ -357,7 +358,9 @@ export function draw(
   const fieldExtra = frame.dockDy > 0 ? frame.dockDy : 0
   g.rect(px(at(FIELD_X)), py(at(FIELD_Y)), at(FIELD_W), at(FIELD_H) + fieldExtra)
   g.clip()
+  paintHome(g, renderer)
   paintUnits(g, renderer, sim)
+  paintHomeBar(g, renderer, sim)
   paintGhosts(g, renderer, sim)
   paintBooms(g, renderer, sim)
   g.restore()
@@ -501,6 +504,34 @@ function paintCastle(ctx: CanvasRenderingContext2D, renderer: Renderer, sim: Sim
   ctx.fillStyle = DANGER
   ctx.fillRect(barX, barY, fill, 4)
   ctx.fillStyle = DANGER_LIGHT
+  ctx.fillRect(barX, barY, fill, 1)
+}
+
+/** 柴の家: centered on the field floor. */
+function paintHome(ctx: CanvasRenderingContext2D, renderer: Renderer): void {
+  const sprite = renderer.sheets.home
+  const x = (frame.internalW - sprite.width) >> 1
+  const floor = py(at(FIELD_Y + FIELD_H))
+  const y = floor - sprite.height
+  ctx.drawImage(sprite, x, y)
+}
+
+/** Drawn over the units so a siege never hides how much home is left. */
+function paintHomeBar(ctx: CanvasRenderingContext2D, renderer: Renderer, sim: Sim): void {
+  const sprite = renderer.sheets.home
+  const x = (frame.internalW - sprite.width) >> 1
+  const y = py(at(FIELD_Y + FIELD_H)) - sprite.height
+  const barW = 40
+  const barX = x + ((sprite.width - barW) >> 1)
+  const barY = y - 6
+  ctx.fillStyle = LINE
+  ctx.fillRect(barX - 1, barY - 1, barW + 2, 6)
+  ctx.fillStyle = GOLD_DARK
+  ctx.fillRect(barX, barY, barW, 4)
+  const fill = Math.round(barW * Math.max(0, sim.homeHp / HOME_HP))
+  ctx.fillStyle = GOLD
+  ctx.fillRect(barX, barY, fill, 4)
+  ctx.fillStyle = GOLD_LIGHT
   ctx.fillRect(barX, barY, fill, 1)
 }
 

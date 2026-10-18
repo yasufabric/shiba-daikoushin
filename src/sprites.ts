@@ -5,6 +5,7 @@ import {
   catArt,
   crowdArt,
   heroArt,
+  homeArt,
   pawArt,
   rot90,
   type Seal,
@@ -21,6 +22,7 @@ export interface Sheets {
   paw: HTMLCanvasElement
   castle: HTMLCanvasElement
   castleDim: HTMLCanvasElement
+  home: HTMLCanvasElement
 }
 
 function canvas(w: number, h: number): { canvas: HTMLCanvasElement; ctx: CanvasRenderingContext2D } {
@@ -113,5 +115,6 @@ export function createSheets(): Sheets {
     paw: bakeOne(pawArt),
     castle: bakeOne(castleLive),
     castleDim: bakeOne(castleDim),
+    home: bakeOne(homeArt),
   }
 }

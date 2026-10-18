@@ -9,6 +9,7 @@ import {
   catArt,
   crowdArt,
   heroArt,
+  homeArt,
   pawArt,
   type Seal,
 } from './art'
@@ -16,6 +17,8 @@ import { BANNER_POP, BANNER_REST, CLEAR_WORD, GLYPHS, letterBit, LOSE_WORD, POP_
 import {
   BOSS_H,
   BOSS_W,
+  HOME_H,
+  HOME_W,
   CAT_PX,
   CROWD_PX,
   GLYPH_H,
@@ -161,6 +164,7 @@ describe('sprites', () => {
     assertSealed(pawArt, 14, 16)
     assertSealed(castleLive, BOSS_W, BOSS_H)
     assertSealed(castleDim, BOSS_W, BOSS_H)
+    assertSealed(homeArt, HOME_W, HOME_H)
     expect(BOSS_W).toBeGreaterThanOrEqual(64)
     expect(BOSS_H).toBeGreaterThanOrEqual(64)
 
