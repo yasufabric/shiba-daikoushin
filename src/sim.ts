@@ -3,20 +3,20 @@ import {
   BONE_PER_SHIBA,
   BONE_RATE,
   DOG_COUNT,
+  STAGES,
+  STAR2_AT,
+  STAR3_AT,
   HOME_HP,
   HOME_REACH,
   BREED_BULLDOG,
   BREED_DACHS,
   BREED_GOLDEN,
-  DACHS_EVERY,
   GOLDEN_ARMOR,
-  GOLDEN_EVERY,
   BREED_CHIHUAHUA,
   BREED_CORGI,
   BREED_DPS,
   BREED_HP,
   BREED_SPEED,
-  BULLDOG_EVERY,
   WAVE_MIXED,
   WAVE_SWARM,
   WAVE_WALL,
@@ -223,6 +223,12 @@ export interface Sim {
   earned: number
   /** Bumps whenever levels or the purse change, so the shell knows to save. */
   saveSeq: number
+  /** Current stage index (0-based). */
+  stage: number
+  /** Best stars per stage, 0 = not cleared. Kept across matches. */
+  best: number[]
+  /** Stars won by the last match (0 after a loss). */
+  stars: number
   rewardT: number
   nextCat: number
   deny0: number
@@ -251,7 +257,7 @@ export interface Sim {
   planKind: number
   planSide: number
   planCount: number
-  /** Clash-wave dogs sent so far; every BULLDOG_EVERY-th is a ブルドッグ. */
+  /** Clash-wave dogs sent so far; every stage-set bulldogEvery-th is a ブルドッグ. */
   horde: number
   sfxDeploy: number
   laneS: Int16Array[]
@@ -269,6 +275,9 @@ export interface SimOptions {
   purse?: number
   /** The ?free trial: tap anywhere in the lower field, units chase the nearest foe. */
   free?: boolean
+  /** Stage to start on and the best stars per stage so far. */
+  stage?: number
+  best?: readonly number[]
 }
 
 const OPEN_Y = [430, 470, 510, 550, 400, 500, 540, 580, 620, 470]
@@ -337,6 +346,9 @@ export function createSim(opts?: SimOptions): Sim {
     purse: Math.max(0, Math.floor(opts?.purse ?? 0)),
     earned: 0,
     saveSeq: 0,
+    stage: Math.min(STAGES.length - 1, Math.max(0, Math.floor(opts?.stage ?? 0))),
+    best: STAGES.map((_, i) => Math.min(3, Math.max(0, Math.floor(opts?.best?.[i] ?? 0)))),
+    stars: 0,
     rewardT: 0,
     nextCat: CLASH_AT,
     planKind: WAVE_MIXED,
@@ -368,7 +380,17 @@ export function createSim(opts?: SimOptions): Sim {
   return sim
 }
 
+/** The stage in play. ?lanes keeps the plain old numbers (stage 3). */
+export function spec(sim: Sim): (typeof STAGES)[number] {
+  return STAGES[sim.free ? sim.stage : 2] ?? STAGES[2]!
+}
+
 export function reset(sim: Sim): void {
+  // A win opens the next stage; a loss replays this one.
+  if (sim.outcome === 'won' && sim.stage < STAGES.length - 1) {
+    sim.stage += 1
+    sim.saveSeq += 1
+  }
   boot(sim)
 }
 
@@ -383,8 +405,9 @@ function boot(sim: Sim): void {
   sim.costSesame = COST_WHITE
   sim.bossIndex = -1
   sim.kills = 0
-  sim.toSend = DOG_COUNT
+  sim.toSend = spec(sim).count
   sim.homeHp = HOME_HP
+  sim.stars = 0
   sim.boss = false
   sim.floatT = 0
   sim.floatDmg = 0
@@ -472,16 +495,16 @@ export function fillMarch(sim: Sim, count: number): number {
 }
 
 /** Spawn a rival dog of the given breed at the top of a path. */
-function spawnCat(sim: Sim, lane: number, breed: number, at?: { x: number; y: number }): boolean {
+export function spawnCat(sim: Sim, lane: number, breed: number, at?: { x: number; y: number }): boolean {
   const unit = acquire(sim.cats, sim, 'c')
   if (!unit) return false
   const laneW = FIELD_W / LANE_COUNT
   unit.alive = true
   unit.lane = lane
   unit.kind = breed
-  unit.hp = Math.round((BREED_HP[breed] ?? BREED_HP[BREED_CORGI]) * (sim.free ? FREE_DOG_HP : 1))
+  unit.hp = Math.round((BREED_HP[breed] ?? BREED_HP[BREED_CORGI]) * (sim.free ? FREE_DOG_HP * spec(sim).hp : 1))
   unit.maxHp = unit.hp
-  unit.dps = (BREED_DPS[breed] ?? BREED_DPS[BREED_CORGI]) * (sim.free ? FREE_DOG_DPS : 1)
+  unit.dps = (BREED_DPS[breed] ?? BREED_DPS[BREED_CORGI]) * (sim.free ? FREE_DOG_DPS * spec(sim).dps : 1)
   unit.speed = BREED_SPEED[breed] ?? BREED_SPEED[BREED_CORGI]
   unit.fly = 0
   unit.cd = 0
@@ -508,7 +531,7 @@ function spawnBoss(sim: Sim): void {
     const unit = sim.cats[i]
     if (!unit?.alive || unit.lane !== lane || unit.y > 80 || unit.kind !== BREED_CORGI || unit.hp !== unit.maxHp) continue
     unit.kind = BREED_BOSS
-    unit.hp = BOSS_HP
+    unit.hp = Math.round(BOSS_HP * spec(sim).hp)
     unit.maxHp = unit.hp
     unit.dps = BOSS_DPS
     unit.speed = BOSS_SPEED
@@ -625,6 +648,13 @@ export function step(sim: Sim, dt: number, input: Input = NO_INPUT): void {
 /** Match pay: a base for the result plus ホネ for damage done to the mansion. */
 function pay(sim: Sim): void {
   const base = sim.outcome === 'won' ? WIN_PAY : LOSS_PAY
+  if (sim.outcome === 'won') {
+    const left = sim.homeHp / HOME_HP
+    sim.stars = left >= STAR3_AT ? 3 : left >= STAR2_AT ? 2 : 1
+    sim.best[sim.stage] = Math.max(sim.best[sim.stage] ?? 0, sim.stars)
+  } else {
+    sim.stars = 0
+  }
   sim.earned = base + sim.kills * BONE_PER_KILL
   sim.purse += sim.earned
   sim.saveSeq += 1
@@ -746,7 +776,8 @@ function spawnWave(sim: Sim): void {
     return
   }
   const size = horde ? 5 + Math.floor((sim.time - CLASH_AT) / 18) : TRICKLE_COUNT
-  const every = Math.max(4, BULLDOG_EVERY - Math.floor(Math.max(0, sim.time - CLASH_AT) / 30))
+  const st = spec(sim)
+  const every = Math.max(4, st.bulldogEvery - Math.floor(Math.max(0, sim.time - CLASH_AT) / 30))
   const count = Math.min(size, sim.toSend)
   for (let i = 0; i < count; i++) {
     sim.toSend -= 1
@@ -755,8 +786,8 @@ function spawnWave(sim: Sim): void {
     if (horde) {
       sim.horde += 1
       if (sim.horde % every === 0) breed = BREED_BULLDOG
-      else if (sim.horde % GOLDEN_EVERY === 0) breed = BREED_GOLDEN
-      else if (sim.horde % DACHS_EVERY === 0) breed = BREED_DACHS
+      else if (st.goldenEvery > 0 && sim.horde % st.goldenEvery === 0) breed = BREED_GOLDEN
+      else if (st.dachsEvery > 0 && sim.horde % st.dachsEvery === 0) breed = BREED_DACHS
     }
     spawnCat(sim, lane, breed)
   }

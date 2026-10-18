@@ -55,6 +55,8 @@ const SAVE_KEY = 'shiba-daikoushin-save'
 interface Save {
   levels: number[]
   purse: number
+  stage: number
+  best: number[]
 }
 
 function loadSave(): Save | null {
@@ -65,7 +67,13 @@ function loadSave(): Save | null {
     if (!data || typeof data !== 'object') return null
     const { levels, purse } = data as Partial<Save>
     if (!Array.isArray(levels) || typeof purse !== 'number') return null
-    return { levels: levels.map((n) => (typeof n === 'number' ? n : 1)), purse }
+    const { stage, best } = data as Partial<Save>
+    return {
+      levels: levels.map((n) => (typeof n === 'number' ? n : 1)),
+      purse,
+      stage: typeof stage === 'number' ? stage : 0,
+      best: Array.isArray(best) ? best.map((n) => (typeof n === 'number' ? n : 0)) : [],
+    }
   } catch {
     return null
   }
@@ -73,7 +81,7 @@ function loadSave(): Save | null {
 
 function storeSave(): void {
   try {
-    localStorage.setItem(SAVE_KEY, JSON.stringify({ levels: sim.levels, purse: sim.purse }))
+    localStorage.setItem(SAVE_KEY, JSON.stringify({ levels: sim.levels, purse: sim.purse, stage: sim.stage, best: sim.best }))
   } catch {
     // Private mode can reject storage. Levels still hold for this visit.
   }
@@ -82,7 +90,7 @@ function storeSave(): void {
 const saved = loadSave()
 // Free placement is the game; ?lanes keeps the older five-path game for comparison.
 const freeOn = !new URLSearchParams(location.search).has('lanes')
-const sim = createSim({ tutorial: !seenTutorial(), levels: saved?.levels, purse: saved?.purse, free: freeOn })
+const sim = createSim({ tutorial: !seenTutorial(), levels: saved?.levels, purse: saved?.purse, free: freeOn, stage: saved?.stage, best: saved?.best })
 let savedSeq = sim.saveSeq
 const renderer = createRenderer()
 const synth = createSynth()

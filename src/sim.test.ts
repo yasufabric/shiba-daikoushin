@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
   BOSS_HP,
+  STAGES,
   BONE_PER_KILL,
   BREED_BOSS,
   DOG_COUNT,
@@ -59,6 +60,7 @@ import {
 import {
   costOf,
   createSim,
+  spawnCat,
   strikeSpecial,
   buyLevel,
   levelCost,
@@ -698,5 +700,54 @@ describe('soldiers', () => {
     expect(boss?.kind).toBe(BREED_BOSS)
     strikeSpecial(field, KIND_BLACK)
     expect(boss?.hp ?? BOSS_HP).toBeLessThan(BOSS_HP)
+  })
+
+  it('rates a win by 柴の家 HP left, opens the next stage, and replays after a loss', () => {
+    const sim = createSim({ tutorial: false, seed: 4, free: true })
+    expect(sim.stage).toBe(0)
+    const clear = (): void => {
+      for (const dog of sim.cats) dog.alive = false
+      sim.aliveCats = 0
+    }
+    clear()
+    sim.toSend = 0
+    sim.boss = true
+    sim.homeHp = HOME_HP
+    step(sim, 1 / 30, NO_INPUT)
+    expect(sim.outcome).toBe('won')
+    expect(sim.stars).toBe(3)
+    expect(sim.best[0]).toBe(3)
+    sim.rewardT = 0
+    step(sim, 1 / 30, { ...NO_INPUT, restart: true })
+    expect(sim.stage).toBe(1)
+    expect(sim.toSend).toBeLessThanOrEqual(STAGES[1]?.count ?? 0)
+    clear()
+    sim.toSend = 0
+    sim.boss = true
+    sim.homeHp = HOME_HP * 0.4
+    step(sim, 1 / 30, NO_INPUT)
+    expect(sim.stars).toBe(2)
+    sim.rewardT = 0
+    step(sim, 1 / 30, { ...NO_INPUT, restart: true })
+    expect(sim.stage).toBe(2)
+
+    sim.homeHp = 0
+    step(sim, 1 / 30, NO_INPUT)
+    expect(sim.outcome).toBe('lost')
+    expect(sim.stars).toBe(0)
+    sim.rewardT = 0
+    step(sim, 1 / 30, { ...NO_INPUT, restart: true })
+    expect(sim.stage).toBe(2)
+    expect(sim.best.slice(0, 3)).toEqual([3, 2, 0])
+  })
+
+  it('makes later stages tougher', () => {
+    const hp = (stage: number): number => {
+      const sim = createSim({ tutorial: false, seed: 4, free: true, stage })
+      spawnCat(sim, 0, BREED_CORGI)
+      return sim.cats.find((c) => c.alive)?.hp ?? 0
+    }
+    expect(hp(0)).toBeLessThan(hp(2))
+    expect(hp(2)).toBeLessThan(hp(4))
   })
 })
