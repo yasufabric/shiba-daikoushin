@@ -167,6 +167,7 @@ const BLACK: Record<string, string> = {
 /** 胡麻柴: red fur with dark tips on the crown and back. */
 const SESAME: Record<string, string> = {
   ...RED,
+  o: FUR_MID,
   h: FUR_BODY,
   s: FUR_DARK,
   m: FUR_DARK,
@@ -322,14 +323,16 @@ const CROWD_POSES: readonly CrowdPose[] = [
   { left: true, right: true, wag: true, mouth: 'smile' },
 ]
 
-/** Dark specks for 胡麻柴: only the sesame coat paints 's' dark, every other coat paints it as plain fur. The crown and back (above `top`) are speckled thickest. */
-function speckle(rows: string[], top: number): string[] {
+/** Dark patches for 胡麻柴: only the sesame coat paints 's' dark, every other coat paints it as plain fur. Patches are `cell`-pixel blocks, thickest on the crown and back (above `top`), so they read as a few soft blotches instead of noise. */
+function speckle(rows: string[], top: number, cell: number): string[] {
   return rows.map((line, y) =>
     [...line]
       .map((ch, x) => {
         if (ch !== 'o' && ch !== 'h') return ch
-        const n = (x * 7 + y * 13 + x * y * 3) % 11
-        return n < (y <= top ? 6 : 4) ? 's' : ch
+        const cx = Math.floor(x / cell)
+        const cy = Math.floor(y / cell)
+        const n = (cx * 5 + cy * 7 + cx * cy) % 9
+        return n < (y <= top ? 2 : 1) ? 's' : ch
       })
       .join(''),
   )
@@ -340,7 +343,7 @@ function crowdRows(pose: CrowdPose): string[] {
   const left = pose.left ? PAW_DOWN : PAW_UP
   const right = pose.right ? PAW_DOWN : PAW_UP
   const feet = mirrorPair(left, right, CROWD_SWAP, 'o', 'm')
-  const g = speckle([...body, ...feet], 8)
+  const g = speckle([...body, ...feet], 8, 2)
   if (pose.mouth === 'shut') stamp(g, 8, 12, ['wwww'])
   if (pose.mouth === 'bark') stamp(g, 7, 11, ['nnnnnn', 'nppppn'])
   stamp(g, 16, 13, pose.wag ? CURL_WAG : CURL_UP)
@@ -417,7 +420,7 @@ export type Face = 'open' | 'blink' | 'smug'
 
 function hero(face: Face, reward: boolean): string[] {
   const half = HERO_HALF.map((line) => line.replace(/O/g, 'o'))
-  const g = speckle(mirror(half, HERO_SWAP, 'o', 'm'), 14).map((line) => `${line}....`)
+  const g = speckle(mirror(half, HERO_SWAP, 'o', 'm'), 14, 3).map((line) => `${line}....`)
   if (face === 'blink') {
     for (const y of [11, 12]) {
       for (let x = 0; x < HERO_PX; x++) {
@@ -737,11 +740,11 @@ export const HERO_FACES: readonly Face[] = ['open', 'blink', 'smug']
 const HERO_COATS = [
   ['red', RED],
   ['black', BLACK],
-  ['cream', CREAM],
   ['sesame', SESAME],
+  ['cream', CREAM],
 ] as const
 
-/** Four coats in card order (赤, 黒, 白, 胡麻) × open, blink, smug, then the reward (red with a gold collar). Index with heroCell. */
+/** Four coats in card order (赤, 黒, 胡麻, 白) × open, blink, smug, then the reward (red with a gold collar). Index with heroCell. */
 export const heroArt = [
   ...HERO_COATS.flatMap(([name, map]) => HERO_FACES.map((face) => seal(`hero-${name}-${face}`, hero(face, false), map))),
   seal('hero-reward', hero('open', true), RED),

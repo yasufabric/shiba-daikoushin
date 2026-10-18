@@ -33,7 +33,7 @@ export const CLEAR_WORD = 'CLEAR!'
 export const LOSE_WORD = 'LOSE!'
 export const START_WORD = 'START'
 export const LEVEL_WORD = 'LV'
-/** Special names, shouted in katakana. Order: 赤, 黒, 白, 胡麻. Foods only, never a product name. */
+/** Special names, shouted in katakana. Order: 赤, 黒, 胡麻, 白. Foods only, never a product name. */
 export const SPECIAL_WORDS = ['サツマイモ!!', 'ジャーキー!!', 'チーズ!!', 'ササミ!!'] as const
 export const RUMBLE_WORD = 'ゴゴゴ'
 
