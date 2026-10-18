@@ -32,7 +32,7 @@ Later PRs follow this standard. Simulation coordinates stay on the 390×844 fiel
 
 ### Resolution
 
-Design grid 195×422. Pick the largest integer scale that fits that grid in the viewport, then grow the internal buffer so the scaled canvas covers the screen. Width stays near 195 when the phone matches the design; height or width flex on other aspect ratios. `imageSmoothingEnabled` stays false. No letterboxing, no fractional scale, and no half pixels. 195×422 ×2 is the 390×844 phone. The night backdrop covers every extra pixel, including under the notch. Round drawn positions to integers. The page uses `100dvh`, `visualViewport`, and `viewport-fit=cover`.
+Design grid 195×422. CSS-pixel scale is an integer of at least 2, chosen so the internal width stays near 180–215. Internal width and height then flex with `ceil` so the blit covers the viewport. An odd CSS size may overflow by less than one scale step and stay clipped; the scale does not drop to make it exact. `imageSmoothingEnabled` stays false. No letterboxing, no fractional scale, and no half pixels. 195×422 ×2 is the 390×844 phone. The night backdrop covers every extra pixel, including under the notch. Round drawn positions to integers. The page uses `100dvh`, `visualViewport`, and `viewport-fit=cover`.
 
 ### Sprite sizes
 

@@ -137,12 +137,24 @@ export interface ScreenInsets {
   left: number
 }
 
-/** Largest integer scale that fits the 195×422 design, then grow the buffer so it covers the viewport. */
+const MIN_PIXEL_SCALE = 2
+const INTERNAL_W_LO = 180
+const INTERNAL_W_HI = 215
+
+/** Integer CSS scale of at least 2, chosen so the internal width stays near 180–215. */
+function scaleForWidth(cssW: number): number {
+  let scale = Math.max(MIN_PIXEL_SCALE, Math.round(cssW / INTERNAL_W))
+  while (Math.ceil(cssW / scale) > INTERNAL_W_HI && Math.ceil(cssW / (scale + 1)) >= INTERNAL_W_LO) {
+    scale += 1
+  }
+  return scale
+}
+
+/** Cover the viewport at an integer scale of at least 2. Height never lowers the scale. */
 export function fitView(cssW: number, cssH: number): ViewFit {
   const w = Math.max(1, Math.round(cssW))
   const h = Math.max(1, Math.round(cssH))
-  let scale = Math.min((w / INTERNAL_W) | 0, (h / INTERNAL_H) | 0)
-  if (scale < 1) scale = 1
+  const scale = scaleForWidth(w)
   return {
     scale,
     cssW: w,
@@ -192,7 +204,7 @@ function applyFrame(cssW: number, cssH: number, insets: ScreenInsets): void {
   const safeRight = Math.max(0, Math.round(insets.right / fit.scale))
   const extraW = fit.internalW - INTERNAL_W
   const extraH = fit.internalH - INTERNAL_H
-  let shiftX = extraW > 0 ? extraW >> 1 : 0
+  let shiftX = extraW >> 1
   if (extraW > 0) {
     const minShift = Math.min(safeLeft, extraW)
     const maxShift = Math.max(minShift, extraW - safeRight)

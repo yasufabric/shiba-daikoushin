@@ -101,9 +101,9 @@ describe('viewport', () => {
   it('covers phone sizes with an integer scale and no gap', () => {
     const phones = [
       { w: 390, h: 844, scale: 2, iw: 195, ih: 422 },
-      { w: 375, h: 667, scale: 1, iw: 375, ih: 667 },
+      { w: 375, h: 667, scale: 2, iw: 188, ih: 334 },
       { w: 430, h: 932, scale: 2, iw: 215, ih: 466 },
-      { w: 360, h: 800, scale: 1, iw: 360, ih: 800 },
+      { w: 360, h: 800, scale: 2, iw: 180, ih: 400 },
     ]
     for (const phone of phones) {
       const fit = fitView(phone.w, phone.h)
@@ -125,6 +125,21 @@ describe('viewport', () => {
     expect(fit.internalH).toBe(426)
     expect(fit.internalW * fit.scale).toBeGreaterThanOrEqual(393)
     expect(fit.internalH * fit.scale).toBeGreaterThanOrEqual(852)
+    expect(fit.internalW * fit.scale - 393).toBeLessThan(fit.scale)
+  })
+
+  it('stays at scale 2 on a short phone and steps up only to keep the width band', () => {
+    const short = fitView(360, 640)
+    expect(short.scale).toBeGreaterThanOrEqual(2)
+    expect(short.scale).toBe(2)
+    expect(short.internalW).toBe(180)
+    expect(short.internalH).toBe(320)
+    const wide = fitView(540, 960)
+    expect(wide.scale).toBe(3)
+    expect(wide.internalW).toBe(180)
+    expect(wide.internalH).toBe(320)
+    expect(wide.internalW).toBeGreaterThanOrEqual(180)
+    expect(wide.internalW).toBeLessThanOrEqual(215)
   })
 })
 
