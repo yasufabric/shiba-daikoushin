@@ -2,7 +2,7 @@ import {
   boneArt,
   castleDim,
   castleLive,
-  catArt,
+  dogArt,
   crowdArt,
   heroArt,
   homeArt,
@@ -52,22 +52,19 @@ function spins(seal: Seal): Seal[] {
   return [seal, a, b, c]
 }
 
-function bakeStrip(
-  frames: readonly Seal[],
-  kinds: number,
-  cell: number,
-  flash: boolean,
-): HTMLCanvasElement {
-  const { canvas: el, ctx } = canvas(frames.length * cell, kinds * 4 * cell)
-  for (let kind = 0; kind < kinds; kind++) {
-    for (let frame = 0; frame < frames.length; frame++) {
-      const seal = frames[frame]
+/** One row block per breed, four spins each, in BREED_* order. */
+function bakeBreeds(flash: boolean): HTMLCanvasElement {
+  const frames = dogArt[0]?.length ?? 0
+  const { canvas: el, ctx } = canvas(frames * CAT_PX, dogArt.length * 4 * CAT_PX)
+  for (let breed = 0; breed < dogArt.length; breed++) {
+    const strip = dogArt[breed] ?? []
+    for (let frame = 0; frame < strip.length; frame++) {
+      const seal = strip[frame]
       if (!seal) continue
       const turned = spins(seal)
       for (let spin = 0; spin < 4; spin++) {
         const part = turned[spin]
-        if (!part) continue
-        blit(ctx, part, frame * cell, (kind * 4 + spin) * cell, flash)
+        if (part) blit(ctx, part, frame * CAT_PX, (breed * 4 + spin) * CAT_PX, flash)
       }
     }
   }
@@ -108,8 +105,8 @@ export function createSheets(): Sheets {
   return {
     crowd,
     crowdFlash,
-    cat: bakeStrip(catArt, 1, CAT_PX, false),
-    catFlash: bakeStrip(catArt, 1, CAT_PX, true),
+    cat: bakeBreeds(false),
+    catFlash: bakeBreeds(true),
     hero,
     bone: bakeOne(boneArt),
     paw: bakeOne(pawArt),

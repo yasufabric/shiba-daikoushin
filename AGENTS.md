@@ -1,12 +1,12 @@
 # しば大行進
 
-Portrait phone game. Soldier shibas march up the field from the 柴の家 at the bottom, cat swarms come down, and a three-minute match ends at the cat castle. Cats that reach the field floor bite the 柴の家; when its gold HP bar empties the match is lost, as it is when the clock runs out. The only input is deploying a card. There is no cannon or other tap-fired attack.
+Portrait phone game. Soldier shibas march up the field from the 柴の家 at the bottom, rival dogs come down, and a three-minute match ends at the 犬の屋敷. Dogs that reach the field floor bite the 柴の家; when its gold HP bar empties the match is lost, as it is when the clock runs out. The only input is deploying a card. There is no cannon or other tap-fired attack.
 
 Three cards, three soldiers, each with its own attack:
 
 - 赤 (tan card): a steady bite. Special 「サツマイモ!!」 sends every 赤 into a double-pace, double-bite rush.
-- 黒 (black card): one heavy bite at a time that drops a cat. Special 「ジャーキー!!」 pierces the front three cats on every path and hits the castle once it can be hit.
-- 白 (white card): barks from the second row into its own path and both neighbors. Special 「チーズ!!」 is a field-wide shockwave that shoves every cat back.
+- 黒 (black card): one heavy bite at a time that drops a small dog. Special 「ジャーキー!!」 pierces the front three dogs on every path and hits the castle once it can be hit.
+- 白 (white card): barks from the second row into its own path and both neighbors. Special 「チーズ!!」 is a field-wide shockwave that shoves every dog back.
 
 Specials fire on their own when a coat's gauge (damage it has landed) fills. A small cut-in slides in: the smug portrait, the food shouted in pixel katakana, and ゴゴゴ. Shout foods only, never a product name.
 
@@ -47,7 +47,8 @@ Design grid 195×422. CSS-pixel scale is an integer of at least 2, chosen so the
 ### Sprite sizes
 
 - Hero shiba: 32×32, big head, head and body the same height.
-- Regular cats: 28×28.
+- Rival dogs: 28×28 front view. Three breeds share the foot and tail rows and differ by head: チワワ (huge pointed ears, bug eyes, fast and frail), コーギー (tall ears, white blaze, the baseline, no tail), ブルドッグ (rose ears, jowls, underbite, slow and tough). ブルドッグ join only once the clash starts.
+- The code still names every foe a cat (`sim.cats`, `CAT_PX`, the cat palette names); `kind` on a foe is its breed.
 - Boss: 64×64 or larger.
 - 柴の家: 64×48, a plank dog house with a bone plaque and a dark arched door, centered on the field floor. Its HP bar is gold, drawn over the units.
 - Marching soldier: 24×24, with a steel helmet between the ears and a coat-colored band. Up to four fur colors plus the outline.
@@ -59,7 +60,7 @@ Only these colors:
 
 - Shiba fur: `#6b2e12` `#a8521e` `#e08a3c` `#f6c27a`
 - White: `#8a7f86` `#c9c0c4` `#fffaf0`
-- Cats: `#2b1d3a` `#5a3f7a` `#9a7ccf` `#d8c8f0`
+- Rival dogs (the enemy purples, so a foe never reads as a shiba): `#2b1d3a` `#5a3f7a` `#9a7ccf` `#d8c8f0`
 - Gold, for damage, bones, and our shots: `#7a4a00` `#e0a200` `#ffe066` `#fffbd1`
 - Enemy shots and danger: `#8a0f3a` `#ff3d7f` `#ffb3cf`
 - Night background: `#0b0f1e` `#18213d` `#2c3a63` `#4a5d8f`
@@ -103,4 +104,4 @@ Finish like a late Super Famicom game.
 
 ### Match end
 
-Destroying the cat castle plays hitstop, a 4-frame explosion on the castle (white, yellow, orange, then square particles), a shiba hop, and a gold `CLEAR!` banner. The banner pops from 1.5× to 1× on integer pixels, holds for 2.4s, then the new-card reward appears. A loss shows a `LOSE!` banner for the same beat, then the match retries. No explanatory sentence.
+Destroying the 犬の屋敷 (spired towers and a keep with a floppy-eared dog face, the gate for a mouth) plays hitstop, a 4-frame explosion on the castle (white, yellow, orange, then square particles), a shiba hop, and a gold `CLEAR!` banner. The banner pops from 1.5× to 1× on integer pixels, holds for 2.4s, then the new-card reward appears. A loss shows a `LOSE!` banner for the same beat, then the match retries. No explanatory sentence.

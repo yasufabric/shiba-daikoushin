@@ -6,7 +6,7 @@ import {
   boneArt,
   castleDim,
   castleLive,
-  catArt,
+  dogArt,
   crowdArt,
   heroArt,
   homeArt,
@@ -152,12 +152,13 @@ describe('sprites', () => {
     expect(CROWD_PX).toBe(24)
     expect(CAT_PX).toBe(28)
     expect(crowdArt).toHaveLength(4)
-    expect(catArt).toHaveLength(10)
+    expect(dogArt).toHaveLength(3)
+    for (const strip of dogArt) expect(strip).toHaveLength(10)
     for (const fur of crowdArt) {
       expect(fur).toHaveLength(10)
       for (const seal of fur) assertSealed(seal, CROWD_PX, CROWD_PX)
     }
-    for (const seal of catArt) assertSealed(seal, CAT_PX, CAT_PX)
+    for (const strip of dogArt) for (const seal of strip) assertSealed(seal, CAT_PX, CAT_PX)
     expect(heroArt).toHaveLength(10)
     for (const seal of heroArt) assertSealed(seal, HERO_PX, HERO_PX)
     assertSealed(boneArt, 12, 12)

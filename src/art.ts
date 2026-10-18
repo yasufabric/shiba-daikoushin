@@ -7,7 +7,6 @@ import {
   CAT_DARK,
   CAT_LIGHT,
   CAT_MID,
-  CAT_PX,
   DANGER,
   DANGER_DARK,
   DANGER_LIGHT,
@@ -459,37 +458,97 @@ function hero(face: Face, reward: boolean): string[] {
   return g
 }
 
-/** Angry cat, 28×28 front view. Left half, mirrored. Pink slit eyes and a ω mouth. */
-const CAT_HALF = [
-  '..L...........',
-  '.LbL..........',
-  '.LbpL.........',
-  '.LhppL........',
-  'LhbppbL.......',
-  'LhbpppbL......',
-  'LhbppppbLLLLLL',
-  'LhhbbbbbbbbbbB',
-  'LhhbbbbbbbbbbB',
-  'Lhbbbbbbbbbbbb',
-  'LhbbbbddLbbbbb',
-  'LhbbbbbbdeLbbb',
-  'LhbbbbbbLeeLbb',
-  'LhbbbbbbbLLbbb',
-  'Lhbbbbbbbbbbhp',
-  'Lhbbbbbbbbhdhd',
-  '.Lbbbbbbbbhhhh',
-  '..LLbbbbbbhhhh',
-  '....LbbbbbhhhH',
-  '...LhbbbbbhhhH',
-  '...LhbbbbbbhhH',
-  '...LhbbbbbbbhH',
-  '...LhbbbbbbbbB',
-  '...LbbbbbbbbbB',
-] as const
+/**
+ * Rival dogs, 28×28 front view, in the enemy purples so they never read as shibas. Left halves, mirrored.
+ * Breed order matches BREED_* in balance: チワワ (huge ears, bug eyes), コーギー (tall ears, white blaze), ブルドッグ (rose ears, jowls, underbite).
+ */
+const DOG_HALVES: readonly (readonly string[])[] = [
+  [
+    '.LL...........',
+    '.LpL..........',
+    '.LppL.........',
+    '.LhppL........',
+    '.LhpppL.......',
+    '.LhbpppL......',
+    '..LhbbppLLLLLL',
+    '..Lhbbbbbbbbbb',
+    '..Lhbbbbbbbbbb',
+    '..Lhbbbbbbbbbb',
+    '..LhbbLLLbbbbb',
+    '..LhbLeeeLbbbb',
+    '..LhbLewwLbbbb',
+    '..LhbbLLLbbbbb',
+    '...Lhbbbbbbbww',
+    '...Lhbbbbbwwdd',
+    '....LLbbbbwwww',
+    '.....LLbbbbwww',
+    '...LLhbbbbbbww',
+    '...Lhbbbbbbbbw',
+    '...Lhbbbbbbbbb',
+    '...Lhbbbbbbbbb',
+    '...Lhbbbbbbbbb',
+    '...Lbbbbbbbbbb',
+  ],
+  [
+    '..LL..........',
+    '.LbbL.........',
+    '.LbppL........',
+    'LhbppbL.......',
+    'LhbpppbL......',
+    'LhbpppbL......',
+    'LhbbppbbLLLLLw',
+    'Lhbbbbbbbbbbww',
+    '.Lhbbbbbbbbbww',
+    '.Lhbbbbbbbbbww',
+    '.LhbbLLLbbbbww',
+    '.LhbLeedLbbwww',
+    '.LhbbLLLbbwwww',
+    '.Lhbbbbbbwwwww',
+    '..Lhbbbbwwwwdd',
+    '..LLhbbwwwwwdd',
+    '...Lhbwwwwwwww',
+    '...Lhbwwwwwwww',
+    '...Lhbbwwwwwww',
+    '...Lhbbbwwwwww',
+    '...Lhbbbbwwwww',
+    '...Lhbbbbbbwww',
+    '...Lhbbbbbbbbb',
+    '...Lbbbbbbbbbb',
+  ],
+  [
+    '..............',
+    '..............',
+    '..............',
+    '..LLL.........',
+    '.LmmbL........',
+    '.LmbbbLLLLLLLL',
+    'Lhbbbbbbbbbbbb',
+    'Lhbbbbbbbbbbww',
+    'Lhbbbbbbbbbwww',
+    'LhbLLLbbbbbwww',
+    'LhLeedLbbbwwww',
+    'LhbLLLbbbbwwww',
+    'Lhbbbbbbbbwwdd',
+    'Lhwwwwwwwwwddd',
+    'Lhwwwwwwwwwwww',
+    'LhwwwLLLLLLLLL',
+    'LhwwLwwLwwwwww',
+    'Lhbwwwwwwwwwww',
+    '.Lhbbwwwwwwwww',
+    '.Lhbbbbwwwwwww',
+    '..Lhbbbbbbwwww',
+    '...Lhbbbbbbbbb',
+    '...Lhbbbbbbbbb',
+    '...Lbbbbbbbbbb',
+  ],
+]
 
-const CAT_SWAP: Record<string, string> = { h: 'b', B: 'm', H: 'h' }
+/** Right half: the lit edge turns to body on the shadow side. */
+function twin(half: readonly string[]): string[] {
+  return half.map((line) => line + [...line].reverse().map((ch) => (ch === 'h' ? 'b' : ch)).join(''))
+}
 
-const CAT_FEET = [
+const DOG_FEET = [
   ['...LbbbbmLbbbbbbbbLmbbbbL...', '...LmmmmL.LLLLLLLL.LmmmmL...', '...LmmmmL..........LLLLLL...', '...LLLLLL...................'],
   ['...LbbbbmLbbbbbbbbLmbbbbL...', '...LmmmmL.LLLLLLLL.LmmmmL...', '...LmmmmL..........LmmmmL...', '...LLLLLL..........LLLLLL...'],
   ['...LbbbbmLbbbbbbbbLmbbbbL...', '...LmmmmL.LLLLLLLL.LmmmmL...', '...LLLLLL..........LmmmmL...', '...................LLLLLL...'],
@@ -497,18 +556,18 @@ const CAT_FEET = [
   ['...LbbbbbbbbbbbbbbbbbbbbL...', '...LmmmmLLmmmmmmmmLLmmmmL...', '...LmmmmL..........LmmmmL...', '...LLLLLL..........LLLLLL...'],
 ] as const
 
-const CAT_TAIL_A = ['..LL', '.LbL', 'LbL.', 'LmL.', 'LmL.', 'LmL.'] as const
-const CAT_TAIL_B = ['LL..', 'LbL.', '.LbL', '.LmL', 'LmL.', 'LmL.'] as const
-const CAT_PAW = ['LLLLL.', 'LhhhbL', 'LhbbbL', '.LmmL.'] as const
+const DOG_TAIL_A = ['..LL', '.LbL', 'LbL.', 'LmL.', 'LmL.', 'LmL.'] as const
+const DOG_TAIL_B = ['LL..', 'LbL.', '.LbL', '.LmL', 'LmL.', 'LmL.'] as const
+const DOG_PAW = ['LLLLL.', 'LhhhbL', 'LhbbbL', '.LmmL.'] as const
 
-interface CatPose {
+interface DogPose {
   feet: number
   tail: boolean
   blink: boolean
   swipe: boolean
 }
 
-const CAT_POSES: readonly CatPose[] = [
+const DOG_POSES: readonly DogPose[] = [
   { feet: 0, tail: false, blink: false, swipe: false },
   { feet: 1, tail: true, blink: false, swipe: false },
   { feet: 2, tail: false, blink: false, swipe: false },
@@ -521,17 +580,14 @@ const CAT_POSES: readonly CatPose[] = [
   { feet: 4, tail: true, blink: false, swipe: false },
 ]
 
-function catFrame(pose: CatPose): string[] {
-  const g = mirror(CAT_HALF, CAT_SWAP, 'b', 'm').map((line) => line.replace(/B/g, 'b').replace(/H/g, 'h'))
-  for (const line of CAT_FEET[pose.feet] ?? CAT_FEET[0]) g.push(line)
+function dogFrame(breed: number, pose: DogPose): string[] {
+  const g = twin(DOG_HALVES[breed] ?? DOG_HALVES[0] ?? [])
+  for (const line of DOG_FEET[pose.feet] ?? DOG_FEET[0]) g.push(line)
   if (pose.blink) {
-    for (let x = 0; x < CAT_PX; x++) {
-      if (g[12]?.[x] === 'e') put(g, x, 12, 'L')
-      if (g[11]?.[x] === 'e') put(g, x, 11, 'b')
-    }
+    for (let y = 0; y < g.length; y++) g[y] = (g[y] ?? '').replace(/e/g, 'L')
   }
-  stamp(g, 24, 16, pose.tail ? CAT_TAIL_B : CAT_TAIL_A)
-  if (pose.swipe) stamp(g, 0, 17, CAT_PAW)
+  if (breed !== 1) stamp(g, 24, 16, pose.tail ? DOG_TAIL_B : DOG_TAIL_A)
+  if (pose.swipe) stamp(g, 0, 17, DOG_PAW)
   return g
 }
 
@@ -570,7 +626,7 @@ const PAW_ROWS = [
   '..............',
 ] as const
 
-/** Cat castle: two ear-roofed towers and a keep with a cat face. The gate is the mouth. */
+/** 犬の屋敷: two spired towers and a keep with a floppy-eared dog face. The gate is the mouth. */
 function castleRows(live: boolean): string[] {
   const g = blank(BOSS_W, BOSS_H)
   const eye = live ? 'e' : 'r'
@@ -578,7 +634,8 @@ function castleRows(live: boolean): string[] {
   for (const tx of [2, 52]) {
     blot(g, tx, 14, 18, 50, 'b')
     tri(g, tx - 1, 0, 20, 16, 'm')
-    tri(g, tx + 4, 5, 10, 9, live ? 'p' : 'b')
+    tri(g, tx + 4, 5, 10, 9, 'b')
+    blot(g, tx + 7, 9, 2, 5, 'h')
     blot(g, tx + 1, 15, 2, 48, 'h')
     blot(g, tx + 15, 15, 2, 48, 'm')
     for (let y = 22; y < 62; y += 7) {
@@ -593,21 +650,29 @@ function castleRows(live: boolean): string[] {
     blot(g, tx + 7, 40, 1, 14, live ? 'p' : 'h')
   }
   blot(g, 18, 22, 36, 42, 'b')
-  tri(g, 18, 6, 14, 18, 'b')
-  tri(g, 40, 6, 14, 18, 'b')
-  tri(g, 21, 12, 8, 10, live ? 'p' : 'm')
-  tri(g, 43, 12, 8, 10, live ? 'p' : 'm')
+  blot(g, 22, 16, 28, 7, 'b')
+  shave(g, 22, 16, 28, 7, 3)
   blot(g, 19, 23, 10, 3, 'h')
   blot(g, 18, 22, 1, 42, 'd')
   blot(g, 53, 22, 1, 42, 'd')
   blot(g, 50, 24, 3, 40, 'm')
-  for (const ex of [23, 41]) {
-    blot(g, ex, 30, 8, 6, 'd')
-    blot(g, ex + 1, 31, 6, 4, eye)
-    blot(g, ex + 3, 31, 2, 4, 'n')
+  for (const ear of [19, 47]) {
+    blot(g, ear, 18, 6, 20, 'm')
+    blot(g, ear + 1, 18, 4, 19, 'd')
+    shave(g, ear, 18, 6, 20, 3)
   }
-  blot(g, 34, 37, 4, 2, 'p')
-  blot(g, 35, 39, 2, 1, 'd')
+  for (const ex of [26, 39]) {
+    blot(g, ex, 29, 7, 7, 'd')
+    shave(g, ex, 29, 7, 7, 2)
+    blot(g, ex + 1, 30, 5, 5, eye)
+    blot(g, ex + 2, 31, 3, 3, 'n')
+    blot(g, ex + 2, 31, 1, 1, 'h')
+    blot(g, ex + 3, 31, 1, 1, 'h')
+  }
+  blot(g, 32, 37, 8, 5, 'n')
+  shave(g, 32, 37, 8, 5, 2)
+  blot(g, 33, 38, 2, 1, 'h')
+  blot(g, 34, 38, 2, 1, 'h')
   blot(g, 28, 46, 16, 18, 'n')
   shave(g, 28, 46, 16, 18, 4)
   blot(g, 28, 60, 16, 4, 'n')
@@ -650,7 +715,12 @@ const FUR_NAMES = ['red', 'black', 'sesame', 'cream'] as const
 /** One 10-frame strip per fur: 赤, 黒, 胡麻, 白. */
 export const crowdArt: readonly Seal[][] = FUR_MAPS.map((map, i) => sealAll(`crowd-${FUR_NAMES[i] ?? i}`, CROWD_ROWS, map))
 
-export const catArt = CAT_POSES.map((pose, i) => seal(`cat-${i}`, catFrame(pose), CAT))
+const DOG_NAMES = ['chihuahua', 'corgi', 'bulldog'] as const
+
+/** One 10-frame strip per breed, in BREED_* order. */
+export const dogArt: readonly Seal[][] = DOG_NAMES.map((name, breed) =>
+  DOG_POSES.map((pose, i) => seal(`${name}-${i}`, dogFrame(breed, pose), CAT)),
+)
 
 export const HERO_FACES: readonly Face[] = ['open', 'blink', 'smug']
 const HERO_COATS = [
@@ -678,4 +748,4 @@ export const castleDim = seal('castle-dim', castleRows(false), CASTLE_MAP)
 export const homeArt = seal('home', homeRows(), HOME_MAP)
 
 export const CROWD_FRAME_COUNT = CROWD_ROWS.length
-export const CAT_FRAME_COUNT = CAT_POSES.length
+export const CAT_FRAME_COUNT = DOG_POSES.length
