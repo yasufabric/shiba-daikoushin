@@ -115,6 +115,28 @@ export const PANEL_Y = 676
 
 /** Five marching paths. They steer the sim; the field draws no lane stripes. */
 export const LANE_COUNT = 5
+
+/** Free placement (the ?free trial): shibas drop where you tap, inside the lower part of the field, and every unit walks to the nearest foe it can see. */
+/** Field-local y above which a tap is pulled down: the deploy zone is the lower part of the field. */
+export const FREE_ZONE_Y = 330
+/** How far a shiba / a dog looks for a foe, in world px. */
+export const FREE_SIGHT_SHIBA = 110
+export const FREE_SIGHT_DOG = 100
+/** Centre-to-centre distance at which two foes bite. */
+export const FREE_REACH = 46
+/** Units of one side push apart below this distance. */
+export const FREE_SPACE = 30
+/** With nothing in sight, shibas walk up to this line and wait. */
+export const FREE_HOLD_Y = 250
+/** A dog this close to the 柴の家 door bites the house. */
+export const FREE_HOME_REACH = 60
+/** A dog with nothing in sight walks straight down and turns for the door only this close to the bottom. */
+export const FREE_TURN = 150
+/** Shibas gang up on dogs in free placement, so dogs there get tougher and bite harder. */
+export const FREE_DOG_HP = 2.2
+export const FREE_DOG_DPS = 1.2
+/** Waves come this many times slower in free placement, so fewer dogs crowd the field at once. */
+export const FREE_WAVE_SLOW = 1.8
 export const MAX_SHIBAS = 600
 export const MARCH_COUNT = 240
 
