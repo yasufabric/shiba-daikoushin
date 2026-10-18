@@ -1,6 +1,6 @@
 # しば大行進
 
-Portrait phone game about holding the line. Rival dogs walk out of the 犬の屋敷 at the top on random paths; soldier shibas march up from the 柴の家 at the bottom and hold a line mid-field. Each match sends a fixed pack of `DOG_COUNT` dogs; once the last has left the mansion the boss, a 48×48 セントバーナード with a gold barrel, walks out down the middle path. Beat every dog, the boss included, to win. Dogs that reach the field floor bite the 柴の家; when its gold HP bar empties the match is lost. There is no clock and no attack on the mansion. A dog icon and number beside the mansion count the dogs left, and a wide pink bar across the top shows the boss's HP while it is out. Match pay is a base for the result plus `BONE_PER_KILL` per dog beaten.
+Portrait phone game about holding the line. Rival dogs walk out of the 犬の屋敷 at the top on random paths; soldier shibas march up from the 柴の家 at the bottom and hold a line mid-field. Each match sends a fixed pack of `DOG_COUNT` dogs; once the last has left the mansion the boss, a 32×32 セントバーナード with a gold barrel, walks out down the middle path. Beat every dog, the boss included, to win. Dogs that reach the field floor bite the 柴の家; when its gold HP bar empties the match is lost. There is no clock and no attack on the mansion. A dog icon and number beside the mansion count the dogs left, and a wide pink bar across the top shows the boss's HP while it is out. Match pay is a base for the result plus `BONE_PER_KILL` per dog beaten.
 
 Four cards, four soldiers, each with its own role. The cards sit in one row of four. Every tap of a card sends out exactly one shiba, so the field stays readable (about a dozen shibas in a typical match); the next shiba of that coat costs a little more. After sending a shiba a card also needs a short recharge (`RECHARGE`: 赤 2.5s, 黒 6s, 白 4s, 胡麻 7s), shown as a night shutter over its portrait that slides away; a tap while it recharges is denied with the card shake, so a hoard of ホネ can't be dumped all at once. A match opens with one 赤 on each path.
 
@@ -48,12 +48,12 @@ Design grid 195×422. CSS-pixel scale is an integer of at least 2, chosen so the
 ### Sprite sizes
 
 - Hero shiba: 32×32, big head, head and body the same height.
-- Rival dogs: 28×28 front view. Three breeds share the foot and tail rows and differ by head: チワワ (huge pointed ears, bug eyes, fast and frail), コーギー (tall ears, white blaze, the baseline, no tail), ブルドッグ (rose ears, jowls, underbite, slow and tough). ブルドッグ join only once the clash starts.
+- Rival dogs: 20×20 front view. Three breeds share the foot and tail rows and differ by head: チワワ (huge pointed ears, bug eyes, fast and frail), コーギー (tall ears, white blaze, the baseline, no tail), ブルドッグ (rose ears, jowls, underbite, slow and tough). ブルドッグ join only once the clash starts.
 - The code still names every foe a cat (`sim.cats`, `CAT_PX`, the cat palette names); `kind` on a foe is its breed.
 - 犬の屋敷: 72×64, dim until the boss comes out.
-- Boss dog: 48×48 front view, two walk frames, white hit flash.
+- Boss dog: 32×32 front view, two walk frames, white hit flash.
 - 柴の家: 64×48, a plank dog house with a bone plaque and a dark arched door, centered on the field floor. Its HP bar is gold, drawn over the units.
-- Marching soldier: 24×24, with a steel helmet between the ears and a coat-colored band. Up to four fur colors plus the outline.
+- Marching soldier: 16×16, with a steel helmet between the ears and a coat-colored band. Up to four fur colors plus the outline.
 - Damage numbers: a dedicated pixel font, 8×10 per glyph.
 
 ### Palette
@@ -76,7 +76,7 @@ Characters get a 1px outline. The outer edge is `#120b10`. Inner lines use the d
 
 ### Shiba read
 
-The crowd sprite and the 32×32 card portrait are the same front-facing shiba. A later PR keeps this read. At 24×24, in this order:
+The crowd sprite and the 32×32 card portrait are the same front-facing shiba. A later PR keeps this read. At 16×16, in this order:
 
 - Two pointed upright triangular ears. The left ear is lit `#e08a3c`, the right ear is in shadow `#a8521e`.
 - Orange and tan fur with cream and white cheeks, muzzle, and chest (`#fffaf0`, `#f6c27a`).
@@ -94,7 +94,7 @@ Four coats share one set of rows and differ only by color map:
 - 白 (cream): `#f6c27a` body with `#e08a3c` ear and curl shade. The white card.
 - 黒 (black and tan): the black card. Night shades for fur (`#2c3a63` body, `#4a5d8f` lit, `#18213d` shade), tan まろ眉 brows, tan curl underside, white urajiro.
 
-Gestures: idle wags the curl, the attack windup shuts the mouth and the hit frame barks.
+Every unit animates: any step, up, down, or sideways, plays the walk; standing plays the idle; a unit that bit in the last second plays the attack. Gestures: idle wags the curl, the attack windup shuts the mouth and the hit frame barks.
 
 ### Animation
 
