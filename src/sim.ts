@@ -40,6 +40,27 @@ import {
   HOLD_Y,
   HP_BLACK,
   HP_TAN,
+  KIND_BIG,
+  KIND_DISC,
+  DISC_EVERY,
+  DISC_HIT,
+  DISC_REACH,
+  DISC_RANGE,
+  DISC_WIDTH,
+  BORO_HIT,
+  BORO_BAND,
+  BIG_EVERY,
+  BIG_HIT,
+  BIG_RADIUS,
+  MILK_HIT,
+  MILK_RADIUS,
+  MILK_STUN,
+  HP_DISC,
+  HP_BIG,
+  DPS_DISC,
+  DPS_BIG,
+  SPEED_DISC,
+  SPEED_BIG,
   KIND_BLACK,
   KIND_TAN,
   LANE_COUNT,
@@ -129,6 +150,8 @@ import {
   WIN_PAY,
   SASAMI_HOME,
   KINDS,
+  DECK_SIZE,
+  DEFAULT_DECK,
   RUSH_TIME,
   SPECIAL_NEED,
   SPEED_SESAME,
@@ -182,6 +205,8 @@ export interface Input {
   callWave?: boolean
   /** On the level-up screen, buy a level for this coat. */
   levelUp?: number
+  /** On the level-up screen, put this coat in or take it out of the deck. */
+  toggleDeck?: number
   restart: boolean
 }
 
@@ -227,6 +252,8 @@ export interface Sim {
   earned: number
   /** Bumps whenever levels or the purse change, so the shell knows to save. */
   saveSeq: number
+  /** The coats brought to a match, in dock order: DECK_SIZE of the roster. */
+  deck: number[]
   /** Current stage index (0-based). */
   stage: number
   /** Best stars per stage, 0 = not cleared. Kept across matches. */
@@ -235,6 +262,9 @@ export interface Sim {
   stars: number
   /** ホネ banked this match by calling waves early. */
   callBonus: number
+  /** Where the last special landed, for 白 ボーロ (row y) and ミルク (point). */
+  fxX: number
+  fxY: number
   /** Pulse timer for the call button after a call. */
   callT: number
   rewardT: number
@@ -286,6 +316,8 @@ export interface SimOptions {
   /** Stage to start on and the best stars per stage so far. */
   stage?: number
   best?: readonly number[]
+  /** Saved deck: coat numbers in dock order. */
+  deck?: readonly number[]
 }
 
 const OPEN_Y = [430, 470, 510, 550, 400, 500, 540, 580, 620, 470]
@@ -354,10 +386,13 @@ export function createSim(opts?: SimOptions): Sim {
     purse: Math.max(0, Math.floor(opts?.purse ?? 0)),
     earned: 0,
     saveSeq: 0,
+    deck: [...DEFAULT_DECK],
     stage: Math.min(STAGES.length - 1, Math.max(0, Math.floor(opts?.stage ?? 0))),
     best: STAGES.map((_, i) => Math.min(3, Math.max(0, Math.floor(opts?.best?.[i] ?? 0)))),
     stars: 0,
     callBonus: 0,
+    fxX: 0,
+    fxY: 0,
     callT: 0,
     rewardT: 0,
     nextCat: CLASH_AT,
@@ -386,8 +421,40 @@ export function createSim(opts?: SimOptions): Sim {
     laneSN: new Int16Array(LANE_COUNT),
     laneCN: new Int16Array(LANE_COUNT),
   }
+  if (opts?.free === true) sim.deck = cleanDeck(opts?.deck)
+  sim.picked = sim.deck[0] ?? KIND_TAN
   boot(sim)
   return sim
+}
+
+/** A saved deck is kept only if it is DECK_SIZE different coats of the roster; otherwise the default deck. */
+function cleanDeck(deck: readonly number[] | undefined): number[] {
+  if (!deck || deck.length !== DECK_SIZE) return [...DEFAULT_DECK]
+  const seen = new Set<number>()
+  for (const k of deck) {
+    if (!Number.isInteger(k) || k < 0 || k >= KINDS || seen.has(k)) return [...DEFAULT_DECK]
+    seen.add(k)
+  }
+  return [...deck]
+}
+
+export function deckReady(sim: Sim): boolean {
+  return sim.deck.length === DECK_SIZE
+}
+
+/** Put a coat in the deck, or take it out. A full deck needs one out first. */
+export function toggleDeck(sim: Sim, kind: number): boolean {
+  if (!sim.free || kind < 0 || kind >= KINDS) return false
+  const at = sim.deck.indexOf(kind)
+  if (at >= 0) {
+    sim.deck.splice(at, 1)
+  } else if (sim.deck.length < DECK_SIZE) {
+    sim.deck.push(kind)
+  } else {
+    return false
+  }
+  sim.saveSeq += 1
+  return true
 }
 
 const OLD_STAGE: (typeof STAGES)[number] = { count: DOG_COUNT, hp: 1, dps: 1, dachsEvery: 5, goldenEvery: 9, bulldogEvery: 7, rocks: [] }
@@ -419,6 +486,7 @@ export function reset(sim: Sim): void {
     sim.saveSeq += 1
   }
   boot(sim)
+  sim.picked = sim.deck[0] ?? KIND_TAN
 }
 
 function boot(sim: Sim): void {
@@ -483,7 +551,7 @@ export function spawnShiba(sim: Sim, kind: number, lane: number, y: number): boo
   const unit = acquire(sim.shibas, sim, 's')
   if (!unit) return false
   const laneW = FIELD_W / LANE_COUNT
-  const k = kind === KIND_BLACK || kind === KIND_SESAME || kind === KIND_WHITE ? kind : KIND_TAN
+  const k = kind >= 0 && kind < KINDS ? kind : KIND_TAN
   unit.alive = true
   unit.lane = lane
   unit.kind = k
@@ -504,11 +572,11 @@ export function spawnShiba(sim: Sim, kind: number, lane: number, y: number): boo
   return true
 }
 
-const HP_OF = [HP_TAN, HP_BLACK, HP_SESAME, HP_WHITE] as const
-const DPS_OF = [DPS_TAN, DPS_BLACK, DPS_SESAME, DPS_WHITE] as const
-const SPEED_OF = [SPEED_TAN, SPEED_BLACK, SPEED_SESAME, SPEED_WHITE] as const
-const COUNT_OF = [COUNT_TAN, COUNT_BLACK, COUNT_SESAME, COUNT_WHITE] as const
-const STEP_OF = [STEP_TAN, STEP_BLACK, STEP_SESAME, STEP_WHITE] as const
+const HP_OF = [HP_TAN, HP_BLACK, HP_SESAME, HP_WHITE, HP_DISC, HP_BIG] as const
+const DPS_OF = [DPS_TAN, DPS_BLACK, DPS_SESAME, DPS_WHITE, DPS_DISC, DPS_BIG] as const
+const SPEED_OF = [SPEED_TAN, SPEED_BLACK, SPEED_SESAME, SPEED_WHITE, SPEED_DISC, SPEED_BIG] as const
+const COUNT_OF = [COUNT_TAN, COUNT_BLACK, COUNT_SESAME, COUNT_WHITE, 1, 1] as const
+const STEP_OF = [STEP_TAN, STEP_BLACK, STEP_SESAME, STEP_WHITE, 0, 0] as const
 
 export function fillMarch(sim: Sim, count: number): number {
   let spawned = 0
@@ -595,14 +663,15 @@ export function step(sim: Sim, dt: number, input: Input = NO_INPUT): void {
       return
     }
     if (input.levelUp !== undefined) buyLevel(sim, input.levelUp)
-    if (input.restart) reset(sim)
+    if (input.toggleDeck !== undefined) toggleDeck(sim, input.toggleDeck)
+    if (input.restart && deckReady(sim)) reset(sim)
     return
   }
 
-  if (input.pick !== undefined && input.pick >= 0 && input.pick < KINDS) sim.picked = input.pick
+  if (input.pick !== undefined && input.pick >= 0 && input.pick < KINDS && (!sim.free || sim.deck.includes(input.pick))) sim.picked = input.pick
   if (input.recall && sim.free) recallAt(sim, input.recall.x, input.recall.y)
   if (input.callWave) callWave(sim)
-  if (input.card >= 0 && input.card < KINDS) tryDeploy(sim, input.card, input.lane, input.at)
+  if (input.card >= 0 && input.card < KINDS && (!sim.free || sim.deck.includes(input.card))) tryDeploy(sim, input.card, input.lane, input.at)
 
   const income = (BONE_RATE + sim.aliveShibas * BONE_PER_SHIBA) * (sim.free ? FREE_INCOME : 1)
   const tick = dt
@@ -1074,6 +1143,27 @@ function recallAt(sim: Sim, x: number, y: number): void {
 }
 
 /** Free placement: every shiba and dog walks to the nearest foe it can see and bites on the beat; dogs with nothing in sight head for the 柴の家. */
+/** ぶち柴's frisbee: one straight cut from the thrower through the target, hitting every dog on the way. */
+function throwDisc(sim: Sim, shiba: Unit, foe: Unit): void {
+  const dx = foe.x - shiba.x
+  const dy = foe.y - shiba.y
+  const len = Math.max(1, Math.hypot(dx, dy))
+  const ux = dx / len
+  const uy = dy / len
+  const hit = DISC_HIT * power(sim, KIND_DISC)
+  for (const dog of sim.cats) {
+    if (!dog?.alive || dog.fly === 1 || dog.hp <= 0) continue
+    const rx = dog.x - shiba.x
+    const ry = dog.y - shiba.y
+    const along = rx * ux + ry * uy
+    if (along < 0 || along > DISC_RANGE) continue
+    if (Math.abs(rx * uy - ry * ux) <= DISC_WIDTH) hurt(sim, dog, hit, KIND_DISC)
+  }
+  shiba.aimX = shiba.x + ux * DISC_RANGE
+  shiba.aimY = shiba.y + uy * DISC_RANGE
+  shiba.bitAt = sim.time
+}
+
 function moveFree(sim: Sim, rawDt: number): void {
   activeRocks = spec(sim).rocks
   // Movement runs slower; bites keep their beat.
@@ -1106,7 +1196,7 @@ function moveFree(sim: Sim, rawDt: number): void {
       shiba.bite = BITE_EVERY * 0.5
       continue
     }
-    const reach = shiba.kind === KIND_SESAME ? BARK_RANGE : FREE_REACH
+    const reach = shiba.kind === KIND_SESAME ? BARK_RANGE : shiba.kind === KIND_DISC ? DISC_REACH : FREE_REACH
     const d = Math.hypot(foe.x - shiba.x, foe.y - shiba.y)
     if (d > reach + 4) {
       stepToward(shiba, foe.x, foe.y, Math.min(d - reach * 0.9, shiba.speed * pace * dt))
@@ -1117,6 +1207,25 @@ function moveFree(sim: Sim, rawDt: number): void {
       if (shiba.cd <= 0) {
         shiba.cd = HEAVY_EVERY
         hurt(sim, foe, HEAVY_HIT * power(sim, KIND_BLACK), KIND_BLACK)
+        shiba.aimX = foe.x
+        shiba.aimY = foe.y
+        shiba.bitAt = sim.time
+      }
+    } else if (shiba.kind === KIND_DISC) {
+      shiba.cd -= beat
+      if (shiba.cd <= 0) {
+        shiba.cd = DISC_EVERY
+        throwDisc(sim, shiba, foe)
+      }
+    } else if (shiba.kind === KIND_BIG) {
+      shiba.cd -= beat
+      if (shiba.cd <= 0) {
+        shiba.cd = BIG_EVERY
+        const hit = BIG_HIT * power(sim, KIND_BIG)
+        for (const dog of sim.cats) {
+          if (!dog?.alive || dog.fly === 1 || dog.hp <= 0) continue
+          if (Math.hypot(dog.x - shiba.x, dog.y - shiba.y) <= BIG_RADIUS) hurt(sim, dog, hit, KIND_BIG)
+        }
         shiba.aimX = foe.x
         shiba.aimY = foe.y
         shiba.bitAt = sim.time
@@ -1378,6 +1487,43 @@ export function strikeSpecial(sim: Sim, kind: number): void {
       unit.mendAt = sim.time
     }
     sim.homeHp = Math.min(HOME_HP, sim.homeHp + SASAMI_HOME)
+  } else if (kind === KIND_DISC) {
+    // ボーロ!!: the whole row of the most advanced dog.
+    let front = -Infinity
+    for (const c of cats) if (c?.alive && c.fly !== 1 && c.hp > 0 && c.y > front) front = c.y
+    sim.fxY = front
+    for (const c of cats) {
+      if (!c?.alive || c.fly === 1 || c.hp <= 0 || Math.abs(c.y - front) > BORO_BAND) continue
+      const hit = Math.min(Math.max(0, c.hp), BORO_HIT * scale)
+      dealt += hit
+      c.hp -= BORO_HIT * scale
+      note(c, hit, false)
+    }
+  } else if (kind === KIND_BIG) {
+    // ミルク!!: the thickest knot of dogs.
+    let bestN = -1
+    let bx = FIELD_W / 2
+    let by = FIELD_H / 3
+    for (const a of cats) {
+      if (!a?.alive || a.fly === 1 || a.hp <= 0) continue
+      let n = 0
+      for (const b of cats) if (b?.alive && b.fly !== 1 && b.hp > 0 && Math.hypot(a.x - b.x, a.y - b.y) <= MILK_RADIUS) n += 1
+      if (n > bestN) {
+        bestN = n
+        bx = a.x
+        by = a.y
+      }
+    }
+    sim.fxX = bx
+    sim.fxY = by
+    for (const c of cats) {
+      if (!c?.alive || c.fly === 1 || c.hp <= 0 || Math.hypot(c.x - bx, c.y - by) > MILK_RADIUS) continue
+      const hit = Math.min(Math.max(0, c.hp), MILK_HIT * scale)
+      dealt += hit
+      c.hp -= MILK_HIT * scale
+      note(c, hit, false)
+      if (c.kind !== BREED_BOSS) c.stun = MILK_STUN
+    }
   } else {
     for (let i = 0; i < cats.length; i++) {
       const cat = cats[i]

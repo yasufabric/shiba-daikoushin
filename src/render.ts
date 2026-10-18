@@ -1,4 +1,4 @@
-import { FUR_BLACK, FUR_CREAM, FUR_RED, FUR_SESAME, heroCell, pawArt } from './art'
+import { FUR_BLACK, FUR_BUCHI, FUR_CREAM, FUR_GRAY, FUR_RED, FUR_SESAME, heroCell, pawArt } from './art'
 import {
   ATTACK_RANGE,
   BONE_X,
@@ -36,17 +36,24 @@ import {
   FLOAT_TIME,
   KIND_BLACK,
   KIND_TAN,
+  KIND_BIG,
+  KIND_DISC,
   KIND_SESAME,
   KIND_WHITE,
+  BIG_RADIUS,
+  BORO_BAND,
+  MILK_RADIUS,
   KINDS,
+  DECK_SIZE,
   CARD_XS,
   RECHARGE,
   MAX_LEVEL,
-  SHOP_ROW_GAP,
-  SHOP_ROW_H,
-  SHOP_ROW_W,
-  SHOP_ROW_X,
-  SHOP_ROW_Y0,
+  SHOP_CELL_H,
+  SHOP_CELL_W,
+  SHOP_GAP,
+  SHOP_PICK_W,
+  SHOP_X0,
+  SHOP_Y0,
   START_H,
   START_W,
   START_X,
@@ -59,7 +66,7 @@ import {
   MAX_SHIBAS,
   PANEL_Y,
 } from './balance'
-import { BANNER_POP, BANNER_REST, CLEAR_WORD, glyphBit, LEVEL_WORD, letterBit, LOSE_WORD, START_WORD, POP_COL, POP_ROW, RUMBLE_WORD, SPECIAL_WORDS, STAGE_WORD } from './font'
+import { BANNER_POP, BANNER_REST, CLEAR_WORD, glyphBit, LEVEL_WORD, letterBit, LOSE_WORD, START_WORD, POP_COL, POP_ROW, RUMBLE_WORD, SELECT_WORD, SPECIAL_WORDS, STAGE_WORD } from './font'
 import {
   BOSS_H,
   BOSS_W,
@@ -96,7 +103,7 @@ import {
   WHITE_DARK,
   WHITE_MID,
 } from './palette'
-import { canCall, costOf, spec, dogsLeft, levelCost, type Outcome, type Sim, type Unit } from './sim'
+import { canCall, costOf, deckReady, spec, dogsLeft, levelCost, type Outcome, type Sim, type Unit } from './sim'
 import { createSheets, type Sheets } from './sprites'
 
 const BUCKETS = 96
@@ -315,9 +322,12 @@ export function screenToWorld(
   clientY: number,
   rectLeft: number,
   rectTop: number,
+  /** The result screen is laid out from the top with no dock, so it maps straight. */
+  flat = false,
 ): { x: number; y: number } {
   const ix = Math.round((clientX - rectLeft - frame.ox) / frame.scale) - frame.shiftX
   const iyRaw = Math.round((clientY - rectTop - frame.oy) / frame.scale) - frame.topDy
+  if (flat) return { x: ix * 2, y: iyRaw * 2 }
   const panel = at(PANEL_Y) + frame.dockDy
   let iy = iyRaw >= panel ? iyRaw - frame.dockDy : iyRaw
   if (frame.dockDy < 0 && iyRaw < panel) {
@@ -741,6 +751,45 @@ function paintAttacks(ctx: CanvasRenderingContext2D, sim: Sim): void {
           ctx.fillRect(tx + Math.round(Math.cos(a) * r), ty + Math.round(Math.sin(a) * r * 0.75), 2, 2)
         }
       }
+    } else if (unit.kind === KIND_DISC) {
+      // A frisbee skims out along the line it cuts: a spinning white disc with a gold rim and a dashed trail.
+      const fly = 0.5
+      if (age < fly) {
+        const sx = px(at(FIELD_X + unit.x))
+        const sy = fpy(unit.y) - (CROWD_PX >> 1)
+        const ex = px(at(FIELD_X + unit.aimX))
+        const ey = fpy(unit.aimY) - (CROWD_PX >> 1)
+        const f = age / fly
+        const bx = Math.round(sx + (ex - sx) * f)
+        const by = Math.round(sy + (ey - sy) * f)
+        ctx.fillStyle = GOLD_LIGHT
+        for (let k = 1; k <= 6; k++) {
+          const g = Math.max(0, f - k * 0.06)
+          ctx.fillRect(Math.round(sx + (ex - sx) * g), Math.round(sy + (ey - sy) * g), 2, 1)
+        }
+        const wide = (Math.floor(age * 20) & 1) === 0
+        ctx.fillStyle = LINE
+        ctx.fillRect(bx - (wide ? 6 : 4), by - 2, wide ? 13 : 9, 5)
+        ctx.fillStyle = GOLD
+        ctx.fillRect(bx - (wide ? 5 : 3), by - 1, wide ? 11 : 7, 3)
+        ctx.fillStyle = WHITE
+        ctx.fillRect(bx - (wide ? 3 : 2), by - 1, wide ? 7 : 5, 2)
+      }
+    } else if (unit.kind === KIND_BIG) {
+      // A stomp: dust jumps up and a flat ring runs out from its own paws.
+      const t = Math.min(1, age / 0.6)
+      const cx = px(at(FIELD_X + unit.x))
+      const gy = fpy(unit.y)
+      const r = Math.round(at(BIG_RADIUS) * (0.3 + t * 0.7))
+      ctx.fillStyle = t < 0.5 ? WHITE : GOLD
+      for (let k = 0; k < 24; k++) {
+        const a = (k / 24) * Math.PI * 2
+        ctx.fillRect(cx + Math.round(Math.cos(a) * r), gy + Math.round(Math.sin(a) * r * 0.45), 3, 2)
+      }
+      if (age < 0.25) {
+        ctx.fillStyle = WHITE_MID
+        for (const [ox, oy] of [[-12, -3], [-7, -7], [8, -6], [13, -2]] as const) ctx.fillRect(cx + ox, gy + oy - Math.round(age * 24), 3, 3)
+      }
     } else if (age < 0.55) {
       // Three slash marks, one after another.
       const shown = Math.min(3, 1 + Math.floor(age / 0.14))
@@ -1009,6 +1058,8 @@ function furOf(kind: number): number {
   if (kind === KIND_BLACK) return FUR_BLACK
   if (kind === KIND_SESAME) return FUR_SESAME
   if (kind === KIND_WHITE) return FUR_CREAM
+  if (kind === KIND_DISC) return FUR_BUCHI
+  if (kind === KIND_BIG) return FUR_GRAY
   return FUR_RED
 }
 
@@ -1233,8 +1284,8 @@ function paintBooms(ctx: CanvasRenderingContext2D, renderer: Renderer, sim: Sim)
   }
 }
 
-const COAT_DARK = [FUR_MID, NIGHT, WHITE_DARK, FUR_DARK] as const
-const COAT_LIT = [FUR_BODY, NIGHT_2, WHITE_MID, FUR_MID] as const
+const COAT_DARK = [FUR_MID, NIGHT, WHITE_DARK, FUR_DARK, GOLD_DARK, NIGHT_2] as const
+const COAT_LIT = [FUR_BODY, NIGHT_2, WHITE_MID, FUR_MID, GOLD, NIGHT_3] as const
 const CUT_H = 44
 const CUT_SLIDE = 0.12
 
@@ -1250,6 +1301,8 @@ function paintSpecialField(ctx: CanvasRenderingContext2D, renderer: Renderer, si
     if (sim.free) paintJerkyRain(ctx, renderer, sim, age)
     else paintJerky(ctx, renderer, sim, age, fresh)
   } else if (sim.fxKind === KIND_WHITE) paintSasami(ctx, renderer, sim, age)
+  else if (sim.fxKind === KIND_DISC) paintBoro(ctx, renderer, sim, age, fresh)
+  else if (sim.fxKind === KIND_BIG) paintMilk(ctx, renderer, sim, age, fresh)
   else paintCheese(ctx, renderer, sim, age, fresh)
   paintFxHits(ctx, renderer, sim, age)
 }
@@ -1480,6 +1533,71 @@ function paintCheese(ctx: CanvasRenderingContext2D, renderer: Renderer, sim: Sim
   if (age < FX_TIME - 0.2) drawCheese(ctx, cx, mid - 36 + (age < fall + 0.06 ? 2 : 0), 2)
 }
 
+/** ぶち「ボーロ!!」: a row of round biscuits sweeps across the row of the front dog, then the band flashes. */
+function paintBoro(ctx: CanvasRenderingContext2D, renderer: Renderer, sim: Sim, age: number, fresh: boolean): void {
+  const w = frame.internalW
+  const cy = fpy(sim.fxY) - (CAT_PX >> 1)
+  const sweep = 0.45
+  const f = Math.min(1, age / sweep)
+  const head = Math.round(f * (w + 16)) - 8
+  if (fresh) spawnBoom(renderer, sim, 6, cy)
+  const half = Math.round(at(BORO_BAND))
+  for (let x = head; x > head - 70 && x >= 0; x -= 14) {
+    if (x > w) continue
+    for (const oy of [-half + 6, 0, half - 6]) {
+      ctx.fillStyle = LINE
+      ctx.fillRect(x - 4, cy + oy - 4, 9, 9)
+      ctx.fillStyle = x === head ? WHITE : GOLD_LIGHT
+      ctx.fillRect(x - 3, cy + oy - 3, 7, 7)
+      ctx.fillStyle = GOLD
+      ctx.fillRect(x - 1, cy + oy - 1, 3, 3)
+    }
+  }
+  if (age > sweep) {
+    const t = Math.min(1, (age - sweep) / 0.3)
+    ctx.fillStyle = t < 0.5 ? WHITE : GOLD_LIGHT
+    ctx.fillRect(0, cy - half, w, 2)
+    ctx.fillRect(0, cy + half - 2, w, 2)
+  }
+}
+
+/** どっしり「ミルク!!」: a milk bottle drops on the thickest knot of dogs and a white ring floods out. */
+function paintMilk(ctx: CanvasRenderingContext2D, renderer: Renderer, sim: Sim, age: number, fresh: boolean): void {
+  const fy = py(at(FIELD_Y))
+  const cx = px(at(FIELD_X + sim.fxX))
+  const cy = fpy(sim.fxY) - (CAT_PX >> 1)
+  const fall = 0.16
+  if (age < fall) {
+    drawMilk(ctx, cx, Math.round(fy - 30 + ((cy - 18 - (fy - 30)) * age) / fall))
+    return
+  }
+  if (fresh) spawnBoom(renderer, sim, cx, cy)
+  const t = Math.min(1, (age - fall) / 0.5)
+  const r = Math.round(at(MILK_RADIUS) * (0.25 + t * 0.75))
+  ctx.fillStyle = t < 0.5 ? WHITE : SKY_LIGHT
+  for (let k = 0; k < 30; k++) {
+    const a = (k / 30) * Math.PI * 2
+    ctx.fillRect(cx + Math.round(Math.cos(a) * r), cy + Math.round(Math.sin(a) * r * 0.6), 3, 3)
+  }
+  if (age < FX_TIME - 0.3) drawMilk(ctx, cx, cy - 18 + (age < fall + 0.06 ? 3 : 0))
+}
+
+/** A milk bottle, 10×16, outlined: white glass, a sky label, a gold cap. */
+function drawMilk(ctx: CanvasRenderingContext2D, cx: number, y: number): void {
+  const x = cx - 5
+  ctx.fillStyle = LINE
+  ctx.fillRect(x + 2, y, 6, 3)
+  ctx.fillRect(x, y + 3, 10, 14)
+  ctx.fillStyle = GOLD
+  ctx.fillRect(x + 3, y + 1, 4, 2)
+  ctx.fillStyle = WHITE
+  ctx.fillRect(x + 1, y + 4, 8, 12)
+  ctx.fillStyle = SKY
+  ctx.fillRect(x + 2, y + 8, 6, 4)
+  ctx.fillStyle = WHITE_MID
+  ctx.fillRect(x + 7, y + 4, 2, 12)
+}
+
 /** Small cut-in: a striped band slides in, the smug face shouts the food, and ゴゴゴ shakes above it. */
 function paintCutIn(ctx: CanvasRenderingContext2D, renderer: Renderer, sim: Sim): void {
   const kind = sim.cutKind
@@ -1582,10 +1700,11 @@ function paintDock(ctx: CanvasRenderingContext2D, renderer: Renderer, sim: Sim):
     ctx.drawImage(renderer.sheets.bone, px(at(BONE_X)), pyDock(at(BONE_Y)))
     drawNumber(ctx, renderer, sim.bones | 0, px(at(BONE_X)) + 14, pyDock(at(BONE_Y)) + 1, false)
   }
-  for (let kind = 0; kind < KINDS; kind++) {
+  for (let slot = 0; slot < CARD_XS.length; slot++) {
+    const kind = sim.free ? (sim.deck[slot] ?? slot) : slot
     const deny = [sim.deny0, sim.deny1, sim.deny2, sim.deny3][kind] ?? 0
     const cost = sim.free ? -1 : costOf(sim, kind)
-    const x = px(at(CARD_XS[kind] ?? CARD_X0) + denyShift(deny))
+    const x = px(at(CARD_XS[slot] ?? CARD_X0) + denyShift(deny))
     const wait = (sim.recharge[kind] ?? 0) / (RECHARGE[kind] ?? 1)
     const ready = sim.free ? sim.aliveShibas < FIELD_CAP : sim.bones >= cost
     paintCard(ctx, renderer, x, kind, cost, ready && wait <= 0, false, sim.time, kind === sim.picked, wait)
@@ -1835,79 +1954,160 @@ function drawLetter(
 }
 
 /** Between matches: what the match paid, the purse, a row per coat to buy a level, and START. */
+/** Where the result screen puts things, in internal px from its top. Short phones get a tight header and START floats at the bottom edge so it is always on screen. */
+function shopLayout(): { compact: boolean; cellTop: number; startY: number } {
+  const room = frame.internalH - frame.topDy
+  const compact = room < 372
+  const bh = at(START_H)
+  return {
+    compact,
+    cellTop: compact ? 74 : at(SHOP_Y0),
+    startY: compact ? room - bh - 4 : at(START_Y),
+  }
+}
+
+/** What a tap on the result screen hits, from a flat world point (see screenToWorld): START, a coat's deck zone, or its buy button. */
+export function shopTarget(x: number, y: number, kinds: number): { type: 'start' | 'pick' | 'buy' | 'none'; kind: number } {
+  const lay = shopLayout()
+  const ix = x / 2
+  const iy = y / 2
+  const bx = at(START_X)
+  const by = lay.startY
+  if (ix >= bx - 2 && ix <= bx + at(START_W) + 2 && iy >= by - 4 && iy <= by + at(START_H) + 4) return { type: 'start', kind: -1 }
+  for (let kind = 0; kind < kinds; kind++) {
+    const cx = at(SHOP_X0 + (kind % 2) * (SHOP_CELL_W + SHOP_GAP))
+    const cy = lay.cellTop + Math.floor(kind / 2) * (at(SHOP_CELL_H) + at(SHOP_GAP))
+    if (ix < cx || ix > cx + at(SHOP_CELL_W) || iy < cy || iy > cy + at(SHOP_CELL_H)) continue
+    return { type: ix < cx + at(SHOP_PICK_W) ? 'pick' : 'buy', kind }
+  }
+  return { type: 'none', kind: -1 }
+}
+
 function paintShop(ctx: CanvasRenderingContext2D, renderer: Renderer, sim: Sim): void {
   ctx.fillStyle = NIGHT
   ctx.fillRect(0, 0, frame.internalW, frame.internalH)
   const won = sim.outcome === 'won'
   const word = won ? CLEAR_WORD : LOSE_WORD
   const wx = (frame.internalW - word.length * 18) >> 1
-  for (let i = 0; i < word.length; i++) drawLetter(ctx, word[i] ?? '', wx + i * 18, py(28), 2, won ? GOLD_LIGHT : DANGER)
+  const lay = shopLayout()
+  const wy = lay.compact ? 14 : 28
+  for (let i = 0; i < word.length; i++) drawLetter(ctx, word[i] ?? '', wx + i * 18, py(wy), 2, won ? GOLD_LIGHT : DANGER)
   // STAGE n and the stars won (empty outlines on a loss).
   const stw = STAGE_WORD.length * 10 + 14
   const stx = (frame.internalW - stw) >> 1
-  for (let i = 0; i < STAGE_WORD.length; i++) drawLetter(ctx, STAGE_WORD[i] ?? '', stx + i * 10, py(8), 1, WHITE)
-  drawNumber(ctx, renderer, sim.stage + 1, stx + STAGE_WORD.length * 10 + 4, py(8), false)
-  for (let i = 0; i < 3; i++) drawStar(ctx, ((frame.internalW - 66) >> 1) + i * 24, py(99), i < sim.stars)
+  for (let i = 0; i < STAGE_WORD.length; i++) drawLetter(ctx, STAGE_WORD[i] ?? '', stx + i * 10, py(lay.compact ? 3 : 8), 1, WHITE)
+  drawNumber(ctx, renderer, sim.stage + 1, stx + STAGE_WORD.length * 10 + 4, py(lay.compact ? 3 : 8), false)
+  for (let i = 0; i < 3; i++) drawStar(ctx, ((frame.internalW - 66) >> 1) + i * 24, py(lay.compact ? 52 : 99), i < sim.stars)
   const earnedDigits = digitCount(sim.earned)
-  const ex = (frame.internalW - (22 + earnedDigits * 10)) >> 1
-  ctx.drawImage(renderer.sheets.bone, ex, py(62) + 1)
-  drawLetter(ctx, '+', ex + 13, py(62), 1, GOLD_LIGHT)
-  drawNumber(ctx, renderer, sim.earned, ex + 22, py(62), false)
   const purseDigits = digitCount(sim.purse)
-  const pxl = (frame.internalW - (14 + purseDigits * 14)) >> 1
-  ctx.drawImage(renderer.sheets.bone, pxl, py(84) + 3)
-  drawNumber(ctx, renderer, sim.purse, pxl + 14, py(84), true)
-  for (let kind = 0; kind < sim.levels.length; kind++) {
+  const earnedY = lay.compact ? 38 : 62
+  const ex = lay.compact ? 8 : (frame.internalW - (22 + earnedDigits * 10)) >> 1
+  ctx.drawImage(renderer.sheets.bone, ex, py(earnedY) + 1)
+  drawLetter(ctx, '+', ex + 13, py(earnedY), 1, GOLD_LIGHT)
+  drawNumber(ctx, renderer, sim.earned, ex + 22, py(earnedY), false)
+  const pxl = lay.compact ? frame.internalW - 8 - (14 + purseDigits * 14) : (frame.internalW - (14 + purseDigits * 14)) >> 1
+  const purseY = lay.compact ? 36 : 84
+  ctx.drawImage(renderer.sheets.bone, pxl, py(purseY) + 3)
+  drawNumber(ctx, renderer, sim.purse, pxl + 14, py(purseY), true)
+  const shown = sim.free ? KINDS : 4
+  for (let kind = 0; kind < shown; kind++) {
     const level = sim.levels[kind] ?? 1
     const maxed = level >= MAX_LEVEL
     const cost = levelCost(level)
     const can = !maxed && sim.purse >= cost
-    const x = px(at(SHOP_ROW_X))
-    const y = py(at(SHOP_ROW_Y0 + kind * (SHOP_ROW_H + SHOP_ROW_GAP)))
-    const w = at(SHOP_ROW_W)
-    const h = at(SHOP_ROW_H)
-    ctx.fillStyle = can ? NIGHT_2 : NIGHT_1
+    const slot = sim.deck.indexOf(kind)
+    const inDeck = !sim.free || slot >= 0
+    const x = px(at(SHOP_X0 + (kind % 2) * (SHOP_CELL_W + SHOP_GAP)))
+    const y = py(lay.cellTop + Math.floor(kind / 2) * (at(SHOP_CELL_H) + at(SHOP_GAP)))
+    const w = at(SHOP_CELL_W)
+    const h = at(SHOP_CELL_H)
+    const pick = at(SHOP_PICK_W)
+    ctx.fillStyle = inDeck ? NIGHT_2 : NIGHT_1
     ctx.fillRect(x, y, w, h)
-    frameRect(ctx, x, y, w, h, can ? GOLD : NIGHT_3)
-    frameRect(ctx, x + 1, y + 1, w - 2, h - 2, can ? GOLD_DARK : NIGHT_2)
-    const blink = can && (Math.floor(sim.time * 2 + kind) & 1) === 1
-    ctx.drawImage(renderer.sheets.hero, heroCell(kind, blink ? 'blink' : 'open') * HERO_PX, 0, HERO_PX, HERO_PX, x + 6, y + ((h - HERO_PX) >> 1), HERO_PX, HERO_PX)
-    if (kind === KIND_WHITE) drawHeart(ctx, x + 32, y + 6)
-    const lx = x + 46
-    const ly = y + ((h - 10) >> 1)
-    drawLetter(ctx, LEVEL_WORD[0] ?? '', lx, ly, 1, WHITE)
-    drawLetter(ctx, LEVEL_WORD[1] ?? '', lx + 9, ly, 1, WHITE)
-    drawNumber(ctx, renderer, level, lx + 20, ly, false)
+    frameRect(ctx, x, y, w, h, inDeck ? GOLD : NIGHT_3)
+    frameRect(ctx, x + 1, y + 1, w - 2, h - 2, inDeck ? GOLD_DARK : NIGHT_2)
+    ctx.fillStyle = LINE
+    ctx.fillRect(x, y, 1, 1)
+    ctx.fillRect(x + w - 1, y, 1, 1)
+    ctx.fillRect(x, y + h - 1, 1, 1)
+    ctx.fillRect(x + w - 1, y + h - 1, 1, 1)
+    // The portrait zone: a lit stage under the face, and the deck badge below it.
+    ctx.fillStyle = inDeck ? NIGHT_3 : NIGHT_2
+    ctx.fillRect(x + 4, y + 4, pick - 8, HERO_PX + 4)
+    const blink = inDeck && (Math.floor(sim.time * 2 + kind) & 1) === 1
+    ctx.drawImage(renderer.sheets.hero, heroCell(kind, blink ? 'blink' : 'open') * HERO_PX, 0, HERO_PX, HERO_PX, x + 4 + ((pick - 8 - HERO_PX) >> 1), y + 6, HERO_PX, HERO_PX)
+    if (kind === KIND_WHITE) drawHeart(ctx, x + pick - 14, y + 7)
+    if (sim.free) {
+      const bxx = x + 4
+      const byy = y + HERO_PX + 12
+      const bww = pick - 8
+      const bhh = h - HERO_PX - 16
+      ctx.fillStyle = LINE
+      ctx.fillRect(bxx, byy, bww, bhh)
+      ctx.fillStyle = slot >= 0 ? GOLD : NIGHT_1
+      ctx.fillRect(bxx + 1, byy + 1, bww - 2, bhh - 2)
+      if (slot >= 0) {
+        ctx.fillStyle = GOLD_LIGHT
+        ctx.fillRect(bxx + 1, byy + 1, bww - 2, 2)
+        drawNumber(ctx, renderer, slot + 1, bxx + ((bww - 10) >> 1), byy + ((bhh - 10) >> 1), false)
+      } else {
+        const full = sim.deck.length >= DECK_SIZE
+        drawLetter(ctx, '+', bxx + ((bww - 8) >> 1), byy + ((bhh - 10) >> 1), 1, full ? NIGHT_2 : GOLD_LIGHT)
+      }
+    }
+    // The buy zone: level, then a button with the cost.
+    const lx = x + pick + 2
+    drawLetter(ctx, LEVEL_WORD[0] ?? '', lx, y + 8, 1, WHITE)
+    drawLetter(ctx, LEVEL_WORD[1] ?? '', lx + 9, y + 8, 1, WHITE)
+    drawNumber(ctx, renderer, level, lx + 20, y + 8, false)
+    const kx = lx - 2
+    const ky = y + 24
+    const kw = w - pick - 4
+    const kh = h - 28
+    ctx.fillStyle = LINE
+    ctx.fillRect(kx, ky, kw, kh)
     if (maxed) {
       ctx.fillStyle = GOLD_CYCLE[Math.floor(sim.time * 8) & 3] ?? GOLD
-      ctx.fillRect(x + w - 22, ly + 2, 10, 6)
-      ctx.fillRect(x + w - 19, ly - 1, 4, 12)
+      ctx.fillRect(kx + 1, ky + 1, kw - 2, kh - 2)
+      ctx.fillStyle = LINE
+      ctx.fillRect(kx + (kw >> 1) - 4, ky + (kh >> 1) - 1, 9, 3)
+      ctx.fillRect(kx + (kw >> 1) - 1, ky + (kh >> 1) - 4, 3, 9)
       continue
     }
-    const cx = x + w - 10 - digitCount(cost) * 10
-    ctx.drawImage(renderer.sheets.bone, cx - 14, ly + 1)
-    drawNumber(ctx, renderer, cost, cx, ly, false)
-    const lock = can ? 0 : 1
-    if (lock) {
-      ctx.fillStyle = NIGHT
-      for (let k = 0; k < 3; k++) ctx.fillRect(cx - 14 + k * 12, ly + 12, 6, 1)
+    ctx.fillStyle = can ? GOLD : NIGHT_1
+    ctx.fillRect(kx + 1, ky + 1, kw - 2, kh - 2)
+    if (can) {
+      ctx.fillStyle = GOLD_LIGHT
+      ctx.fillRect(kx + 1, ky + 1, kw - 2, 2)
+      ctx.fillStyle = GOLD_DARK
+      ctx.fillRect(kx + 1, ky + kh - 3, kw - 2, 2)
     }
+    ctx.drawImage(renderer.sheets.bone, kx + ((kw - 12) >> 1), ky + 4)
+    const cw = digitCount(cost) * 10
+    drawNumber(ctx, renderer, cost, kx + ((kw - cw) >> 1), ky + kh - 15, false)
   }
   const bx = px(at(START_X))
-  const by = py(at(START_Y))
+  const by = py(lay.startY)
   const bw = at(START_W)
   const bh = at(START_H)
-  const bob = BOB[Math.floor(sim.time * 4) & 7] ?? 0
-  ctx.fillStyle = GOLD
+  const ready = deckReady(sim)
+  const bob = ready ? (BOB[Math.floor(sim.time * 4) & 7] ?? 0) : 0
+  ctx.fillStyle = ready ? GOLD : NIGHT_2
   ctx.fillRect(bx, by - (bob >> 1), bw, bh)
   frameRect(ctx, bx, by - (bob >> 1), bw, bh, LINE)
-  frameRect(ctx, bx + 1, by - (bob >> 1) + 1, bw - 2, bh - 2, GOLD_LIGHT)
-  ctx.fillStyle = GOLD_DARK
+  frameRect(ctx, bx + 1, by - (bob >> 1) + 1, bw - 2, bh - 2, ready ? GOLD_LIGHT : NIGHT_3)
+  ctx.fillStyle = ready ? GOLD_DARK : NIGHT_1
   ctx.fillRect(bx + 2, by - (bob >> 1) + bh - 4, bw - 4, 2)
   const sw = START_WORD.length * 18 - 2
   const sx = bx + ((bw - sw) >> 1)
   const sy = by - (bob >> 1) + ((bh - 20) >> 1)
-  for (let i = 0; i < START_WORD.length; i++) drawLetter(ctx, START_WORD[i] ?? '', sx + i * 18, sy, 2, WHITE)
+  for (let i = 0; i < START_WORD.length; i++) drawLetter(ctx, START_WORD[i] ?? '', sx + i * 18, sy, 2, ready ? WHITE : NIGHT_3)
+  if (!ready) {
+    // Pick DECK_SIZE coats first.
+    const hx = (frame.internalW - (SELECT_WORD.length * 10 + 14)) >> 1
+    for (let i = 0; i < SELECT_WORD.length; i++) drawLetter(ctx, SELECT_WORD[i] ?? '', hx + i * 10, by - 14, 1, DANGER)
+    drawNumber(ctx, renderer, DECK_SIZE, hx + SELECT_WORD.length * 10 + 4, by - 14, false)
+  }
 }
 
 /** A 17px sealed star: gold when won, a dim outline when not. */
