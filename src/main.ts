@@ -265,7 +265,8 @@ canvas.addEventListener('pointerdown', (ev) => {
   }
   const lane = laneAt(p.x, p.y)
   if (lane >= 0) {
-    input.card = sim.picked
+    // A pick tapped this same frame has not reached the sim yet, so it wins over sim.picked.
+    input.card = input.pick ?? sim.picked
     input.lane = lane
   }
 })
