@@ -15,6 +15,11 @@ import {
   BREED_CORGI,
   FIELD_CAP,
   FREE_WAVE_SLOW,
+  CALL_BONE,
+  CALL_H,
+  CALL_W,
+  CALL_X,
+  CALL_Y,
   WAVE_EVERY,
   WAVE_MIXED,
   WAVE_PINCER,
@@ -91,7 +96,7 @@ import {
   WHITE_DARK,
   WHITE_MID,
 } from './palette'
-import { costOf, dogsLeft, levelCost, type Outcome, type Sim, type Unit } from './sim'
+import { canCall, costOf, dogsLeft, levelCost, type Outcome, type Sim, type Unit } from './sim'
 import { createSheets, type Sheets } from './sprites'
 
 const BUCKETS = 96
@@ -167,6 +172,8 @@ export interface Renderer {
   boomsLeft: number
   /** Last special strike whose bursts were spawned. */
   fxSeen: number
+  /** Sim clock at the last draw; a drop means a new match began. */
+  lastTime: number
 }
 
 export interface ViewFit {
@@ -362,6 +369,7 @@ export function createRenderer(): Renderer {
     boomOn: new Uint8Array(BOOMS),
     boomCursor: 0,
     fxSeen: 0,
+    lastTime: 0,
     partX: new Int16Array(PARTS),
     partY: new Int16Array(PARTS),
     partVx: new Int8Array(PARTS),
@@ -396,6 +404,9 @@ export function draw(
   g.setTransform(1, 0, 0, 1, 0, 0)
   g.imageSmoothingEnabled = false
   renderer.boomsLeft = 12
+  // A new match restarts the clock, so every effect stamped with the old clock must go.
+  if (sim.time < renderer.lastTime - 0.01) forgetEffects(renderer)
+  renderer.lastTime = sim.time
 
   let sx = 0
   let sy = 0
@@ -431,6 +442,7 @@ export function draw(
   paintBooms(g, renderer, sim)
   g.restore()
   paintSpecialField(g, renderer, sim)
+  paintCall(g, renderer, sim)
   paintDamage(g, renderer, sim)
   paintCutIn(g, renderer, sim)
   g.restore()
@@ -537,6 +549,38 @@ function paintCastle(ctx: CanvasRenderingContext2D, renderer: Renderer, sim: Sim
   ctx.drawImage(sprite, x, y)
   paintDogsLeft(ctx, renderer, sim, x + BOSS_W + 6, y + 6)
   paintNextWave(ctx, renderer, sim, x - 50, y + 6)
+}
+
+/** 波を早く呼ぶ: a gold pill under the wave bar with chevrons and the ホネ the skip would pay. */
+function paintCall(ctx: CanvasRenderingContext2D, renderer: Renderer, sim: Sim): void {
+  if (!sim.free || sim.boss || sim.toSend <= 0 || sim.tutorial) return
+  const on = canCall(sim)
+  const x = CALL_X
+  const y = CALL_Y + frame.topDy
+  const press = sim.callT > 0 ? 1 : 0
+  ctx.fillStyle = LINE
+  ctx.fillRect(x, y + press, CALL_W, CALL_H)
+  ctx.fillStyle = on ? GOLD : NIGHT_3
+  ctx.fillRect(x + 1, y + 1 + press, CALL_W - 2, CALL_H - 2)
+  ctx.fillStyle = on ? GOLD_LIGHT : NIGHT_2
+  ctx.fillRect(x + 2, y + 2 + press, CALL_W - 4, 2)
+  ctx.fillStyle = on ? GOLD_DARK : NIGHT_1
+  ctx.fillRect(x + 2, y + CALL_H - 4 + press, CALL_W - 4, 2)
+  // Two chevrons that slide while a call is ready.
+  const slide = on ? (Math.floor(sim.time * 6) & 3) >> 1 : 0
+  for (let k = 0; k < 2; k++) {
+    const cx = x + 5 + k * 6 + slide
+    ctx.fillStyle = on ? WHITE : NIGHT_2
+    for (let r = 0; r < 4; r++) {
+      ctx.fillRect(cx + r, y + 4 + r + press, 1, 1)
+      ctx.fillRect(cx + r, y + 11 - r + press, 1, 1)
+    }
+  }
+  if (!on) return
+  const bonus = Math.round((sim.nextCat - sim.time) * CALL_BONE)
+  ctx.drawImage(renderer.sheets.bone, x + 20, y + 3 + press)
+  drawLetter(ctx, '+', x + 34, y + 3 + press, 1, WHITE)
+  drawNumber(ctx, renderer, bonus, x + 43, y + 3 + press, false)
 }
 
 /** How many dogs are still to beat, the boss included: a dog-head icon and pink digits beside the mansion. */
@@ -934,6 +978,16 @@ function drawBoss(ctx: CanvasRenderingContext2D, renderer: Renderer, sim: Sim, b
   ctx.drawImage(renderer.sheets.boss, frameNo * size, flash ? size : 0, size, size, dx, dy, size, size)
 }
 
+function forgetEffects(renderer: Renderer): void {
+  renderer.ghostOn.fill(0)
+  renderer.boomOn.fill(0)
+  renderer.partOn.fill(0)
+  renderer.shibaOn.fill(0)
+  renderer.hitstop = 0
+  renderer.shakeUntil = 0
+  renderer.fxSeen = 0
+}
+
 function noteDeaths(renderer: Renderer, sim: Sim): void {
   const shibas = sim.shibas
   for (let i = 0; i < shibas.length; i++) {
@@ -1131,7 +1185,7 @@ function paintGhosts(ctx: CanvasRenderingContext2D, renderer: Renderer, sim: Sim
   for (let i = 0; i < GHOSTS; i++) {
     if (renderer.ghostOn[i] !== 1) continue
     const age = sim.time - (renderer.ghostBirth[i] ?? 0)
-    if (age > 0.5) {
+    if (age > 0.5 || age < 0) {
       renderer.ghostOn[i] = 0
       continue
     }
@@ -1148,7 +1202,7 @@ function paintBooms(ctx: CanvasRenderingContext2D, renderer: Renderer, sim: Sim)
     if (renderer.boomOn[i] !== 1) continue
     const age = sim.time - (renderer.boomBirth[i] ?? 0)
     const frame = Math.floor(age * 12)
-    if (frame >= 4) {
+    if (frame >= 4 || frame < 0) {
       renderer.boomOn[i] = 0
       continue
     }

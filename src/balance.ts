@@ -255,3 +255,11 @@ export const STAGES: readonly StageSpec[] = [
 /** Home HP left (share of full) for 3 and 2 stars at a win; any win is at least 1. */
 export const STAR3_AT = 0.7
 export const STAR2_AT = 0.35
+
+/** 波を早く呼ぶ: tapping the call button sends the next wave now and pays CALL_BONE ホネ for each second skipped. */
+export const CALL_BONE = 3
+/** The call button, in field-local logical pixels under the 柴の家 (left of centre). */
+export const CALL_X = 6
+export const CALL_Y = 36
+export const CALL_W = 54
+export const CALL_H = 16
