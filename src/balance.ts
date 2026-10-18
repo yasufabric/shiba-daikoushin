@@ -103,6 +103,12 @@ export const SASAMI_HOME = 300
 /** 白「チーズ!!」: a field-wide shockwave that also shoves cats back. */
 export const CHEESE_HIT = 26
 export const CHEESE_PUSH = 60
+/** Free placement 白「チーズ!!」is crowd control: light damage, a big shove, and every dog but the boss freezes. */
+export const CHEESE_FREE_HIT = 10
+export const CHEESE_FREE_PUSH = 90
+export const CHEESE_STUN = 2.5
+/** Free placement 黒「ジャーキー!!」is a few heavy single hits on the dogs nearest the 柴の家 (per FREE_DOG_HP). */
+export const JERKY_FREE_HIT = 210
 
 export const VIEW_W = 390
 export const VIEW_H = 844
@@ -146,7 +152,7 @@ export const HEAL_SEEK_SPAN = 300
 /** 赤 in free placement walks this much faster than the others. */
 export const TAN_HASTE = 1.35
 /** 黒「ジャーキー!!」in free placement: a spear drops on each of the dogs nearest the 柴の家, this many. */
-export const JERKY_TARGETS = 8
+export const JERKY_TARGETS = 3
 /** A dog this close to the 柴の家 door bites the house. */
 export const FREE_HOME_REACH = 60
 /** A dog with nothing in sight walks straight down and turns for the door only this close to the bottom. */

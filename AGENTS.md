@@ -129,5 +129,5 @@ Each coat has a job, with a strength and a weakness:
 
 ### Specials in free placement
 
-Every strike shows what it did to each unit it touched: gold digits float up over each dog it hurt, and a green plus with digits over each shiba it healed; the single total in the middle is hidden in free placement. 黒「ジャーキー!!」 drops a spear straight onto each of the `JERKY_TARGETS` dogs nearest the 柴の家. 赤「サツマイモ!!」 leaves gold speed trails under every 赤 for the whole rush. Special damage scales with `FREE_DOG_HP` so it keeps up with the tougher dogs.
+Every strike shows what it did to each unit it touched: gold digits float up over each dog it hurt, and a green plus with digits over each shiba it healed; the single total in the middle is hidden in free placement. Each special has its own job: 赤「サツマイモ!!」 is a buff, no numbers, just gold speed trails under every 赤 for the whole rush. 黒「ジャーキー!!」 is a few heavy single hits: a spear drops onto each of only `JERKY_TARGETS` (3) dogs nearest the 柴の家 for `JERKY_FREE_HIT`. 白「チーズ!!」 is crowd control: light damage (`CHEESE_FREE_HIT`), a big shove (`CHEESE_FREE_PUSH`), and every dog except the boss freezes for `CHEESE_STUN` seconds with gold stars over its head. 胡麻「ササミ!!」 is the only heal. Special damage scales with `FREE_DOG_HP` so it keeps up with the tougher dogs.
 

@@ -21,6 +21,7 @@ import {
   BARK_SPLASH,
   HEAL_RADIUS,
   JERKY_TARGETS,
+  CHEESE_STUN,
   RECHARGE,
   LEVEL_COST_BASE,
   LEVEL_STEP,
@@ -404,6 +405,21 @@ describe('free placement roles', () => {
     const lowestHitY = Math.min(...hit.map((d) => d.y))
     for (const d of dogs) if (d.hp === 999) expect(d.y).toBeLessThan(lowestHitY)
     expect(sim.fxHits.length).toBe(JERKY_TARGETS)
+  })
+
+  it('freezes every dog but the boss with 「チーズ!!」 and thaws them after CHEESE_STUN', () => {
+    const sim = emptyField()
+    const dogs = sim.cats.slice(0, 2)
+    dogs.forEach((dog, k) => Object.assign(dog, { alive: true, fly: 0, kind: k === 0 ? BREED_BULLDOG : BREED_BOSS, hp: 999, maxHp: 999, dps: 0, speed: 40, x: 100 + k * 100, y: 300 }))
+    sim.aliveCats = 2
+    strikeSpecial(sim, KIND_WHITE)
+    expect(dogs[0]?.stun).toBe(CHEESE_STUN)
+    expect(dogs[1]?.stun).toBe(0)
+    const y = dogs[0]?.y ?? 0
+    play(sim, CHEESE_STUN - 0.5, () => NO_INPUT)
+    expect(dogs[0]?.y).toBeCloseTo(y, 5)
+    play(sim, 1.5, () => NO_INPUT)
+    expect(dogs[0]?.y).toBeGreaterThan(y)
   })
 
   it('makes a dog go for 黒 over a slightly nearer 赤', () => {

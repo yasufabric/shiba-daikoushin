@@ -668,6 +668,23 @@ function paintHpBars(ctx: CanvasRenderingContext2D, sim: Sim): void {
     const y = py(at(FIELD_Y + dog.y)) - CAT_PX - 4
     drawHpBar(ctx, x, y, dog.hp / dog.maxHp, DANGER_DARK, DANGER, DANGER_LIGHT)
   }
+  // A frozen dog (チーズ!!) wears three gold stars circling over its head.
+  const beat = Math.floor(sim.time * 8)
+  for (let i = 0; i < sim.cats.length; i++) {
+    const dog = sim.cats[i]
+    if (!dog?.alive || dog.fly === 1 || dog.stun <= 0) continue
+    const cx = px(at(FIELD_X + dog.x))
+    const cy = py(at(FIELD_Y + dog.y)) - CAT_PX - 16
+    for (let k = 0; k < 3; k++) {
+      const a = (beat + k * 2) % 6
+      const ox = [-6, -3, 3, 6, 3, -3][a] ?? 0
+      const oy = [0, -2, -2, 0, 2, 2][a] ?? 0
+      ctx.fillStyle = LINE
+      ctx.fillRect(cx + ox - 2, cy + oy - 2, 5, 5)
+      ctx.fillStyle = k === 0 ? WHITE : GOLD_LIGHT
+      ctx.fillRect(cx + ox - 1, cy + oy - 1, 3, 3)
+    }
+  }
 }
 
 function drawHpBar(ctx: CanvasRenderingContext2D, x: number, y: number, ratio: number, back: string, fill: string, lit: string): void {
