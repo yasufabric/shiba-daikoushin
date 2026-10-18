@@ -53,7 +53,7 @@ Design grid 195×422. CSS-pixel scale is an integer of at least 2, chosen so the
 - 敵の犬小屋: 56×48, a small purple A-frame dog house with a red bone plaque and a dark round-arched door with eyes and fangs. The eyes are dim until the boss comes out.
 - Boss dog: 32×32 front view, two walk frames, white hit flash.
 - 柴の家: 48×40, a small plank dog house with a bone plaque and a dark arched door, centered on the field floor. Its HP bar is gold, drawn over the units.
-- Marching soldier: 20×20, with a steel helmet between the ears and a coat-colored band. Up to four fur colors plus the outline.
+- Marching soldier: 20×20, bare-headed, with pricked ears, tan brows, and a pale urajiro muzzle. Up to four fur colors plus the outline.
 - Damage numbers: a dedicated pixel font, 8×10 per glyph.
 
 ### Palette
