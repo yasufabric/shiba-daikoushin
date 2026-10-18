@@ -66,12 +66,24 @@ export const BARK_EVERY = 1.1
 export const BARK_HIT = 13
 export const BARK_REACH = 90
 
+/** 胡麻柴: the healer. Every HEAL_EVERY it mends the most-hurt shiba near it, in its path or the two beside. */
+export const COST_SESAME = 64
+export const STEP_SESAME = 16
+export const COUNT_SESAME = 1
+export const HP_SESAME = 70
+export const DPS_SESAME = 6
+export const SPEED_SESAME = 84
+export const HEAL_EVERY = 1
+export const HEAL_AMOUNT = 10
+/** How far ahead (and a little behind) the healer reaches, in world px along the path. */
+export const HEAL_REACH = 180
+
 /** 黒柴: one heavy bite at a time, enough to drop a cat. */
 export const HEAVY_EVERY = 1.3
 export const HEAVY_HIT = 80
 
-/** Specials fire on their own once a coat has dealt this much damage. Order: 赤, 黒, 白. */
-export const SPECIAL_NEED = [700, 480, 1000] as const
+/** Specials fire on their own once a coat has dealt this much damage (胡麻: healed this much). Order: 赤, 黒, 白, 胡麻. */
+export const SPECIAL_NEED = [700, 480, 1000, 600] as const
 export const CUT_TIME = 1.1
 /** After the cut-in the special strikes; its field effect plays for this long. */
 export const FX_TIME = 0.9
@@ -81,6 +93,8 @@ export const RUSH_TIME = 4
 export const JERKY_HIT = 80
 export const JERKY_DEPTH = 3
 export const JERKY_CASTLE = 500
+/** 胡麻「ササミ!!」: every shiba back to full, and the 柴の家 mended by this much. */
+export const SASAMI_HOME = 300
 /** 白「チーズ!!」: a field-wide shockwave that also shoves cats back. */
 export const CHEESE_HIT = 26
 export const CHEESE_PUSH = 60
@@ -102,14 +116,16 @@ export const MARCH_COUNT = 240
 export const KIND_TAN = 0
 export const KIND_BLACK = 1
 export const KIND_WHITE = 2
-export const KINDS = 3
+export const KIND_SESAME = 3
+export const KINDS = 4
 
 export const BONE_X = 16
 export const BONE_Y = 678
 export const CARD_Y = 714
-export const CARD_W = 114
+export const CARD_W = 90
 export const CARD_H = 110
-export const CARD_X0 = 16
-export const CARD_X1 = 138
-export const CARD_X2 = 260
-export const CARD_XS = [CARD_X0, CARD_X1, CARD_X2] as const
+export const CARD_X0 = 8
+export const CARD_X1 = 102
+export const CARD_X2 = 196
+export const CARD_X3 = 290
+export const CARD_XS = [CARD_X0, CARD_X1, CARD_X2, CARD_X3] as const

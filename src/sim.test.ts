@@ -11,6 +11,9 @@ import {
   KIND_BLACK,
   KIND_TAN,
   KIND_WHITE,
+  KIND_SESAME,
+  HEAL_AMOUNT,
+  SASAMI_HOME,
   SPECIAL_NEED,
   BREED_BULLDOG,
   BREED_CHIHUAHUA,
@@ -203,6 +206,34 @@ describe('rival dogs', () => {
     expect(BREED_HP[BREED_CORGI]).toBeGreaterThan(BREED_HP[BREED_CHIHUAHUA])
     expect(BREED_SPEED[BREED_CHIHUAHUA]).toBeGreaterThan(BREED_SPEED[BREED_CORGI])
     expect(BREED_SPEED[BREED_CORGI]).toBeGreaterThan(BREED_SPEED[BREED_BULLDOG])
+  })
+})
+
+describe('胡麻柴', () => {
+  it('mends the most-hurt shiba nearby and fills its own gauge with the healing', () => {
+    const sim = createSim({ tutorial: false, seed: 6 })
+    sim.bones = 500
+    step(sim, 1 / 30, { card: KIND_SESAME, restart: false })
+    const healer = sim.shibas.find((u) => u.alive && u.kind === KIND_SESAME)
+    expect(healer).toBeDefined()
+    const hurt = sim.shibas.find((u) => u.alive && u.kind === KIND_TAN && u.lane === healer?.lane)
+    expect(hurt).toBeDefined()
+    if (!hurt) return
+    hurt.hp = 10
+    hurt.y = (healer?.y ?? 0) - 60
+    play(sim, 1.2, () => NO_INPUT)
+    expect(hurt.hp).toBeGreaterThanOrEqual(10 + HEAL_AMOUNT - 1)
+    expect(sim.charge[KIND_SESAME] ?? 0).toBeGreaterThan(0)
+    expect(sim.charge[KIND_TAN]).toBe(0)
+  })
+
+  it('brings every shiba back to full and mends the home with 「ササミ!!」', () => {
+    const sim = createSim({ tutorial: false, seed: 6 })
+    for (const unit of sim.shibas) if (unit.alive) unit.hp = 1
+    sim.homeHp = 100
+    strikeSpecial(sim, KIND_SESAME)
+    for (const unit of sim.shibas) if (unit.alive) expect(unit.hp).toBe(unit.maxHp)
+    expect(sim.homeHp).toBe(100 + SASAMI_HOME)
   })
 })
 

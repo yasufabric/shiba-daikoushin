@@ -159,7 +159,7 @@ describe('sprites', () => {
       for (const seal of fur) assertSealed(seal, CROWD_PX, CROWD_PX)
     }
     for (const strip of dogArt) for (const seal of strip) assertSealed(seal, CAT_PX, CAT_PX)
-    expect(heroArt).toHaveLength(10)
+    expect(heroArt).toHaveLength(13)
     for (const seal of heroArt) assertSealed(seal, HERO_PX, HERO_PX)
     assertSealed(boneArt, 12, 12)
     assertSealed(pawArt, 14, 16)

@@ -31,8 +31,8 @@ export const BANNER_REST = 2
 export const BANNER_POP = 3
 export const CLEAR_WORD = 'CLEAR!'
 export const LOSE_WORD = 'LOSE!'
-/** Special names, shouted in katakana. Order: 赤, 黒, 白. Foods only, never a product name. */
-export const SPECIAL_WORDS = ['サツマイモ!!', 'ジャーキー!!', 'チーズ!!'] as const
+/** Special names, shouted in katakana. Order: 赤, 黒, 白, 胡麻. Foods only, never a product name. */
+export const SPECIAL_WORDS = ['サツマイモ!!', 'ジャーキー!!', 'チーズ!!', 'ササミ!!'] as const
 export const RUMBLE_WORD = 'ゴゴゴ'
 
 const LETTERS: Record<string, readonly number[]> = {
@@ -53,6 +53,7 @@ const LETTERS: Record<string, readonly number[]> = {
   'ー': [0b00000000, 0b00000000, 0b00000000, 0b00000000, 0b11111111, 0b11111111, 0b00000000, 0b00000000, 0b00000000, 0b00000000],
   'キ': [0b00011000, 0b00011000, 0b01111110, 0b01111110, 0b00011000, 0b11111111, 0b11111111, 0b00011000, 0b00011000, 0b00011000],
   'チ': [0b00001110, 0b01111000, 0b00011000, 0b11111111, 0b11111111, 0b00011000, 0b00011000, 0b00011000, 0b00110000, 0b01100000],
+  'ミ': [0b01110000, 0b00011110, 0b00000000, 0b00000000, 0b01110000, 0b00011110, 0b00000000, 0b01110000, 0b00011110, 0b00000011],
   'ズ': [0b00000101, 0b11111101, 0b11111100, 0b00001100, 0b00011000, 0b00111100, 0b01100110, 0b11000011, 0b10000001, 0b00000000],
   'ゴ': [0b00000101, 0b11111101, 0b11111100, 0b00000110, 0b00000110, 0b00000110, 0b00000110, 0b11111111, 0b11111111, 0b00000000],
   '!': [0b00011000, 0b00011000, 0b00011000, 0b00011000, 0b00011000, 0b00011000, 0b00000000, 0b00011000, 0b00011000, 0b00011000],
