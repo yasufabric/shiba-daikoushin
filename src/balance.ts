@@ -9,7 +9,8 @@ export const START_SHIBAS = 10
 export const HOLD_Y = 118
 export const CASTLE_REACH = 100
 export const GATE_DEPTH = 210
-export const GAP = 28
+/** Feet-to-feet gap. A 16×16 crowd sprite is 32 world px tall, so 36 leaves a sliver of night between dogs. */
+export const GAP = 36
 export const ATTACK_RANGE = 40
 
 export const MAX_CATS = 420
