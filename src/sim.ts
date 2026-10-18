@@ -4,6 +4,8 @@ import {
   BONE_RATE,
   BOSS_AT,
   CASTLE_HP,
+  HOME_HP,
+  HOME_REACH,
   CASTLE_REACH,
   CAT_DPS,
   CAT_HP,
@@ -102,6 +104,7 @@ export interface Sim {
   costBlack: number
   costWhite: number
   castleHp: number
+  homeHp: number
   boss: boolean
   floatT: number
   floatDmg: number
@@ -177,6 +180,7 @@ export function createSim(opts?: SimOptions): Sim {
     costBlack: COST_BLACK,
     costWhite: COST_WHITE,
     castleHp: CASTLE_HP,
+    homeHp: HOME_HP,
     boss: false,
     floatT: 0,
     floatDmg: 0,
@@ -217,6 +221,7 @@ function boot(sim: Sim): void {
   sim.costBlack = COST_BLACK
   sim.costWhite = COST_WHITE
   sim.castleHp = CASTLE_HP
+  sim.homeHp = HOME_HP
   sim.boss = false
   sim.floatT = 0
   sim.floatDmg = 0
@@ -388,7 +393,8 @@ export function step(sim: Sim, dt: number, input: Input = NO_INPUT): void {
     sim.rewardT = BANNER_HOLD
     return
   }
-  if (sim.time >= MATCH_SECONDS) {
+  if (sim.homeHp <= 0 || sim.time >= MATCH_SECONDS) {
+    if (sim.homeHp < 0) sim.homeHp = 0
     sim.outcome = 'lost'
     sim.rewardT = LOSE_HOLD
   }
@@ -525,6 +531,7 @@ function moveLane(sim: Sim, lane: number, dt: number): void {
     if (!cat?.alive) continue
     if (cat.y < catStop) cat.y = Math.min(catStop, cat.y + cat.speed * dt)
     catStop = cat.y - GAP
+    if (cat.fly !== 1 && cat.hp > 0 && cat.y >= FIELD_H - HOME_REACH) sim.homeHp -= cat.dps * dt
   }
 
   const shiba = sn > 0 ? sim.shibas[sIdx[0] ?? -1] : undefined

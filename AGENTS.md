@@ -1,6 +1,6 @@
 # しば大行進
 
-Portrait phone game. Soldier shibas march up the field, cat swarms come down, and a three-minute match ends at the cat castle. The only input is deploying a card. There is no cannon or other tap-fired attack.
+Portrait phone game. Soldier shibas march up the field from the 柴の家 at the bottom, cat swarms come down, and a three-minute match ends at the cat castle. Cats that reach the field floor bite the 柴の家; when its gold HP bar empties the match is lost, as it is when the clock runs out. The only input is deploying a card. There is no cannon or other tap-fired attack.
 
 Three cards, three soldiers, each with its own attack:
 
@@ -49,6 +49,7 @@ Design grid 195×422. CSS-pixel scale is an integer of at least 2, chosen so the
 - Hero shiba: 32×32, big head, head and body the same height.
 - Regular cats: 28×28.
 - Boss: 64×64 or larger.
+- 柴の家: 64×48, a plank dog house with a bone plaque and a dark arched door, centered on the field floor. Its HP bar is gold, drawn over the units.
 - Marching soldier: 24×24, with a steel helmet between the ears and a coat-colored band. Up to four fur colors plus the outline.
 - Damage numbers: a dedicated pixel font, 8×10 per glyph.
 

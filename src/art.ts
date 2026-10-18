@@ -1,6 +1,8 @@
 import {
   BOSS_H,
   BOSS_W,
+  HOME_H,
+  HOME_W,
   CAT_BODY,
   CAT_DARK,
   CAT_LIGHT,
@@ -221,6 +223,19 @@ const CASTLE_MAP: Record<string, string> = {
   G: GOLD,
   n: NIGHT,
   N: NIGHT_1,
+}
+
+const HOME_MAP: Record<string, string> = {
+  d: FUR_DARK,
+  r: FUR_MID,
+  o: FUR_BODY,
+  t: FUR_LIGHT,
+  w: WHITE,
+  n: NIGHT,
+  N: NIGHT_1,
+  g: GOLD_LIGHT,
+  G: GOLD,
+  y: GOLD_DARK,
 }
 
 function stamp(rows: string[], x: number, y: number, art: readonly string[]): void {
@@ -603,6 +618,29 @@ function castleRows(live: boolean): string[] {
   return g
 }
 
+/** 柴の家: a plank dog house with a deep roof, a bone plaque, and a dark arched door the shibas march out of. */
+function homeRows(): string[] {
+  const g = blank(HOME_W, HOME_H)
+  blot(g, 6, 18, 52, 30, 't')
+  blot(g, 7, 19, 3, 29, 'w')
+  blot(g, 53, 19, 4, 29, 'o')
+  for (let y = 25; y < 48; y += 6) blot(g, 7, y, 50, 1, 'o')
+  tri(g, 0, 0, 64, 20, 'r')
+  tri(g, 4, 3, 26, 15, 'o')
+  blot(g, 0, 19, 64, 3, 'd')
+  blot(g, 1, 20, 62, 1, 'r')
+  blot(g, 22, 28, 20, 20, 'n')
+  shave(g, 22, 28, 20, 20, 5)
+  blot(g, 24, 33, 2, 15, 'N')
+  blot(g, 25, 23, 14, 4, 'G')
+  blot(g, 25, 23, 14, 1, 'g')
+  blot(g, 23, 22, 3, 3, 'G')
+  blot(g, 38, 22, 3, 3, 'G')
+  blot(g, 23, 25, 3, 3, 'y')
+  blot(g, 38, 25, 3, 3, 'y')
+  return g
+}
+
 function sealAll(name: string, frames: readonly (readonly string[])[], map: Record<string, string>): Seal[] {
   return frames.map((rows, i) => seal(`${name}-${i}`, rows, map))
 }
@@ -637,6 +675,7 @@ export const boneArt = seal('bone', [...BONE_ROWS], BONE_MAP)
 export const pawArt = seal('paw', [...PAW_ROWS], RED)
 export const castleLive = seal('castle', castleRows(true), CASTLE_MAP)
 export const castleDim = seal('castle-dim', castleRows(false), CASTLE_MAP)
+export const homeArt = seal('home', homeRows(), HOME_MAP)
 
 export const CROWD_FRAME_COUNT = CROWD_ROWS.length
 export const CAT_FRAME_COUNT = CAT_POSES.length

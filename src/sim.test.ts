@@ -9,6 +9,7 @@ import {
   KIND_WHITE,
   SPECIAL_NEED,
   CASTLE_HP,
+  HOME_HP,
   CLASH_AT,
   COST_TAN,
   COUNT_TAN,
@@ -151,8 +152,9 @@ describe('battle', () => {
     const sim = createSim({ tutorial: true, seed: 9 })
     play(sim, 180, () => NO_INPUT)
     expect(sim.outcome).toBe('lost')
-    expect(sim.boss).toBe(true)
-    expect(sim.castleHp).toBeGreaterThan(1000)
+    expect(sim.homeHp).toBe(0)
+    expect(sim.time).toBeLessThan(BOSS_AT)
+    expect(sim.castleHp).toBe(CASTLE_HP)
     expect(sim.tutorial).toBe(true)
     expect(sim.rewardT).toBe(LOSE_HOLD)
     expect(LOSE_HOLD).toBe(BANNER_HOLD)
@@ -163,6 +165,31 @@ describe('battle', () => {
     expect(sim.time).toBe(0)
     expect(sim.aliveShibas).toBe(START_SHIBAS)
     expect(sim.tutorial).toBe(true)
+  })
+})
+
+describe('home', () => {
+  it('takes bites from cats that reach the field floor', () => {
+    const sim = createSim({ tutorial: false, seed: 5 })
+    expect(sim.homeHp).toBe(HOME_HP)
+    for (const unit of sim.shibas) unit.alive = false
+    sim.aliveShibas = 0
+    play(sim, 40, () => NO_INPUT)
+    expect(sim.homeHp).toBeLessThan(HOME_HP)
+  })
+
+  it('loses the match the moment the home falls, before the clock runs out', () => {
+    const sim = createSim({ tutorial: false, seed: 5 })
+    for (const unit of sim.shibas) unit.alive = false
+    sim.aliveShibas = 0
+    sim.homeHp = 1
+    play(sim, 60, () => NO_INPUT)
+    expect(sim.outcome).toBe('lost')
+    expect(sim.homeHp).toBe(0)
+    expect(sim.time).toBeLessThan(60)
+    step(sim, LOSE_HOLD, NO_INPUT)
+    expect(sim.outcome).toBe('play')
+    expect(sim.homeHp).toBe(HOME_HP)
   })
 })
 

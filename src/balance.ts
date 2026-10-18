@@ -24,6 +24,10 @@ export const CAT_HP = 32
 export const CAT_DPS = 9
 export const CAT_SPEED = 50
 export const CASTLE_HP = 6000
+/** 柴の家 at the bottom of the field. Cats that reach it bite it; at 0 the match is lost. */
+export const HOME_HP = 1500
+/** How far above the field floor a cat must be to bite the home. */
+export const HOME_REACH = 40
 export const WAVE_EVERY = 3.2
 export const TRICKLE_EVERY = 3.2
 export const TRICKLE_COUNT = 2

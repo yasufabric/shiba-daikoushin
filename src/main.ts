@@ -69,6 +69,7 @@ interface ShibaDev {
     bones: number
     boss: boolean
     castle: number
+    home: number
     outcome: Outcome
     tutorial: boolean
     floatDmg: number
@@ -110,6 +111,7 @@ if (devOn) {
         bones: sim.bones,
         boss: sim.boss,
         castle: sim.castleHp,
+        home: sim.homeHp,
         outcome: sim.outcome,
         tutorial: sim.tutorial,
         floatDmg: sim.floatDmg,
