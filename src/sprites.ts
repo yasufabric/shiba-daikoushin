@@ -1,7 +1,5 @@
 import {
   boneArt,
-  cannonDim,
-  cannonLive,
   castleDim,
   castleLive,
   catArt,
@@ -23,8 +21,6 @@ export interface Sheets {
   paw: HTMLCanvasElement
   castle: HTMLCanvasElement
   castleDim: HTMLCanvasElement
-  cannon: HTMLCanvasElement
-  cannonDim: HTMLCanvasElement
 }
 
 function canvas(w: number, h: number): { canvas: HTMLCanvasElement; ctx: CanvasRenderingContext2D } {
@@ -117,7 +113,5 @@ export function createSheets(): Sheets {
     paw: bakeOne(pawArt),
     castle: bakeOne(castleLive),
     castleDim: bakeOne(castleDim),
-    cannon: bakeOne(cannonLive),
-    cannonDim: bakeOne(cannonDim),
   }
 }

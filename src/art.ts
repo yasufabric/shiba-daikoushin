@@ -223,28 +223,6 @@ const CASTLE_MAP: Record<string, string> = {
   N: NIGHT_1,
 }
 
-const CANNON_LIVE: Record<string, string> = {
-  L: GOLD_DARK,
-  d: GOLD_DARK,
-  m: GOLD,
-  o: GOLD_LIGHT,
-  h: GOLD_HOT,
-  w: WHITE,
-  n: FUR_DARK,
-  k: NIGHT,
-}
-
-const CANNON_DIM: Record<string, string> = {
-  L: NIGHT,
-  d: NIGHT,
-  m: NIGHT_1,
-  o: NIGHT_2,
-  h: NIGHT_3,
-  w: NIGHT_3,
-  n: NIGHT,
-  k: NIGHT,
-}
-
 function stamp(rows: string[], x: number, y: number, art: readonly string[]): void {
   for (let j = 0; j < art.length; j++) {
     const line = art[j] ?? ''
@@ -577,35 +555,6 @@ const PAW_ROWS = [
   '..............',
 ] as const
 
-/** わんわん砲: a gold cannon with shiba ears and a barking bore. Left half, mirrored. */
-const CANNON_HALF = [
-  '.L........',
-  'LhL.......',
-  'LhoL......',
-  'LhooLLLLLL',
-  'LhhooooooO',
-  'LhoookoooO',
-  'LhooooooOO',
-  'LhwoLLLLLL',
-  'LwwLkkkkkk',
-  'LwwLkkkkkk',
-  'LwwLkkkkkk',
-  'LhwoLkkkkk',
-  'LhooLLLLLL',
-  'LhoooooooO',
-  '.LhooooooO',
-  '..LLLmmLLL',
-  '...LmmmmmL',
-  '...LmLLmmL',
-  '....LL.LLL',
-  '..........',
-] as const
-
-function cannonRows(): string[] {
-  const g = mirror(CANNON_HALF, { h: 'o', O: 'm' }, 'o', 'm')
-  return g.map((line) => line.replace(/O/g, 'o'))
-}
-
 /** Cat castle: two ear-roofed towers and a keep with a cat face. The gate is the mouth. */
 function castleRows(live: boolean): string[] {
   const g = blank(BOSS_W, BOSS_H)
@@ -686,8 +635,6 @@ export function heroCell(coat: number, face: Face): number {
 
 export const boneArt = seal('bone', [...BONE_ROWS], BONE_MAP)
 export const pawArt = seal('paw', [...PAW_ROWS], RED)
-export const cannonLive = seal('cannon', cannonRows(), CANNON_LIVE)
-export const cannonDim = seal('cannon-dim', cannonRows(), CANNON_DIM)
 export const castleLive = seal('castle', castleRows(true), CASTLE_MAP)
 export const castleDim = seal('castle-dim', castleRows(false), CASTLE_MAP)
 

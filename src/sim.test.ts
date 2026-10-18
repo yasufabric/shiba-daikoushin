@@ -1,7 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import {
   BOSS_AT,
-  CANNON_NEED,
   COUNT_WHITE,
   CUT_TIME,
   HEAVY_HIT,
@@ -22,11 +21,9 @@ import {
   STEP_TAN,
 } from './balance'
 import {
-  cannonReady,
   costOf,
   createSim,
   fireSpecial,
-  fillMarch,
   NO_INPUT,
   phaseAt,
   step,
@@ -46,7 +43,7 @@ function greedy(sim: Sim): Input {
   let card = -1
   if (sim.bones >= sim.costBlack && sim.aliveShibas >= 8) card = 1
   else if (sim.bones >= sim.costTan) card = 0
-  return { card, cannon: cannonReady(sim), restart: false }
+  return { card, restart: false }
 }
 
 describe('match clock', () => {
@@ -74,7 +71,7 @@ describe('deploy', () => {
     step(sim, 0.2, NO_INPUT)
     expect(sim.shibas[0]?.y ?? 0).toBeLessThan(y0)
     const before = sim.bones
-    step(sim, 1 / 30, { card: 0, cannon: false, restart: false })
+    step(sim, 1 / 30, { card: 0, restart: false })
     expect(sim.tutorial).toBe(false)
     expect(sim.aliveShibas).toBe(START_SHIBAS + COUNT_TAN)
     expect(sim.bones).toBeCloseTo(before + (1 / 30) * (12 + (START_SHIBAS + COUNT_TAN) * 0.12) - COST_TAN)
@@ -85,7 +82,7 @@ describe('deploy', () => {
   it('refuses a card the purse cannot afford', () => {
     const sim = createSim({ tutorial: false })
     sim.bones = 0
-    step(sim, 1 / 30, { card: 0, cannon: false, restart: false })
+    step(sim, 1 / 30, { card: 0, restart: false })
     expect(sim.aliveShibas).toBe(START_SHIBAS)
     expect(sim.deny0).toBeGreaterThan(0)
     expect(sim.sfxDeploy).toBe(0)
@@ -120,23 +117,6 @@ describe('cats', () => {
 })
 
 describe('battle', () => {
-  it('holds the cannon until fifty shibas, then blasts cats for a damage total', () => {
-    const sim = createSim({ tutorial: false, seed: 4 })
-    expect(cannonReady(sim)).toBe(false)
-    play(sim, 61, () => NO_INPUT)
-    expect(sim.aliveCats).toBeGreaterThan(0)
-    expect(sim.boss).toBe(false)
-    fillMarch(sim, CANNON_NEED)
-    expect(cannonReady(sim)).toBe(true)
-    const cats = sim.aliveCats
-    step(sim, 1 / 30, { card: -1, cannon: true, restart: false })
-    expect(sim.floatDmg).toBeGreaterThan(0)
-    expect(sim.aliveCats).toBeLessThan(cats)
-    expect(sim.beam).toBeGreaterThan(0)
-    expect(sim.sfxCannon).toBe(1)
-    expect(cannonReady(sim)).toBe(false)
-  })
-
   it('brings the cat castle at 150s and lets a deploying player destroy it', () => {
     const sim = createSim({ tutorial: false, seed: 3 })
     let sawCats = false
@@ -155,13 +135,13 @@ describe('battle', () => {
     expect(sim.rewardT).toBe(BANNER_HOLD)
     expect(BANNER_HOLD).toBeGreaterThanOrEqual(2)
     expect(BANNER_HOLD).toBeLessThanOrEqual(3)
-    step(sim, 0.2, { card: -1, cannon: false, restart: true })
+    step(sim, 0.2, { card: -1, restart: true })
     expect(sim.outcome).toBe('won')
     expect(sim.rewardT).toBeGreaterThan(2)
     step(sim, BANNER_HOLD, NO_INPUT)
     expect(sim.outcome).toBe('won')
     expect(sim.rewardT).toBe(0)
-    step(sim, 1 / 30, { card: -1, cannon: false, restart: true })
+    step(sim, 1 / 30, { card: -1, restart: true })
     expect(sim.outcome).toBe('play')
     expect(sim.time).toBe(0)
     expect(sim.aliveShibas).toBe(START_SHIBAS)
@@ -191,7 +171,7 @@ describe('soldiers', () => {
     const sim = createSim({ tutorial: false })
     sim.bones = 500
     const cost = costOf(sim, KIND_WHITE)
-    step(sim, 1 / 30, { card: 2, cannon: false, restart: false })
+    step(sim, 1 / 30, { card: 2, restart: false })
     let whites = 0
     const lanes = new Set<number>()
     for (const unit of sim.shibas) {
@@ -208,8 +188,8 @@ describe('soldiers', () => {
     const sim = createSim({ tutorial: false, seed: 5 })
     for (const unit of sim.shibas) if (unit.alive) unit.hp = 0
     sim.bones = 1000
-    step(sim, 1 / 30, { card: 1, cannon: false, restart: false })
-    step(sim, 1 / 30, { card: 1, cannon: false, restart: false })
+    step(sim, 1 / 30, { card: 1, restart: false })
+    step(sim, 1 / 30, { card: 1, restart: false })
     expect(sim.aliveShibas).toBe(4)
     play(sim, 20, () => NO_INPUT)
     // Each bite lands whole: up to HEAVY_HIT, capped by the cat's remaining hp.
