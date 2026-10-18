@@ -81,6 +81,9 @@ import {
   HEAL_REACH,
   FREE_HOLD_Y,
   FREE_HOME_REACH,
+  RECALL_TAP,
+  RECALL_LIFT,
+  RECALL_PACE,
   FREE_REACH,
   FREE_SIGHT_DOG,
   FREE_SIGHT_SHIBA,
@@ -153,6 +156,8 @@ export interface Unit {
   mendAt: number
   /** Seconds a dog stays frozen in place (チーズ!!). */
   stun: number
+  /** Free placement: ordered home; walks to the 柴の家 and leaves the field there. */
+  recall: boolean
 }
 
 export interface Input {
@@ -162,6 +167,8 @@ export interface Input {
   lane?: number
   /** Free placement: field-local point to deploy at. */
   at?: { x: number; y: number }
+  /** Free placement: field-local point of a tap; the shiba standing there is sent home to the 柴の家. */
+  recall?: { x: number; y: number }
   /** Pick this card for the next field tap (-1 or left out for no change). */
   pick?: number
   /** On the level-up screen, buy a level for this coat. */
@@ -288,6 +295,7 @@ function makePool(max: number): Unit[] {
       aimY: 0,
       mendAt: -9,
       stun: 0,
+      recall: false,
     })
   }
   return units
@@ -433,6 +441,7 @@ export function spawnShiba(sim: Sim, kind: number, lane: number, y: number): boo
   unit.bitAt = -9
   unit.mendAt = -9
   unit.stun = 0
+  unit.recall = false
   unit.y = y
   unit.x = laneW * (lane + 0.5) + ((lane * 7 + (y | 0) * 3) % 21) - 10
   sim.aliveShibas += 1
@@ -535,6 +544,7 @@ export function step(sim: Sim, dt: number, input: Input = NO_INPUT): void {
   }
 
   if (input.pick !== undefined && input.pick >= 0 && input.pick < KINDS) sim.picked = input.pick
+  if (input.recall && sim.free) recallAt(sim, input.recall.x, input.recall.y)
   if (input.card >= 0 && input.card < KINDS) tryDeploy(sim, input.card, input.lane, input.at)
 
   const income = (BONE_RATE + sim.aliveShibas * BONE_PER_SHIBA) * (sim.free ? FREE_INCOME : 1)
@@ -959,6 +969,21 @@ function spread(units: Unit[], dt: number): void {
   }
 }
 
+/** Tapping a shiba sends it home: it walks to the 柴の家 and leaves the field, freeing a slot under FIELD_CAP. */
+function recallAt(sim: Sim, x: number, y: number): void {
+  let best: Unit | undefined
+  let bestD = RECALL_TAP
+  for (const u of sim.shibas) {
+    if (!u?.alive || u.recall) continue
+    const d = Math.hypot(u.x - x, u.y - RECALL_LIFT - y)
+    if (d < bestD) {
+      bestD = d
+      best = u
+    }
+  }
+  if (best) best.recall = true
+}
+
 /** Free placement: every shiba and dog walks to the nearest foe it can see and bites on the beat; dogs with nothing in sight head for the 柴の家. */
 function moveFree(sim: Sim, rawDt: number): void {
   // Movement runs slower; bites keep their beat.
@@ -968,6 +993,16 @@ function moveFree(sim: Sim, rawDt: number): void {
   const homeY = FIELD_H - 6
   for (const shiba of sim.shibas) {
     if (!shiba?.alive || shiba.hp <= 0) continue
+    if (shiba.recall) {
+      const d = Math.hypot(homeX - shiba.x, homeY - shiba.y)
+      if (d <= FREE_HOME_REACH * 0.5) {
+        shiba.alive = false
+        sim.aliveShibas -= 1
+      } else {
+        stepToward(shiba, homeX, homeY, Math.min(d, shiba.speed * RECALL_PACE * dt))
+      }
+      continue
+    }
     if (shiba.kind === KIND_WHITE) {
       mendFree(sim, shiba, dt, beat)
       continue

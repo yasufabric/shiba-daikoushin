@@ -415,6 +415,17 @@ describe('free placement roles', () => {
     expect(Math.hypot(shiba.x - dog.x, shiba.y - dog.y)).toBeLessThan(before - 30)
   })
 
+  it('sends a tapped shiba home, where it leaves the field and frees a slot', () => {
+    const sim = emptyField()
+    const shiba = drop(sim, KIND_TAN, 100, 450)
+    expect(sim.aliveShibas).toBe(1)
+    step(sim, 1 / 30, { card: -1, restart: false, recall: { x: shiba.x, y: shiba.y - 10 } })
+    expect(shiba.recall).toBe(true)
+    play(sim, 8, () => NO_INPUT)
+    expect(shiba.alive).toBe(false)
+    expect(sim.aliveShibas).toBe(0)
+  })
+
   it('drops 「ジャーキー!!」 on the dogs nearest the house and notes each hit', () => {
     const sim = emptyField()
     const dogs = sim.cats.slice(0, JERKY_TARGETS + 3)

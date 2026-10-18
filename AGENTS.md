@@ -151,3 +151,7 @@ Every bite shows where it lands, Clash Royale style: 赤 slashes three claw mark
 ## Role split
 
 赤: fragile (HP 48), nipping every `TAN_BITE_EVERY` 0.55s. 黒: tank (HP 400, slow) that slams `HEAVY_HIT` 180 every 2.3s and draws the dogs. 胡麻: glass cannon (HP 40) that lobs a ball every 2s for `BARK_HIT` 42 in a `BARK_SPLASH` 56 radius from `BARK_RANGE` 140. 白: tough (HP 75), never attacks, mends 7 every 1.5s. More coats and tools (a frisbee, say) can be added later as new kinds.
+
+## Recall (free placement)
+
+Tapping one of your own shibas (within `RECALL_TAP` px of its middle) sends it home instead of placing a new one: it runs to the 柴の家 at `RECALL_PACE` times its walking speed, ignores dogs, and leaves the field at the door, freeing a `FIELD_CAP` slot so you can swap in another coat. A recalled shiba leaves quietly (no ghost or burst). Tap an empty spot to place as usual.
