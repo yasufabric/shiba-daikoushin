@@ -264,20 +264,20 @@ function mirror(half: readonly string[], swap: Record<string, string>, fur: stri
 }
 
 /**
- * Front-facing soldier shiba, 16×16. Left half, mirrored. Upright ears (left lit, right in shadow), a steel
- * helmet with a coat-colored band, eyes with a highlight, white urajiro cheeks and muzzle, a dark nose and a
+ * Front-facing soldier shiba, 16×16. Left half, mirrored. Upright ears (left lit, right in shadow), bare
+ * pricked ears, eyes with a highlight, white urajiro cheeks and muzzle, a dark nose and a
  * シバスマイル tongue. The curl sits on the right hip.
  */
 const CROWD_HALF = [
-  '..L.......',
-  '.LhL......',
-  '.LhcL.....',
-  'LhccL.LLLL',
-  'LhccLLuuut',
-  'LccLuuuttt',
-  'LcLuuttttt',
-  'LoLqqqqqqq',
-  'Lhoooooooo',
+  '..LL......',
+  '.LhhL.....',
+  '.LhcoL....',
+  'LhhccoLLLL',
+  'LhccoLhhhh',
+  'LoccLhhhoo',
+  'LoooLhooos',
+  'LLoooooooo',
+  'Lhoooeeooo',
   'Lhoookxooo',
   'Lwwooooooo',
   'Lwwwwwwwnn',
@@ -350,15 +350,15 @@ const CROWD_ROWS = CROWD_POSES.map(crowdRows)
 
 /** Card portrait: the crowd face with a bigger head, lit eyes, and a thick curl. Left half, mirrored. */
 const HERO_HALF = [
-  '...L..........',
-  '..LhL.........',
-  '..LhoL....LLLL',
-  '.LhhooL.LLuutt',
-  '.LhcooLLuuuttt',
-  '.LhccoLuuttttt',
-  'LhhccLuttttttt',
-  'LhhcLttttttttt',
-  'LhoLqqqqqqqqqq',
+  '...LL.........',
+  '..LhhL........',
+  '..LhcoL.......',
+  '.LhhccoLLLLLLL',
+  '.LhccooLhhhhhh',
+  '.LhccooLhhhhoo',
+  'LhhccoLhhhoooo',
+  'LhhcoLhhooooos',
+  'LhoooooooooooO',
   'LhhoooooooooOO',
   'LhoooooeeoooOO',
   'LhooooookxkoOO',
