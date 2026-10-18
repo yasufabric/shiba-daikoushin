@@ -209,8 +209,14 @@ function playSounds(before: Outcome): void {
     synth.special(sim.sfxSpecial)
     renderer.shakeUntil = sim.time + 0.25
   }
+  if (sim.sfxStrike >= 0) {
+    synth.strike(sim.sfxStrike)
+    renderer.hitstop = 0.05
+    renderer.shakeUntil = sim.time + 0.35
+  }
   sim.sfxDeploy = 0
   sim.sfxSpecial = -1
+  sim.sfxStrike = -1
   if (sim.outcome !== before && sim.outcome !== 'play') {
     synth.fanfare(sim.outcome === 'won')
     if (sim.outcome === 'won') {

@@ -6,6 +6,7 @@ import {
   COUNT_BLACK,
   COUNT_WHITE,
   CUT_TIME,
+  FX_TIME,
   HEAVY_HIT,
   KIND_BLACK,
   KIND_TAN,
@@ -32,7 +33,7 @@ import {
 import {
   costOf,
   createSim,
-  fireSpecial,
+  strikeSpecial,
   NO_INPUT,
   phaseAt,
   step,
@@ -266,14 +267,27 @@ describe('soldiers', () => {
   it('fires a special on its own once the gauge fills, with a cut-in beat', () => {
     const sim = createSim({ tutorial: false, seed: 2 })
     play(sim, 61, () => NO_INPUT)
+    sim.cutT = 0
+    sim.cutKind = -1
+    sim.fxT = 0
+    sim.fxKind = -1
+    sim.rushT = 0
+    const strikes = sim.fxId
     sim.charge[KIND_TAN] = SPECIAL_NEED[KIND_TAN]
     step(sim, 1 / 30, NO_INPUT)
     expect(sim.sfxSpecial).toBe(KIND_TAN)
     expect(sim.cutKind).toBe(KIND_TAN)
-    expect(sim.rushT).toBeGreaterThan(0)
     expect(sim.charge[KIND_TAN]).toBe(0)
-    play(sim, CUT_TIME + 0.1, () => NO_INPUT)
+    // The cut-in plays first; the rush lands when it ends, with its field effect.
+    expect(sim.rushT).toBe(0)
+    expect(sim.fxKind).toBe(-1)
+    play(sim, CUT_TIME + 0.05, () => NO_INPUT)
     expect(sim.cutKind).toBe(-1)
+    expect(sim.rushT).toBeGreaterThan(0)
+    expect(sim.fxKind).toBe(KIND_TAN)
+    expect(sim.fxId).toBe(strikes + 1)
+    play(sim, FX_TIME, () => NO_INPUT)
+    expect(sim.fxKind).toBe(-1)
   })
 
   it('shoves every cat back with 白「チーズ!!」 and hits the castle with 黒「ジャーキー!!」', () => {
@@ -281,7 +295,7 @@ describe('soldiers', () => {
     play(sim, 70, () => NO_INPUT)
     const ys = sim.cats.filter((c) => c.alive && c.fly === 0).map((c) => c.y)
     expect(ys.length).toBeGreaterThan(0)
-    fireSpecial(sim, KIND_WHITE)
+    strikeSpecial(sim, KIND_WHITE)
     const after = sim.cats.filter((c) => c.alive && c.fly === 0)
     expect(after.every((c) => c.hp < (BREED_HP[c.kind] ?? 0))).toBe(true)
     expect(sim.floatDmg).toBeGreaterThan(0)
@@ -289,7 +303,7 @@ describe('soldiers', () => {
     const boss = createSim({ tutorial: false, seed: 4 })
     boss.boss = true
     const hp = boss.castleHp
-    fireSpecial(boss, KIND_BLACK)
+    strikeSpecial(boss, KIND_BLACK)
     expect(boss.castleHp).toBeLessThan(hp)
   })
 })
