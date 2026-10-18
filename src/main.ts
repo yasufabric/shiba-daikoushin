@@ -19,7 +19,7 @@ import {
   RECALL_TAP,
 } from './balance'
 import { createSim, dogsLeft, fillMarch, spawnCat, spawnShiba, NO_INPUT, step, type Input, type Outcome } from './sim'
-import { createRenderer, draw, screenToWorld, shopTarget, titleTarget, type ScreenInsets } from './render'
+import { createRenderer, draw, muteTarget, screenToWorld, shopTarget, titleTarget, type ScreenInsets } from './render'
 
 const canvasEl = document.querySelector<HTMLCanvasElement>('#game')
 if (!canvasEl) throw new Error('canvas unavailable')
@@ -266,6 +266,11 @@ canvas.addEventListener('pointerdown', (ev) => {
   ev.preventDefault()
   synth.unlock()
   const p = toLogical(ev)
+  if (muteTarget(p.x, p.y, sim.title || sim.outcome !== 'play')) {
+    synth.setMuted(!synth.isMuted())
+    synth.tap()
+    return
+  }
   if (sim.title) {
     const stage = titleTarget(p.x, p.y)
     if (stage >= 0) input.pickStage = stage
@@ -324,6 +329,32 @@ function laneAt(x: number, y: number): number {
   return Math.min(LANE_COUNT - 1, Math.floor((fx * LANE_COUNT) / FIELD_W))
 }
 
+let soundMark = 0
+let soundKills = 0
+let soundCallT = 0
+
+/** Sounds for what just happened in the fight: one hit per coat per frame, a pop for fallen dogs, a chime for a heal, a blip for a called wave. */
+function battleSounds(): void {
+  if (sim.time < soundMark - 0.01) {
+    soundMark = 0
+    soundKills = 0
+  }
+  const hit = [false, false, false, false, false, false]
+  let mended = false
+  for (const u of sim.shibas) {
+    if (!u.alive) continue
+    if (u.bitAt > soundMark && u.bitAt <= sim.time && u.kind !== 3) hit[u.kind] = true
+    if (u.mendAt > soundMark && u.mendAt <= sim.time) mended = true
+  }
+  for (let k = 0; k < hit.length; k++) if (hit[k]) synth.hit(k)
+  if (mended) synth.heal()
+  if (sim.kills > soundKills) synth.pop()
+  soundKills = sim.kills
+  if (sim.callT > soundCallT) synth.call()
+  soundCallT = sim.callT
+  soundMark = sim.time
+}
+
 function playSounds(before: Outcome): void {
   if (sim.sfxDeploy === 1) synth.deploy()
   if (sim.sfxSpecial >= 0) {
@@ -340,6 +371,7 @@ function playSounds(before: Outcome): void {
   sim.sfxStrike = -1
   if (sim.outcome !== before && sim.outcome !== 'play') {
     synth.fanfare(sim.outcome === 'won')
+    if (sim.outcome === 'won') synth.stars(sim.stars)
     if (sim.outcome === 'won') {
       renderer.hitstop = 0.05
       renderer.shakeUntil = sim.time + 0.2
@@ -362,6 +394,7 @@ function advance(dt: number): void {
       renderer.hitstop = 0
     }
     playSounds(before)
+    battleSounds()
     first = false
     left -= h
     steps += 1
@@ -406,6 +439,7 @@ function frame(now: number): void {
   } else {
     advance(dt)
   }
+  renderer.muted = synth.isMuted()
   syncViewport()
   draw(ctx, renderer, sim, viewW, viewH, dpr, insets)
   requestAnimationFrame(frame)

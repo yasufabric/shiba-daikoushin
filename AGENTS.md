@@ -183,3 +183,6 @@ The result screen lays itself out from the top (`shopLayout`); short phones get 
 ## Title screen and HUD polish
 The game opens on a title screen (`sim.title`; `?dev` skips it): the logo, the deck's faces, the 柴の家 with rival dogs marching past, and one tile per stage showing its best stars. A stage opens once the one before it has a star (`stageOpen`); tapping a tile calls `selectStage`. The result screen has a small kennel button (top left) that goes back to the title. Taps on both screens map flat (`screenToWorld(..., flat)`), via `titleTarget` and `shopTarget`.
 Cards and deck cells carry a 9×9 role icon (`drawRoleIcon`): claws, slam ring, ball, heart, frisbee, paw. The HUD shows `STAGE n` under the dog count.
+
+## Sound
+`audio.ts` is a WebAudio synth (`Synth`): per-coat hit sounds, deploy, special, call, pop, heal, tap, a win jingle scaled by stars, and a procedural 4-bar BGM (triangle melody + square bass, 128 bpm) scheduled from `unlock()` (first tap). `main.ts` `battleSounds()` turns sim events into sfx. A speaker tile (`paintMute`, top-right of the title/result screens and at the end of the dock's top row in play; tap via `muteTarget`) toggles mute; the choice persists under `shiba-daikoushin-mute`. The mute tap is checked before every other tap. Never add sound that cannot be muted.

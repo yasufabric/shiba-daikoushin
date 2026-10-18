@@ -180,6 +180,8 @@ export interface Renderer {
   boomsLeft: number
   /** Last special strike whose bursts were spawned. */
   fxSeen: number
+  /** Sound is off; the speaker button shows a cross. */
+  muted: boolean
   /** Sim clock at the last draw; a drop means a new match began. */
   lastTime: number
 }
@@ -381,6 +383,7 @@ export function createRenderer(): Renderer {
     boomCursor: 0,
     fxSeen: 0,
     lastTime: 0,
+    muted: false,
     partX: new Int16Array(PARTS),
     partY: new Int16Array(PARTS),
     partVx: new Int8Array(PARTS),
@@ -494,6 +497,7 @@ export function titleTarget(x: number, y: number): number {
 
 /** Title: the logo over the meadow, the deck's faces hopping, and one tile per stage with its best stars. */
 function paintTitle(ctx: CanvasRenderingContext2D, renderer: Renderer, sim: Sim): void {
+  paintMute(ctx, renderer, py(4))
   const w = frame.internalW
   const clock = performance.now() / 1000
   ctx.fillStyle = SKY
@@ -561,6 +565,41 @@ function paintTitle(ctx: CanvasRenderingContext2D, renderer: Renderer, sim: Sim)
     } else {
       drawLock(ctx, x + 11, y + 14)
     }
+  }
+}
+
+/** A tap on the speaker: `flat` screens (title, result) put it top right, play puts it at the right end of the dock's top row. */
+export function muteTarget(x: number, y: number, flat: boolean): boolean {
+  const ix = x / 2
+  if (ix < INTERNAL_W - 24 || ix > INTERNAL_W + 2) return false
+  if (flat) return y / 2 <= 26
+  return y >= BONE_Y - 8 && y <= BONE_Y + 26
+}
+
+/** Speaker, 16×14, on a night tile: waves when sound is on, a cross when it is off. */
+function paintMute(ctx: CanvasRenderingContext2D, renderer: Renderer, y: number): void {
+  const x = px(INTERNAL_W - 22)
+  ctx.fillStyle = LINE
+  ctx.fillRect(x, y, 20, 18)
+  ctx.fillStyle = NIGHT_2
+  ctx.fillRect(x + 1, y + 1, 18, 16)
+  ctx.fillStyle = LINE
+  ctx.fillRect(x + 3, y + 6, 4, 6)
+  ctx.fillRect(x + 6, y + 4, 2, 10)
+  ctx.fillRect(x + 8, y + 3, 2, 12)
+  ctx.fillStyle = WHITE
+  ctx.fillRect(x + 4, y + 7, 3, 4)
+  ctx.fillRect(x + 7, y + 5, 2, 8)
+  if (renderer.muted) {
+    ctx.fillStyle = DANGER
+    for (let i = 0; i < 7; i++) {
+      ctx.fillRect(x + 11 + i, y + 5 + i, 2, 2)
+      ctx.fillRect(x + 11 + i, y + 11 - i, 2, 2)
+    }
+  } else {
+    ctx.fillStyle = GOLD_LIGHT
+    ctx.fillRect(x + 12, y + 7, 2, 4)
+    ctx.fillRect(x + 15, y + 5, 2, 8)
   }
 }
 
@@ -1889,6 +1928,7 @@ function paintDock(ctx: CanvasRenderingContext2D, renderer: Renderer, sim: Sim):
   const y = pyDock(at(PANEL_Y))
   ctx.fillStyle = NIGHT
   ctx.fillRect(0, y + 1, frame.internalW, Math.max(0, frame.internalH - y - 1))
+  paintMute(ctx, renderer, pyDock(at(BONE_Y)) - 2)
   if (sim.free) {
     paintFieldCap(ctx, sim, px(at(BONE_X)), pyDock(at(BONE_Y)) + 1)
   } else {
@@ -2206,6 +2246,7 @@ function paintShop(ctx: CanvasRenderingContext2D, renderer: Renderer, sim: Sim):
   ctx.drawImage(renderer.sheets.bone, pxl, py(purseY) + 3)
   drawNumber(ctx, renderer, sim.purse, pxl + 14, py(purseY), true)
   paintHomeButton(ctx, px(4), py(4))
+  paintMute(ctx, renderer, py(4))
   const shown = sim.free ? KINDS : 4
   for (let kind = 0; kind < shown; kind++) {
     const level = sim.levels[kind] ?? 1
