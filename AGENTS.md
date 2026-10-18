@@ -2,7 +2,7 @@
 
 Portrait phone game. Soldier shibas march up the field from the 柴の家 at the bottom, rival dogs come down, and a three-minute match ends at the 犬の屋敷. Dogs that reach the field floor bite the 柴の家; when its gold HP bar empties the match is lost, as it is when the clock runs out. The only input is deploying a card. There is no cannon or other tap-fired attack.
 
-Three cards, three soldiers, each with its own attack:
+Three cards, three soldiers, each with its own attack. Every tap of a card sends out exactly one shiba, so the field stays readable (about a dozen shibas in a typical match); the next shiba of that coat costs a little more. A match opens with one 赤 on each path.
 
 - 赤 (tan card): a steady bite. Special 「サツマイモ!!」 sends every 赤 into a double-pace, double-bite rush.
 - 黒 (black card): one heavy bite at a time that drops a small dog. Special 「ジャーキー!!」 pierces the front three dogs on every path and hits the castle once it can be hit.

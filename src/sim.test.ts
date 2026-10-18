@@ -1,6 +1,9 @@
 import { describe, expect, it } from 'vitest'
 import {
   BOSS_AT,
+  BONE_PER_SHIBA,
+  BONE_RATE,
+  COUNT_BLACK,
   COUNT_WHITE,
   CUT_TIME,
   HEAVY_HIT,
@@ -48,6 +51,7 @@ function play(sim: Sim, seconds: number, inputFor: (sim: Sim) => Input): void {
 function greedy(sim: Sim): Input {
   let card = -1
   if (sim.bones >= sim.costBlack && sim.aliveShibas >= 8) card = 1
+  else if (sim.bones >= sim.costWhite && sim.aliveShibas >= 6 && sim.seq % 4 === 3) card = 2
   else if (sim.bones >= sim.costTan) card = 0
   return { card, restart: false }
 }
@@ -69,7 +73,7 @@ describe('match clock', () => {
 })
 
 describe('deploy', () => {
-  it('starts ten shibas marching and the pointed card adds five', () => {
+  it('starts a shiba on every path and each tap of the pointed card adds one', () => {
     const sim = createSim({ tutorial: true, seed: 2 })
     expect(sim.aliveShibas).toBe(START_SHIBAS)
     expect(sim.tutorial).toBe(true)
@@ -80,7 +84,7 @@ describe('deploy', () => {
     step(sim, 1 / 30, { card: 0, restart: false })
     expect(sim.tutorial).toBe(false)
     expect(sim.aliveShibas).toBe(START_SHIBAS + COUNT_TAN)
-    expect(sim.bones).toBeCloseTo(before + (1 / 30) * (12 + (START_SHIBAS + COUNT_TAN) * 0.12) - COST_TAN)
+    expect(sim.bones).toBeCloseTo(before + (1 / 30) * (BONE_RATE + (START_SHIBAS + COUNT_TAN) * BONE_PER_SHIBA) - COST_TAN)
     expect(sim.costTan).toBe(COST_TAN + STEP_TAN)
     expect(sim.sfxDeploy).toBe(1)
   })
@@ -250,10 +254,11 @@ describe('soldiers', () => {
     sim.bones = 1000
     step(sim, 1 / 30, { card: 1, restart: false })
     step(sim, 1 / 30, { card: 1, restart: false })
-    expect(sim.aliveShibas).toBe(4)
+    expect(sim.aliveShibas).toBe(COUNT_BLACK * 2)
     play(sim, 20, () => NO_INPUT)
-    // Each bite lands whole: up to HEAVY_HIT, capped by the cat's remaining hp.
-    expect(sim.charge[KIND_BLACK] ?? 0).toBeGreaterThanOrEqual(HEAVY_HIT * 2)
+    // One heavy bite drops a チワワ or コーギー outright, so each lands whole up to the dog's hp.
+    expect(HEAVY_HIT).toBeGreaterThanOrEqual(BREED_HP[BREED_CORGI])
+    expect(sim.charge[KIND_BLACK] ?? 0).toBeGreaterThanOrEqual(BREED_HP[BREED_CHIHUAHUA] * 2)
     expect(sim.charge[KIND_TAN]).toBe(0)
     expect(sim.charge[KIND_WHITE]).toBe(0)
   })
