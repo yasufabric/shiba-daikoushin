@@ -66,7 +66,7 @@ export const SKY_LIGHT = '#d4f0fb'
 export const INTERNAL_W = 195
 export const INTERNAL_H = 422
 
-export const CROWD_PX = 16
+export const CROWD_PX = 20
 export const CAT_PX = 20
 export const HERO_PX = 32
 export const BOSS_W = 72

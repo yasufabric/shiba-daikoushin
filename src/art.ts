@@ -269,24 +269,28 @@ function mirror(half: readonly string[], swap: Record<string, string>, fur: stri
  * シバスマイル tongue. The curl sits on the right hip.
  */
 const CROWD_HALF = [
-  '.L......',
-  'LhL.....',
-  'LhcL.LLL',
-  'LccLLuut',
-  'LcLuuttt',
-  'LoLqqqqq',
-  'Lhoooooo',
-  'Lhookxoo',
-  'Lwwooooo',
-  'Lwwwwwwn',
-  '.Lwwwwwp',
-  '..Lowwww',
-  '.Lhoswww',
-  '.Lhooowww'.slice(0, 8),
+  '..L.......',
+  '.LhL......',
+  '.LhcL.....',
+  'LhccL.LLLL',
+  'LhccLLuuut',
+  'LccLuuuttt',
+  'LcLuuttttt',
+  'LoLqqqqqqq',
+  'Lhoooooooo',
+  'Lhoookxooo',
+  'Lwwooooooo',
+  'Lwwwwwwwnn',
+  '.Lwwwwwwpp',
+  '..Lowwwwww',
+  '.Lhoowwwww',
+  '.Lhooswwww',
+  '.Lhoooowww',
+  '.Lhoooooww',
 ] as const
 
-const PAW_DOWN = ['.LooLwww', '.LwwL...'] as const
-const PAW_UP = ['.LooLwww', '........'] as const
+const PAW_DOWN = ['.LoooLwwww', '.LwwwL....'] as const
+const PAW_UP = ['.LoooLwwww', '..........'] as const
 
 const CROWD_SWAP: Record<string, string> = { h: 'o', O: 'o', u: 't', t: 'T' }
 
@@ -322,9 +326,9 @@ function crowdRows(pose: CrowdPose): string[] {
   const right = pose.right ? PAW_DOWN : PAW_UP
   const feet = mirrorPair(left, right, CROWD_SWAP, 'o', 'm')
   const g = [...body, ...feet]
-  if (pose.mouth === 'shut') stamp(g, 7, 10, ['ww'])
-  if (pose.mouth === 'bark') stamp(g, 6, 9, ['nnnn', 'nppn'])
-  stamp(g, 12, 10, pose.wag ? CURL_WAG : CURL_UP)
+  if (pose.mouth === 'shut') stamp(g, 8, 12, ['wwww'])
+  if (pose.mouth === 'bark') stamp(g, 7, 11, ['nnnnnn', 'nppppn'])
+  stamp(g, 16, 13, pose.wag ? CURL_WAG : CURL_UP)
   return g
 }
 
