@@ -100,6 +100,7 @@ describe('sprites', () => {
   it('uses the pixel-standard sizes and a 1px outline', () => {
     expect(INTERNAL_W * 2).toBe(VIEW_W)
     expect(INTERNAL_H * 2).toBe(VIEW_H)
+    expect(CROWD_PX).toBe(16)
     expect(crowdTan).toHaveLength(10)
     expect(crowdWhite).toHaveLength(10)
     expect(catArt).toHaveLength(10)
