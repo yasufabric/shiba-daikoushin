@@ -32,6 +32,7 @@ import {
   SASAMI_HOME,
   SPECIAL_NEED,
   BREED_BULLDOG,
+  BREED_GOLDEN,
   BREED_CHIHUAHUA,
   FIELD_W,
   PINCER_COUNT,
@@ -424,6 +425,21 @@ describe('free placement roles', () => {
     play(sim, 8, () => NO_INPUT)
     expect(shiba.alive).toBe(false)
     expect(sim.aliveShibas).toBe(0)
+  })
+
+  it('shaves the ゴールデン shield off every hit but lets a heavy hit through', () => {
+    const sim = emptyField()
+    const red = drop(sim, KIND_TAN, 200, 500)
+    const dog = sim.cats[0]
+    if (!dog) throw new Error('no dog')
+    Object.assign(dog, { alive: true, fly: 0, kind: BREED_GOLDEN, hp: 1000, maxHp: 1000, dps: 0, speed: 0, x: 200, y: 480, stun: 0 })
+    sim.aliveCats = 1
+    red.speed = 0
+    red.dps = 20
+    play(sim, 4, () => NO_INPUT)
+    const taken = 1000 - dog.hp
+    expect(taken).toBeGreaterThan(0)
+    expect(taken).toBeLessThan(20 * 4 * 0.8)
   })
 
   it('drops 「ジャーキー!!」 on the dogs nearest the house and notes each hit', () => {

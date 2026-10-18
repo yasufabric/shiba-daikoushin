@@ -6,6 +6,11 @@ import {
   HOME_HP,
   HOME_REACH,
   BREED_BULLDOG,
+  BREED_DACHS,
+  BREED_GOLDEN,
+  DACHS_EVERY,
+  GOLDEN_ARMOR,
+  GOLDEN_EVERY,
   BREED_CHIHUAHUA,
   BREED_CORGI,
   BREED_DPS,
@@ -750,6 +755,8 @@ function spawnWave(sim: Sim): void {
     if (horde) {
       sim.horde += 1
       if (sim.horde % every === 0) breed = BREED_BULLDOG
+      else if (sim.horde % GOLDEN_EVERY === 0) breed = BREED_GOLDEN
+      else if (sim.horde % DACHS_EVERY === 0) breed = BREED_DACHS
     }
     spawnCat(sim, lane, breed)
   }
@@ -1168,7 +1175,8 @@ function moveLane(sim: Sim, lane: number, dt: number): void {
 }
 
 /** Damage a cat and fill that coat's special gauge with what landed. */
-function hurt(sim: Sim, cat: Unit, amount: number, kind: number): number {
+function hurt(sim: Sim, cat: Unit, rawAmount: number, kind: number): number {
+  const amount = cat.kind === BREED_GOLDEN ? Math.max(rawAmount / 3, rawAmount - GOLDEN_ARMOR) : rawAmount
   const landed = Math.min(Math.max(0, cat.hp), amount)
   cat.hp -= amount
   sim.charge[kind] = (sim.charge[kind] ?? 0) + landed
