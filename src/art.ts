@@ -53,6 +53,14 @@ function blot(rows: string[], x: number, y: number, w: number, h: number, ch: st
   }
 }
 
+function tri(rows: string[], x: number, y: number, w: number, h: number, ch: string): void {
+  for (let row = 0; row < h; row++) {
+    const span = 1 + Math.floor(((w - 1) * row) / Math.max(1, h - 1))
+    const left = x + Math.floor((w - span) / 2)
+    for (let i = 0; i < span; i++) put(rows, left + i, y + row, ch)
+  }
+}
+
 function shave(rows: string[], x: number, y: number, w: number, h: number, r: number): void {
   for (let i = 0; i < r; i++) {
     for (let j = 0; j < r - 1 - i; j++) {
@@ -122,6 +130,8 @@ const TAN: Record<string, string> = {
   w: WHITE,
   n: FUR_DARK,
   g: GOLD,
+  o: FUR_BODY,
+  s: FUR_MID,
 }
 
 const CREAM: Record<string, string> = {
@@ -132,6 +142,8 @@ const CREAM: Record<string, string> = {
   w: WHITE,
   n: FUR_DARK,
   g: GOLD,
+  o: FUR_BODY,
+  s: FUR_MID,
 }
 
 const CAT: Record<string, string> = {
@@ -163,147 +175,147 @@ const CASTLE_MAP: Record<string, string> = {
   n: NIGHT,
 }
 
-/** Rear view, marching up. Head is the top half. Walk, idle, attack. */
+/** Front-facing shiba. Rows 0–9 stay put so the face survives the walk. */
 const CROWD_ROWS: readonly (readonly string[])[] = [
   [
-    '....hh..hh..',
-    '...hbbbbbbh.',
-    '..hbbbbbbbbh',
-    '..bbbbbbbbbb',
-    '...bbbbbbbb.',
-    '...dmmmmmm..',
-    '..hbbbbbbh..',
-    '..bb....bbh.',
-    '...b....bww.',
-    '...bb...ww..',
-    '............',
-    '............',
+    '..o....s....',
+    '.ooo..sss...',
+    '.oho..sss...',
+    'ohhhbbsssss.',
+    'bbbbbbbbbbbb',
+    'bwwnnwwnnwwb',
+    'bbwwwwnnwwwb',
+    'bbbwwwwwwbbb',
+    '.bbbwwwwsss.',
+    '.bbbbbswwss.',
+    '.bbbbbbsss..',
+    '..bb.bb.ss..',
   ],
   [
-    '....hh..hh..',
-    '...hbbbbbbh.',
-    '..hbbbbbbbbh',
-    '..bbbbbbbbbb',
-    '...bbbbbbbb.',
-    '...dmmmmmm..',
-    '..hbbbbbbh..',
-    '..bb....bb..',
-    '..bb....bb..',
-    '...b....b...',
-    '............',
-    '............',
+    '..o....s....',
+    '.ooo..sss...',
+    '.oho..sss...',
+    'ohhhbbsssss.',
+    'bbbbbbbbbbbb',
+    'bwwnnwwnnwwb',
+    'bbwwwwnnwwwb',
+    'bbbwwwwwwbbb',
+    '.bbbwwwwsss.',
+    '.bbbbbswwss.',
+    '.bbbbbbsss..',
+    '.....bb.ss..',
   ],
   [
-    '....hh..hh..',
-    '...hbbbbbbh.',
-    '..hbbbbbbbbh',
-    '..bbbbbbbbbb',
-    '...bbbbbbbb.',
-    '...dmmmmmm..',
-    '..hbbbbbbh..',
-    '.wwb....bb..',
-    '.ww....b....',
-    '.w....bb....',
-    '............',
-    '............',
+    '..o....s....',
+    '.ooo..sss...',
+    '.oho..sss...',
+    'ohhhbbsssss.',
+    'bbbbbbbbbbbb',
+    'bwwnnwwnnwwb',
+    'bbwwwwnnwwwb',
+    'bbbwwwwwwbbb',
+    '.bbbwwwwsss.',
+    '.bbbbbswwss.',
+    '.bbbbbbss...',
+    '..bb.bb.s...',
   ],
   [
-    '....hh..hh..',
-    '...hbbbbbbh.',
-    '..hbbbbbbbbh',
-    '..bbbbbbbbbb',
-    '...bbbbbbbb.',
-    '...dmmmmmm..',
-    '..hbbbbbbh..',
-    '..bbb...bb..',
-    '...b....bb..',
-    '...b....b...',
-    '............',
-    '............',
+    '..o....s....',
+    '.ooo..sss...',
+    '.oho..sss...',
+    'ohhhbbsssss.',
+    'bbbbbbbbbbbb',
+    'bwwnnwwnnwwb',
+    'bbwwwwnnwwwb',
+    'bbbwwwwwwbbb',
+    '.bbbwwwwsss.',
+    '.bbbbbswwss.',
+    '.bbbbbbsss..',
+    '..bb.....ss.',
   ],
   [
-    '....hh..hh..',
-    '...hbbbbbbh.',
-    '..hbbbbbbbbh',
-    '..bbbbbbbbbb',
-    '...bbbbbbbb.',
-    '...dmmmmmm..',
-    '..hbbbbbbh..',
-    '..bb....bb..',
-    '.ww....bb...',
-    '.w......b...',
-    '.w..........',
-    '............',
+    '..o....s....',
+    '.ooo..sss...',
+    '.oho..sss...',
+    'ohhhbbsssss.',
+    'bbbbbbbbbbbb',
+    'bwwnnwwnnwwb',
+    'bbwwwwnnwwwb',
+    'bbbwwwwwwbbb',
+    '.bbbwwwwsss.',
+    '.bbbbbswwss.',
+    '.bbbbbsss...',
+    '..bb.b.ss...',
   ],
   [
-    '....hh..hh..',
-    '...hbbbbbbh.',
-    '..hbbbbbbbbh',
-    '..bbbbbbbbbb',
-    '...bbbbbbbb.',
-    '...dmmmmmm..',
-    '..hbbbbbbh..',
-    '..bb....bb..',
-    '...bb....ww.',
-    '...b......w.',
-    '..........w.',
-    '............',
+    '..o....s....',
+    '.ooo..sss...',
+    '.oho..sss...',
+    'ohhhbbsssss.',
+    'bbbbbbbbbbbb',
+    'bwwnnwwnnwwb',
+    'bbwwwwnnwwwb',
+    'bbbwwwwwwbbb',
+    '.bbbwwwwsss.',
+    '.bbbbbswwss.',
+    '.bbbbbbsss..',
+    '..bb.bb..ss.',
   ],
   [
-    '............',
-    '....hh..hh..',
-    '...hbbbbbbh.',
-    '..hbbbbbbbbh',
-    '..bbbbbbbbbb',
-    '...bbbbbbbb.',
-    '...dmmmmmm..',
-    '..hbbbbbbh..',
-    '..bb....bb..',
-    '...b....b...',
-    '............',
-    '............',
+    '..o....s....',
+    '.ooo..sss...',
+    '.oho..sss...',
+    'ohhhbbsssss.',
+    'bbbbbbbbbbbb',
+    'bwwnnwwnnwwb',
+    'bbwwwwnnwwwb',
+    'bbbwwwwwwbbb',
+    '.bbbwwwwsss.',
+    '.bbbbbswwss.',
+    '.bbbbbbss...',
+    '..bbbb.ss...',
   ],
   [
-    '....hh..hh..',
-    '...hbbbbbbh.',
-    '..hbbbbbbbbh',
-    '..bbbbbbbbbb',
-    '...bbbbbbbb.',
-    '...dmmmmmm..',
-    '..hbbbbbbh..',
-    '.bbb....bbb.',
-    '.bb......bb.',
-    '.b........b.',
-    '............',
-    '............',
+    '..o....s....',
+    '.ooo..sss...',
+    '.oho..sss...',
+    'ohhhbbsssss.',
+    'bbbbbbbbbbbb',
+    'bwwnnwwnnwwb',
+    'bbwwwwnnwwwb',
+    'bbbwwwwwwbbb',
+    '.bbbwwwwsss.',
+    '.bbbbbswwss.',
+    '.bbbbbbsss..',
+    'bb.....b.ss.',
   ],
   [
-    '....hh..hh..',
-    '...hbbbbbbh.',
-    '..hbbbbbbbbh',
-    '..bbbbbbbbbb',
-    '...bbbbbbbb.',
-    '...dmmmmmm..',
-    '..hbbbbbbh..',
-    '..bb....bb..',
-    '.bb......bb.',
-    '..b......b..',
-    '............',
-    '............',
+    '..o....s....',
+    '.ooo..sss...',
+    '.oho..sss...',
+    'ohhhbbsssss.',
+    'bbbbbbbbbbbb',
+    'bwwnnwwnnwwb',
+    'bbwwwwnnwwwb',
+    'bbbwwwwwwbbb',
+    '.bbbwwwwsss.',
+    '.bbbbbswwss.',
+    '.bbbbbbsss..',
+    '..bb.bb.ss..',
   ],
   [
-    '....hh..hh..',
-    '...hbbbbbbh.',
-    '..hbbbbbbbbh',
-    '..bbbbbbbbbb',
-    '...bbbbbbbb.',
-    '...dmmmmmm..',
-    '..hbbbbbbh..',
-    '..bb....bb..',
-    '..bb....bb..',
-    '...b....b...',
-    '............',
-    '............',
+    '..o....s....',
+    '.ooo..sss...',
+    '.oho..sss...',
+    'ohhhbbsssss.',
+    'bbbbbbbbbbbb',
+    'bwwnnwwnnwwb',
+    'bbwwwwnnwwwb',
+    'bbbwwwwwwbbb',
+    '.bbbwwwwsss.',
+    '.bbbbbswwss.',
+    '.bbbbbbss...',
+    '..bb.bb.s...',
   ],
 ]
 
@@ -370,37 +382,40 @@ function catFrame(index: number): string[] {
   return g
 }
 
-function hero(blink: boolean, reward: boolean, cream: boolean): string[] {
+function hero(blink: boolean, reward: boolean): string[] {
   const g = blank(HERO_PX, HERO_PX)
-  blot(g, 2, 1, 10, 12, 'b')
-  blot(g, 20, 1, 10, 12, 'b')
-  shave(g, 2, 1, 10, 12, 3)
-  shave(g, 20, 1, 10, 12, 3)
-  blot(g, 5, 4, 4, 6, cream ? 'n' : 'm')
-  blot(g, 23, 4, 4, 6, 'd')
-  blot(g, 6, 7, 20, 12, 'b')
-  shave(g, 6, 7, 20, 12, 3)
-  blot(g, 7, 8, 9, 6, 'h')
-  blot(g, 18, 11, 6, 6, 'm')
+  tri(g, 3, 0, 11, 10, 'o')
+  tri(g, 18, 0, 11, 10, 's')
+  tri(g, 5, 3, 7, 6, 'h')
+  tri(g, 20, 4, 7, 5, 'm')
+  blot(g, 4, 7, 24, 16, 'b')
+  blot(g, 6, 8, 8, 5, 'h')
+  blot(g, 18, 10, 8, 5, 'm')
+  blot(g, 7, 12, 18, 10, 'w')
   if (blink) {
-    blot(g, 9, 13, 5, 2, 'd')
-    blot(g, 18, 13, 5, 2, 'd')
+    blot(g, 9, 15, 5, 2, 'n')
+    blot(g, 18, 15, 5, 2, 'n')
   } else {
-    blot(g, 9, 12, 5, 4, 'd')
-    blot(g, 18, 12, 5, 4, 'd')
-    blot(g, 10, 13, 2, 2, 'w')
-    blot(g, 19, 13, 2, 2, 'w')
+    blot(g, 9, 14, 5, 4, 'n')
+    blot(g, 18, 14, 5, 4, 'n')
+    put(g, 10, 15, 'w')
+    put(g, 19, 15, 'w')
   }
-  blot(g, 12, 16, 8, 5, 'h')
-  blot(g, 15, 18, 2, 2, 'n')
-  blot(g, 8, 20, 16, 8, 'b')
-  blot(g, 8, 20, 6, 4, 'h')
-  blot(g, 18, 23, 6, 4, 'm')
-  if (reward) blot(g, 8, 20, 16, 2, 'g')
-  blot(g, 6, 26, 6, 4, 'm')
-  blot(g, 20, 26, 6, 4, 'd')
-  blot(g, 24, 22, 6, 5, 'h')
-  blot(g, 26, 26, 4, 3, 'b')
+  blot(g, 14, 18, 4, 3, 'n')
+  blot(g, 8, 22, 14, 6, 'b')
+  blot(g, 10, 22, 8, 5, 'w')
+  blot(g, 17, 23, 4, 4, 'm')
+  if (reward) blot(g, 9, 21, 12, 2, 'g')
+  const tail = ['..oooooo', '.owwwwwo', 'owwhwwwo', 'owwhwwso', 'owwwwsso', 'ooosssso', '.osssoo.', '..ssso..']
+  for (let row = 0; row < tail.length; row++) {
+    const line = tail[row] ?? ''
+    for (let col = 0; col < line.length; col++) {
+      const ch = line[col] ?? '.'
+      if (ch !== '.') put(g, 22 + col, 21 + row, ch)
+    }
+  }
+  blot(g, 10, 28, 4, 3, 'm')
+  blot(g, 16, 28, 4, 3, 'b')
   return g
 }
 
@@ -476,11 +491,11 @@ const catRows = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9].map((i) => catFrame(i))
 export const catArt = catRows.map((rows, i) => seal(`cat-${i}`, rows, CAT))
 
 export const heroArt = [
-  seal('hero-tan', hero(false, false, false), TAN),
-  seal('hero-tan-blink', hero(true, false, false), TAN),
-  seal('hero-white', hero(false, false, true), CREAM),
-  seal('hero-white-blink', hero(true, false, true), CREAM),
-  seal('hero-reward', hero(false, true, false), TAN),
+  seal('hero-tan', hero(false, false), TAN),
+  seal('hero-tan-blink', hero(true, false), TAN),
+  seal('hero-white', hero(false, false), CREAM),
+  seal('hero-white-blink', hero(true, false), CREAM),
+  seal('hero-reward', hero(false, true), TAN),
 ]
 
 export const boneArt = seal('bone', boneRows(), BONE_MAP)
