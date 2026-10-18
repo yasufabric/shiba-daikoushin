@@ -18,6 +18,7 @@ import {
   KIND_BLACK,
   KIND_TAN,
   KIND_WHITE,
+  KIND_SESAME,
   KINDS,
   CARD_XS,
   CUT_TIME,
@@ -560,11 +561,36 @@ function drawShiba(ctx: CanvasRenderingContext2D, renderer: Renderer, sim: Sim, 
     ctx.fillRect(dx + 6, dy + CROWD_PX, 1, 4)
     ctx.fillRect(dx + 16, dy + CROWD_PX + 1, 1, 5)
   }
-  blitCrowd(ctx, renderer, furOf(unit.kind, index), pose, fighting ? beat : sim.time, unit.lane, 0, flash, dx, dy)
+  blitCrowd(ctx, renderer, furOf(unit.kind), pose, fighting ? beat : sim.time, unit.lane, 0, flash, dx, dy)
   if (unit.kind === KIND_WHITE) paintBark(ctx, sim.time - (renderer.shibaAct[index] ?? -9), dx + 12, dy)
+  if (unit.kind === KIND_SESAME) {
+    drawHeart(ctx, dx + 16, dy + 1)
+    paintMend(ctx, sim.time - (renderer.shibaAct[index] ?? -9), dx + 12, dy)
+  }
 }
 
 /** 白柴's bark: three widening bars rising off the helmet, ")))" turned upward. */
+/** 胡麻 heal: a pink heart floats up off the healer. */
+function paintMend(ctx: CanvasRenderingContext2D, age: number, cx: number, top: number): void {
+  if (age < 0 || age > 0.5) return
+  drawHeart(ctx, cx - 3, top - 4 - Math.floor(age * 24))
+}
+
+/** Heart, 7×6, outlined. */
+function drawHeart(ctx: CanvasRenderingContext2D, x: number, y: number): void {
+  ctx.fillStyle = LINE
+  ctx.fillRect(x, y, 3, 4)
+  ctx.fillRect(x + 4, y, 3, 4)
+  ctx.fillRect(x + 1, y + 3, 5, 2)
+  ctx.fillRect(x + 2, y + 4, 3, 2)
+  ctx.fillStyle = DANGER_LIGHT
+  ctx.fillRect(x + 1, y + 1, 1, 2)
+  ctx.fillRect(x + 5, y + 1, 1, 2)
+  ctx.fillRect(x + 2, y + 2, 3, 2)
+  ctx.fillStyle = WHITE
+  ctx.fillRect(x + 1, y + 1, 1, 1)
+}
+
 function paintBark(ctx: CanvasRenderingContext2D, age: number, cx: number, top: number): void {
   if (age < 0 || age > 0.3) return
   const rise = Math.floor(age * 30)
@@ -616,18 +642,18 @@ function noteDeaths(renderer: Renderer, sim: Sim): void {
     if ((renderer.shibaOn[i] ?? 0) === 1 && alive === 0 && unit) {
       const dx = px(at(FIELD_X + unit.x)) - (CROWD_PX >> 1)
       const dy = py(at(FIELD_Y + unit.y)) - CROWD_PX
-      spawnGhost(renderer, sim, dx, dy, furOf(unit.kind, i))
+      spawnGhost(renderer, sim, dx, dy, furOf(unit.kind))
       spawnBoom(renderer, sim, dx + (CROWD_PX >> 1), dy + (CROWD_PX >> 1))
     }
     renderer.shibaOn[i] = alive
   }
 }
 
-/** Each card is one coat: 赤 (with a sprinkle of 胡麻), 黒, and 白. */
-function furOf(kind: number, index: number): number {
+/** Each card is one coat: 赤, 黒, 白, and the 胡麻 healer. Every crowd sprite matches its card. */
+function furOf(kind: number): number {
   if (kind === KIND_BLACK) return FUR_BLACK
   if (kind === KIND_WHITE) return FUR_CREAM
-  if (index % 7 === 3) return FUR_SESAME
+  if (kind === KIND_SESAME) return FUR_SESAME
   return FUR_RED
 }
 
@@ -852,8 +878,8 @@ function paintBooms(ctx: CanvasRenderingContext2D, renderer: Renderer, sim: Sim)
   }
 }
 
-const COAT_DARK = [FUR_MID, NIGHT, WHITE_DARK] as const
-const COAT_LIT = [FUR_BODY, NIGHT_2, WHITE_MID] as const
+const COAT_DARK = [FUR_MID, NIGHT, WHITE_DARK, FUR_DARK] as const
+const COAT_LIT = [FUR_BODY, NIGHT_2, WHITE_MID, FUR_MID] as const
 const CUT_H = 44
 const CUT_SLIDE = 0.12
 
@@ -866,6 +892,7 @@ function paintSpecialField(ctx: CanvasRenderingContext2D, renderer: Renderer, si
   renderer.fxSeen = sim.fxId
   if (sim.fxKind === KIND_TAN) paintPotatoRain(ctx, renderer, sim, age)
   else if (sim.fxKind === KIND_BLACK) paintJerky(ctx, renderer, sim, age, fresh)
+  else if (sim.fxKind === KIND_SESAME) paintSasami(ctx, renderer, sim, age)
   else paintCheese(ctx, renderer, sim, age, fresh)
 }
 
@@ -966,6 +993,33 @@ function paintJerky(ctx: CanvasRenderingContext2D, renderer: Renderer, sim: Sim,
     }
     drawJerky(ctx, cx, tipY, 2)
     x += LANE_PX[lane] ?? 0
+  }
+}
+
+/** 胡麻「ササミ!!」: hearts burst up off every shiba and gold pluses ring the 柴の家. */
+function paintSasami(ctx: CanvasRenderingContext2D, renderer: Renderer, sim: Sim, age: number): void {
+  for (let i = 0; i < sim.shibas.length; i++) {
+    const unit = sim.shibas[i]
+    if (!unit?.alive) continue
+    const x = px(at(FIELD_X + unit.x))
+    const top = py(at(FIELD_Y + unit.y)) - CROWD_PX
+    const lag = (i % 4) * 0.06
+    if (age < lag || age > lag + 0.6) continue
+    const rise = Math.floor((age - lag) * 40)
+    drawHeart(ctx, x - 3 + ((i & 1) ? 4 : -4), top - rise)
+  }
+  const home = renderer.sheets.home
+  const hx = frame.internalW >> 1
+  const hy = py(at(FIELD_Y + FIELD_H)) - (home.height >> 1)
+  const spin = Math.floor(age * 16) & 3
+  for (let k = 0; k < 6; k++) {
+    const ang = ((k * 60 + age * 240) * Math.PI) / 180
+    const r = 24 + Math.floor(age * 20)
+    const x = hx + Math.round(Math.cos(ang) * r)
+    const y = hy + Math.round(Math.sin(ang) * r * 0.6)
+    ctx.fillStyle = GOLD_CYCLE[(spin + k) & 3] ?? GOLD
+    ctx.fillRect(x - 3, y - 1, 7, 3)
+    ctx.fillRect(x - 1, y - 3, 3, 7)
   }
 }
 
@@ -1079,7 +1133,7 @@ function paintDock(ctx: CanvasRenderingContext2D, renderer: Renderer, sim: Sim):
   ctx.drawImage(renderer.sheets.bone, px(at(BONE_X)), pyDock(at(BONE_Y)))
   drawNumber(ctx, renderer, sim.bones | 0, px(at(BONE_X)) + 14, pyDock(at(BONE_Y)) + 1, false)
   for (let kind = 0; kind < KINDS; kind++) {
-    const deny = kind === KIND_TAN ? sim.deny0 : kind === KIND_BLACK ? sim.deny1 : sim.deny2
+    const deny = [sim.deny0, sim.deny1, sim.deny2, sim.deny3][kind] ?? 0
     const cost = costOf(sim, kind)
     const x = px(at(CARD_XS[kind] ?? CARD_X0) + denyShift(deny))
     paintCard(ctx, renderer, x, kind, cost, sim.bones >= cost, kind === KIND_TAN && sim.tutorial, sim.time)
@@ -1108,9 +1162,10 @@ function paintCard(
   ctx.fillStyle = affordable ? NIGHT_1 : NIGHT
   ctx.fillRect(x, y, w, h)
   const hx = x + ((w - HERO_PX) >> 1)
+  const pad = Math.min(8, ((w - HERO_PX) >> 1) - 2)
   ctx.fillStyle = affordable ? NIGHT_2 : NIGHT_1
-  ctx.fillRect(hx - 6, y + 4, HERO_PX + 12, HERO_PX + 2)
-  ctx.fillRect(hx - 8, y + 6, HERO_PX + 16, HERO_PX - 2)
+  ctx.fillRect(hx - pad + 2, y + 4, HERO_PX + pad * 2 - 4, HERO_PX + 2)
+  ctx.fillRect(hx - pad, y + 6, HERO_PX + pad * 2, HERO_PX - 2)
   ctx.fillStyle = affordable ? NIGHT_3 : NIGHT_2
   ctx.fillRect(hx - 2, y + HERO_PX + 2, HERO_PX + 4, 2)
   const phase = Math.floor(time * 8) & 3
@@ -1127,6 +1182,7 @@ function paintCard(
   const col = heroCell(kind, blink ? 'blink' : 'open')
   const hop = affordable ? (HOP[Math.floor(time * 8) & 7] ?? 0) >> 1 : 0
   ctx.drawImage(renderer.sheets.hero, col * HERO_PX, 0, HERO_PX, HERO_PX, hx, y + 3 - hop, HERO_PX, HERO_PX)
+  if (kind === KIND_SESAME) drawHeart(ctx, x + w - 10, y + 3)
   ctx.drawImage(renderer.sheets.bone, x + 3, y + h - 14)
   drawNumber(ctx, renderer, cost | 0, x + 17, y + h - 12, false)
 }

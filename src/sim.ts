@@ -64,6 +64,17 @@ import {
   JERKY_DEPTH,
   JERKY_HIT,
   KIND_WHITE,
+  KIND_SESAME,
+  COST_SESAME,
+  COUNT_SESAME,
+  DPS_SESAME,
+  HP_SESAME,
+  SPEED_SESAME,
+  STEP_SESAME,
+  HEAL_AMOUNT,
+  HEAL_EVERY,
+  HEAL_REACH,
+  SASAMI_HOME,
   KINDS,
   RUSH_TIME,
   SPECIAL_NEED,
@@ -82,6 +93,8 @@ export interface Unit {
   kind: number
   lane: number
   hp: number
+  /** Full health for this unit; healing stops here. */
+  maxHp: number
   dps: number
   fly: number
   /** Seconds until the next heavy bite or bark. */
@@ -108,6 +121,7 @@ export interface Sim {
   costTan: number
   costBlack: number
   costWhite: number
+  costSesame: number
   castleHp: number
   homeHp: number
   boss: boolean
@@ -121,6 +135,7 @@ export interface Sim {
   deny0: number
   deny1: number
   deny2: number
+  deny3: number
   /** Special gauge per coat, in damage dealt. Fires at SPECIAL_NEED. */
   charge: number[]
   /** The coat whose special cut-in is showing, or -1. */
@@ -171,6 +186,7 @@ function makePool(max: number): Unit[] {
       kind: KIND_TAN,
       lane: 0,
       hp: 0,
+      maxHp: 0,
       dps: 0,
       fly: 0,
       cd: 0,
@@ -193,6 +209,7 @@ export function createSim(opts?: SimOptions): Sim {
     costTan: COST_TAN,
     costBlack: COST_BLACK,
     costWhite: COST_WHITE,
+    costSesame: COST_SESAME,
     castleHp: CASTLE_HP,
     homeHp: HOME_HP,
     boss: false,
@@ -206,7 +223,8 @@ export function createSim(opts?: SimOptions): Sim {
     deny0: 0,
     deny1: 0,
     deny2: 0,
-    charge: [0, 0, 0],
+    deny3: 0,
+    charge: [0, 0, 0, 0],
     cutKind: -1,
     cutT: 0,
     fxKind: -1,
@@ -239,6 +257,7 @@ function boot(sim: Sim): void {
   sim.costTan = COST_TAN
   sim.costBlack = COST_BLACK
   sim.costWhite = COST_WHITE
+  sim.costSesame = COST_SESAME
   sim.castleHp = CASTLE_HP
   sim.homeHp = HOME_HP
   sim.boss = false
@@ -251,6 +270,7 @@ function boot(sim: Sim): void {
   sim.deny0 = 0
   sim.deny1 = 0
   sim.deny2 = 0
+  sim.deny3 = 0
   sim.charge.fill(0)
   sim.cutKind = -1
   sim.cutT = 0
@@ -281,11 +301,12 @@ export function spawnShiba(sim: Sim, kind: number, lane: number, y: number): boo
   const unit = acquire(sim.shibas, sim, 's')
   if (!unit) return false
   const laneW = FIELD_W / LANE_COUNT
-  const k = kind === KIND_BLACK || kind === KIND_WHITE ? kind : KIND_TAN
+  const k = kind === KIND_BLACK || kind === KIND_WHITE || kind === KIND_SESAME ? kind : KIND_TAN
   unit.alive = true
   unit.lane = lane
   unit.kind = k
   unit.hp = HP_OF[k] ?? HP_TAN
+  unit.maxHp = unit.hp
   unit.dps = DPS_OF[k] ?? DPS_TAN
   unit.speed = SPEED_OF[k] ?? SPEED_TAN
   unit.fly = 0
@@ -296,11 +317,11 @@ export function spawnShiba(sim: Sim, kind: number, lane: number, y: number): boo
   return true
 }
 
-const HP_OF = [HP_TAN, HP_BLACK, HP_WHITE] as const
-const DPS_OF = [DPS_TAN, DPS_BLACK, DPS_WHITE] as const
-const SPEED_OF = [SPEED_TAN, SPEED_BLACK, SPEED_WHITE] as const
-const COUNT_OF = [COUNT_TAN, COUNT_BLACK, COUNT_WHITE] as const
-const STEP_OF = [STEP_TAN, STEP_BLACK, STEP_WHITE] as const
+const HP_OF = [HP_TAN, HP_BLACK, HP_WHITE, HP_SESAME] as const
+const DPS_OF = [DPS_TAN, DPS_BLACK, DPS_WHITE, DPS_SESAME] as const
+const SPEED_OF = [SPEED_TAN, SPEED_BLACK, SPEED_WHITE, SPEED_SESAME] as const
+const COUNT_OF = [COUNT_TAN, COUNT_BLACK, COUNT_WHITE, COUNT_SESAME] as const
+const STEP_OF = [STEP_TAN, STEP_BLACK, STEP_WHITE, STEP_SESAME] as const
 
 export function fillMarch(sim: Sim, count: number): number {
   let spawned = 0
@@ -323,6 +344,7 @@ function spawnCat(sim: Sim, lane: number, breed: number): boolean {
   unit.lane = lane
   unit.kind = breed
   unit.hp = BREED_HP[breed] ?? BREED_HP[BREED_CORGI]
+  unit.maxHp = unit.hp
   unit.dps = BREED_DPS[breed] ?? BREED_DPS[BREED_CORGI]
   unit.speed = BREED_SPEED[breed] ?? BREED_SPEED[BREED_CORGI]
   unit.fly = 0
@@ -365,7 +387,7 @@ export function step(sim: Sim, dt: number, input: Input = NO_INPUT): void {
     return
   }
 
-  if (input.card === 0 || input.card === 1 || input.card === 2) tryDeploy(sim, input.card)
+  if (input.card >= 0 && input.card < KINDS) tryDeploy(sim, input.card)
 
   const income = BONE_RATE + sim.aliveShibas * BONE_PER_SHIBA
   const next = sim.time + dt >= MATCH_SECONDS - 1e-4 ? MATCH_SECONDS : sim.time + dt
@@ -391,6 +413,7 @@ export function step(sim: Sim, dt: number, input: Input = NO_INPUT): void {
   flyCats(sim, tick)
   fight(sim, tick)
   bark(sim, tick)
+  heal(sim, tick)
   reap(sim)
   if (sim.rushT > 0) sim.rushT -= tick
   if (sim.fxT > 0) {
@@ -418,6 +441,7 @@ export function step(sim: Sim, dt: number, input: Input = NO_INPUT): void {
   if (sim.deny0 > 0) sim.deny0 -= tick
   if (sim.deny1 > 0) sim.deny1 -= tick
   if (sim.deny2 > 0) sim.deny2 -= tick
+  if (sim.deny3 > 0) sim.deny3 -= tick
 
   if (sim.castleHp <= 0) {
     sim.castleHp = 0
@@ -459,8 +483,10 @@ function tryDeploy(sim: Sim, card: number): void {
     sim.tutorial = false
   } else if (card === KIND_BLACK) {
     sim.costBlack += step
-  } else {
+  } else if (card === KIND_WHITE) {
     sim.costWhite += step
+  } else {
+    sim.costSesame += step
   }
   sim.sfxDeploy = 1
 }
@@ -468,12 +494,14 @@ function tryDeploy(sim: Sim, card: number): void {
 export function costOf(sim: Sim, card: number): number {
   if (card === KIND_BLACK) return sim.costBlack
   if (card === KIND_WHITE) return sim.costWhite
+  if (card === KIND_SESAME) return sim.costSesame
   return sim.costTan
 }
 
 function deny(sim: Sim, card: number): void {
   if (card === KIND_BLACK) sim.deny1 = 0.18
   else if (card === KIND_WHITE) sim.deny2 = 0.18
+  else if (card === KIND_SESAME) sim.deny3 = 0.18
   else sim.deny0 = 0.18
 }
 
@@ -588,7 +616,7 @@ function moveLane(sim: Sim, lane: number, dt: number): void {
     } else if (shiba.kind === KIND_TAN) {
       hurt(sim, cat, shiba.dps * (sim.rushT > 0 ? 2 : 1) * dt, KIND_TAN)
     } else {
-      hurt(sim, cat, shiba.dps * dt, KIND_WHITE)
+      hurt(sim, cat, shiba.dps * dt, shiba.kind)
     }
   }
 
@@ -638,7 +666,36 @@ function bark(sim: Sim, dt: number): void {
   }
 }
 
-/** Specials: 赤「サツマイモ!!」rush, 黒「ジャーキー!!」pierce, 白「チーズ!!」shockwave. Firing starts the cut-in; strikeSpecial lands it. */
+/** 胡麻柴 heal: mend the most-hurt shiba near it, in its own path or a neighbor. Healing fills the 胡麻 gauge. */
+function heal(sim: Sim, dt: number): void {
+  const shibas = sim.shibas
+  for (let i = 0; i < shibas.length; i++) {
+    const healer = shibas[i]
+    if (!healer?.alive || healer.kind !== KIND_SESAME) continue
+    if (healer.cd > 0) healer.cd -= dt
+    if (healer.cd > 0) continue
+    let best: Unit | undefined
+    let bestRatio = 1
+    for (let j = 0; j < shibas.length; j++) {
+      const unit = shibas[j]
+      if (!unit?.alive || unit.hp <= 0 || unit.hp >= unit.maxHp) continue
+      if (Math.abs(unit.lane - healer.lane) > 1) continue
+      if (healer.y - unit.y > HEAL_REACH || unit.y - healer.y > HEAL_REACH / 3) continue
+      const ratio = unit.hp / unit.maxHp
+      if (ratio < bestRatio) {
+        bestRatio = ratio
+        best = unit
+      }
+    }
+    if (!best) continue
+    const mended = Math.min(HEAL_AMOUNT, best.maxHp - best.hp)
+    best.hp += mended
+    sim.charge[KIND_SESAME] = (sim.charge[KIND_SESAME] ?? 0) + mended
+    healer.cd = HEAL_EVERY
+  }
+}
+
+/** Specials: 赤「サツマイモ!!」rush, 黒「ジャーキー!!」pierce, 白「チーズ!!」shockwave, 胡麻「ササミ!!」full heal. Firing starts the cut-in; strikeSpecial lands it. */
 export function fireSpecial(sim: Sim, kind: number): void {
   sim.charge[kind] = 0
   sim.cutKind = kind
@@ -674,6 +731,12 @@ export function strikeSpecial(sim: Sim, kind: number): void {
       sim.castleHp -= applied
       dealt += applied
     }
+  } else if (kind === KIND_SESAME) {
+    for (let i = 0; i < sim.shibas.length; i++) {
+      const unit = sim.shibas[i]
+      if (unit?.alive && unit.hp > 0) unit.hp = unit.maxHp
+    }
+    sim.homeHp = Math.min(HOME_HP, sim.homeHp + SASAMI_HOME)
   } else {
     for (let i = 0; i < cats.length; i++) {
       const cat = cats[i]

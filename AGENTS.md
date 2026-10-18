@@ -2,11 +2,12 @@
 
 Portrait phone game. Soldier shibas march up the field from the 柴の家 at the bottom, rival dogs come down, and a three-minute match ends at the 犬の屋敷. Dogs that reach the field floor bite the 柴の家; when its gold HP bar empties the match is lost, as it is when the clock runs out. The only input is deploying a card. There is no cannon or other tap-fired attack.
 
-Three cards, three soldiers, each with its own attack. Every tap of a card sends out exactly one shiba, so the field stays readable (about a dozen shibas in a typical match); the next shiba of that coat costs a little more. A match opens with one 赤 on each path.
+Four cards, four soldiers, each with its own role. The cards sit in one row of four. Every tap of a card sends out exactly one shiba, so the field stays readable (about a dozen shibas in a typical match); the next shiba of that coat costs a little more. A match opens with one 赤 on each path.
 
 - 赤 (tan card): a steady bite. Special 「サツマイモ!!」 sends every 赤 into a double-pace, double-bite rush.
 - 黒 (black card): one heavy bite at a time that drops a small dog. Special 「ジャーキー!!」 pierces the front three dogs on every path and hits the castle once it can be hit.
 - 白 (white card): barks from the second row into its own path and both neighbors. Special 「チーズ!!」 is a field-wide shockwave that shoves every dog back.
+- 胡麻 (sesame card): the healer. Every second it mends the most-hurt shiba near it, in its own path or the two beside, and a pink heart floats up. Its gauge fills with healing done. Special 「ササミ!!」 brings every shiba back to full and mends the 柴の家. A small pink heart badge marks the 胡麻 card and every 胡麻 on the field, since the coat alone is hard to tell from 赤 at a glance.
 
 Specials fire on their own when a coat's gauge (damage it has landed) fills. A small cut-in slides in: the smug portrait, the food shouted in pixel katakana, and ゴゴゴ. When the cut-in leaves, the special strikes: that is when its damage lands, with hitstop, shake, a strike sound, and a field effect that runs for `FX_TIME`. 赤: sweet potatoes drop onto every 赤 and pop, then gold embers rise off them while the rush lasts. 黒: a jerky spear shoots up every path with a gold trail and bursts on the dogs it pierces. 白: a big cheese wedge slams the middle of the field and square shockwave rings spread out. Props are drawn at an integer scale with a `#120b10` outline. The next special waits until the strike's effect ends. Shout foods only, never a product name.
 
@@ -88,7 +89,7 @@ The face smiles: a happy squint and a pink tongue (`#ffb3cf`), the シバスマ�
 Four coats share one set of rows and differ only by color map:
 
 - 赤 (red): the tan card and most of its crowd.
-- 胡麻 (sesame): red with `#6b2e12` tips on the crown and back. A sprinkle of the tan crowd.
+- 胡麻 (sesame): red with `#6b2e12` tips on the crown and back. The 胡麻 card. The 赤 crowd is all 赤, so a 胡麻 on the field is always a healer.
 - 白 (cream): `#f6c27a` body with `#e08a3c` ear and curl shade. The white card.
 - 黒 (black and tan): the black card. Night shades for fur (`#2c3a63` body, `#4a5d8f` lit, `#18213d` shade), tan まろ眉 brows, tan curl underside, white urajiro.
 

@@ -727,9 +727,10 @@ const HERO_COATS = [
   ['red', RED],
   ['black', BLACK],
   ['cream', CREAM],
+  ['sesame', SESAME],
 ] as const
 
-/** Three coats × open, blink, smug, then the reward (red with a gold collar). Index with heroCell. */
+/** Four coats in card order (赤, 黒, 白, 胡麻) × open, blink, smug, then the reward (red with a gold collar). Index with heroCell. */
 export const heroArt = [
   ...HERO_COATS.flatMap(([name, map]) => HERO_FACES.map((face) => seal(`hero-${name}-${face}`, hero(face, false), map))),
   seal('hero-reward', hero('open', true), RED),
