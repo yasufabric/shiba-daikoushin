@@ -179,3 +179,7 @@ Six coats now (`KINDS` 6): 赤, 黒, 胡麻, 白 plus ぶち柴 (`KIND_DISC`, fr
 A match brings `DECK_SIZE` (4) coats: `sim.deck`, saved with levels. Dock slot `s` shows coat `deck[s]`; cards send that coat number. On the result screen tap a coat's portrait to put it in or out of the deck (START stays dim until the deck is full) and the gold button to buy a level.
 The result screen lays itself out from the top (`shopLayout`); short phones get a compact header and START floats at the bottom edge so it is never off screen. Taps on it map with `screenToWorld(..., flat)` and `shopTarget`, because the in-play dock squeeze must not apply there (it once made START miss on some phones).
 `?dev` has `__shiba.place('s'|'c', kind, x, y)` to drop a shiba or dog for screenshots.
+
+## Title screen and HUD polish
+The game opens on a title screen (`sim.title`; `?dev` skips it): the logo, the deck's faces, the 柴の家 with rival dogs marching past, and one tile per stage showing its best stars. A stage opens once the one before it has a star (`stageOpen`); tapping a tile calls `selectStage`. The result screen has a small kennel button (top left) that goes back to the title. Taps on both screens map flat (`screenToWorld(..., flat)`), via `titleTarget` and `shopTarget`.
+Cards and deck cells carry a 9×9 role icon (`drawRoleIcon`): claws, slam ring, ball, heart, frisbee, paw. The HUD shows `STAGE n` under the dog count.

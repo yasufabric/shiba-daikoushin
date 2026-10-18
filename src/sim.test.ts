@@ -64,6 +64,7 @@ import {
   costOf,
   createSim,
   spawnCat,
+  stageOpen,
   spawnShiba,
   toggleDeck,
   deckReady,
@@ -887,5 +888,28 @@ describe('soldiers', () => {
     const alive = knot.cats.filter((c) => c.alive)
     expect(alive.filter((c) => c.x < 200).every((c) => c.stun > 0)).toBe(true)
     expect(alive.find((c) => c.x > 300)?.stun).toBe(0)
+  })
+
+  it('opens on the title, locks stages until the one before is cleared, and goes home from the result screen', () => {
+    const sim = createSim({ tutorial: false, seed: 4, free: true, title: true, stage: 1, best: [2, 0, 0, 0, 0] })
+    const t0 = sim.time
+    step(sim, 1, NO_INPUT)
+    expect(sim.time).toBe(t0)
+    expect(stageOpen(sim, 0)).toBe(true)
+    expect(stageOpen(sim, 1)).toBe(true)
+    expect(stageOpen(sim, 2)).toBe(false)
+    step(sim, 1 / 30, { ...NO_INPUT, pickStage: 2 })
+    expect(sim.title).toBe(true)
+    step(sim, 1 / 30, { ...NO_INPUT, pickStage: 0 })
+    expect(sim.title).toBe(false)
+    expect(sim.stage).toBe(0)
+    expect(sim.toSend).toBeLessThanOrEqual(STAGES[0]?.count ?? 0)
+    sim.outcome = 'lost'
+    sim.rewardT = 0
+    step(sim, 1 / 30, { ...NO_INPUT, home: true })
+    expect(sim.title).toBe(true)
+    step(sim, 1 / 30, { ...NO_INPUT, pickStage: 1 })
+    expect(sim.stage).toBe(1)
+    expect(sim.outcome).toBe('play')
   })
 })

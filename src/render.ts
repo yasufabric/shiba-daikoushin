@@ -48,6 +48,7 @@ import {
   CARD_XS,
   RECHARGE,
   MAX_LEVEL,
+  STAGES,
   SHOP_CELL_H,
   SHOP_CELL_W,
   SHOP_GAP,
@@ -66,7 +67,7 @@ import {
   MAX_SHIBAS,
   PANEL_Y,
 } from './balance'
-import { BANNER_POP, BANNER_REST, CLEAR_WORD, glyphBit, LEVEL_WORD, letterBit, LOSE_WORD, START_WORD, POP_COL, POP_ROW, RUMBLE_WORD, SELECT_WORD, SPECIAL_WORDS, STAGE_WORD } from './font'
+import { BANNER_POP, BANNER_REST, CLEAR_WORD, glyphBit, LEVEL_WORD, letterBit, LOSE_WORD, START_WORD, POP_COL, POP_ROW, RUMBLE_WORD, SELECT_WORD, SPECIAL_WORDS, STAGE_WORD, TITLE_WORD } from './font'
 import {
   BOSS_H,
   BOSS_W,
@@ -103,7 +104,7 @@ import {
   WHITE_DARK,
   WHITE_MID,
 } from './palette'
-import { canCall, costOf, deckReady, spec, dogsLeft, levelCost, type Outcome, type Sim, type Unit } from './sim'
+import { canCall, costOf, deckReady, stageOpen, spec, dogsLeft, levelCost, type Outcome, type Sim, type Unit } from './sim'
 import { createSheets, type Sheets } from './sprites'
 
 const BUCKETS = 96
@@ -428,6 +429,11 @@ export function draw(
 
   g.fillStyle = NIGHT
   g.fillRect(0, 0, frame.internalW, frame.internalH)
+  if (sim.title) {
+    paintTitle(g, renderer, sim)
+    presentView(ctx, renderer, dpr)
+    return
+  }
   g.save()
   g.translate(sx, sy)
   paintBackdrop(g)
@@ -462,6 +468,191 @@ export function draw(
   else if (sim.outcome === 'won' || sim.outcome === 'lost') paintBanner(g, sim)
   else if (sim.tutorial) paintPaw(g, renderer, sim.time, sim.free)
 
+  presentView(ctx, renderer, dpr)
+}
+
+const TITLE_TILE_W = 32
+const TITLE_TILE_H = 46
+const TITLE_TILE_GAP = 4
+
+/** Internal-px box of a stage tile on the title screen, from the top of the screen. */
+function titleTile(stage: number): { x: number; y: number } {
+  const total = STAGES.length * TITLE_TILE_W + (STAGES.length - 1) * TITLE_TILE_GAP
+  return { x: ((frame.internalW - total) >> 1) + stage * (TITLE_TILE_W + TITLE_TILE_GAP), y: Math.max(150, frame.internalH - frame.topDy - 150) }
+}
+
+/** What a tap on the title screen picks: a stage tile, or -1. `x`, `y` are flat world points. */
+export function titleTarget(x: number, y: number): number {
+  const ix = x / 2
+  const iy = y / 2
+  for (let stage = 0; stage < STAGES.length; stage++) {
+    const t = titleTile(stage)
+    if (ix >= t.x - 2 && ix <= t.x + TITLE_TILE_W + 2 && iy >= t.y - 2 && iy <= t.y + TITLE_TILE_H + 2) return stage
+  }
+  return -1
+}
+
+/** Title: the logo over the meadow, the deck's faces hopping, and one tile per stage with its best stars. */
+function paintTitle(ctx: CanvasRenderingContext2D, renderer: Renderer, sim: Sim): void {
+  const w = frame.internalW
+  const clock = performance.now() / 1000
+  ctx.fillStyle = SKY
+  ctx.fillRect(0, 0, w, frame.internalH)
+  ctx.fillStyle = SKY_LIGHT
+  ctx.fillRect(0, py(60), w, 2)
+  ctx.fillStyle = MEADOW_HOT
+  ctx.fillRect(0, py(62), w, 2)
+  ctx.fillStyle = MEADOW
+  ctx.fillRect(0, py(64), w, frame.internalH)
+  paintLanes(ctx, 0, py(64), w, frame.internalH, 24, w)
+  // Logo: gold letters with a dark drop shadow.
+  const lw = TITLE_WORD.length * 36 - 4
+  const lx = (w - lw) >> 1
+  const bob = BOB[Math.floor(clock * 4) & 7] ?? 0
+  for (let i = 0; i < TITLE_WORD.length; i++) {
+    const ch = TITLE_WORD[i] ?? ''
+    drawLetter(ctx, ch, lx + i * 36 + 2, py(22) + 3, 4, GOLD_DARK)
+    drawLetter(ctx, ch, lx + i * 36, py(22) - (bob >> 1), 4, GOLD_LIGHT)
+  }
+  // The deck's faces, hopping in turn.
+  const faces = sim.deck.length > 0 ? sim.deck : [0, 1, 2, 3]
+  const fw = faces.length * (HERO_PX + 6) - 6
+  for (let i = 0; i < faces.length; i++) {
+    const hop = (HOP[(Math.floor(clock * 8) + i * 2) & 7] ?? 0) >> 1
+    const hx = ((w - fw) >> 1) + i * (HERO_PX + 6)
+    const blink = ((Math.floor(clock * 2) + i) & 3) === 0
+    ctx.fillStyle = LINE
+    ctx.fillRect(hx - 2, py(82) - 2, HERO_PX + 4, HERO_PX + 4)
+    ctx.fillStyle = NIGHT_2
+    ctx.fillRect(hx - 1, py(82) - 1, HERO_PX + 2, HERO_PX + 2)
+    ctx.drawImage(renderer.sheets.hero, heroCell(faces[i] ?? 0, blink ? 'blink' : 'open') * HERO_PX, 0, HERO_PX, HERO_PX, hx, py(82) - hop, HERO_PX, HERO_PX)
+  }
+  // The 柴の家 with a column of rival dogs marching past it, and the guards waiting below.
+  const home = renderer.sheets.home
+  ctx.drawImage(home, (w - home.width) >> 1, py(124))
+  const lineY = py(124) + home.height + 8
+  const span = w + CAT_PX * 2
+  for (let i = 0; i < 6; i++) {
+    const dx = Math.floor((((clock * 18 + i * (span / 6)) % span) + span) % span) - CAT_PX
+    blitCat(ctx, renderer, i % 5, 'walk', clock, i, 0, false, dx, lineY + ((i * 7) % 12))
+  }
+  for (let i = 0; i < 4; i++) {
+    const dx = ((w - 4 * (CROWD_PX + 8)) >> 1) + i * (CROWD_PX + 8)
+    blitCrowd(ctx, renderer, furOf(faces[i] ?? 0), 'idle', clock, i, 0, false, dx, lineY + 30)
+  }
+  // SELECT and the stage tiles.
+  const sx = (w - SELECT_WORD.length * 10) >> 1
+  const ty = py(titleTile(0).y)
+  for (let i = 0; i < SELECT_WORD.length; i++) drawLetter(ctx, SELECT_WORD[i] ?? '', sx + i * 10, ty - 18, 1, WHITE)
+  for (let stage = 0; stage < STAGES.length; stage++) {
+    const t = titleTile(stage)
+    const open = stageOpen(sim, stage)
+    const next = open && (sim.best[stage] ?? 0) === 0
+    const x = t.x
+    const y = py(t.y)
+    ctx.fillStyle = LINE
+    ctx.fillRect(x, y, TITLE_TILE_W, TITLE_TILE_H)
+    ctx.fillStyle = open ? NIGHT_2 : NIGHT_1
+    ctx.fillRect(x + 1, y + 1, TITLE_TILE_W - 2, TITLE_TILE_H - 2)
+    frameRect(ctx, x + 1, y + 1, TITLE_TILE_W - 2, TITLE_TILE_H - 2, next ? (GOLD_CYCLE[Math.floor(clock * 8) & 3] ?? GOLD) : open ? GOLD_DARK : NIGHT_2)
+    if (open) {
+      drawNumber(ctx, renderer, stage + 1, x + 10, y + 7, true)
+      for (let k = 0; k < 3; k++) drawMiniStar(ctx, x + 4 + k * 9, y + 32, k < (sim.best[stage] ?? 0))
+    } else {
+      drawLock(ctx, x + 11, y + 14)
+    }
+  }
+}
+
+/** The way back to the title: a small kennel on a night tile. */
+function paintHomeButton(ctx: CanvasRenderingContext2D, x: number, y: number): void {
+  ctx.fillStyle = LINE
+  ctx.fillRect(x, y, 22, 20)
+  ctx.fillStyle = NIGHT_2
+  ctx.fillRect(x + 1, y + 1, 20, 18)
+  ctx.fillStyle = LINE
+  for (let r = 0; r < 6; r++) ctx.fillRect(x + 11 - r * 2 - 1, y + 3 + r, r * 4 + 4, 1)
+  ctx.fillRect(x + 4, y + 9, 14, 8)
+  ctx.fillStyle = FUR_BODY
+  for (let r = 0; r < 5; r++) ctx.fillRect(x + 11 - r * 2, y + 4 + r, r * 4 + 1, 1)
+  ctx.fillStyle = FUR_LIGHT
+  ctx.fillRect(x + 5, y + 10, 12, 6)
+  ctx.fillStyle = LINE
+  ctx.fillRect(x + 9, y + 11, 4, 5)
+}
+
+/** A 7×7 star for the stage tiles. */
+function drawMiniStar(ctx: CanvasRenderingContext2D, x: number, y: number, on: boolean): void {
+  const rows = ['...#...', '..###..', '#######', '.#####.', '..###..', '.##.##.', '.#...#.']
+  for (let r = 0; r < rows.length; r++) {
+    const row = rows[r] ?? ''
+    for (let c = 0; c < row.length; c++) {
+      if (row[c] !== '#') continue
+      ctx.fillStyle = on ? (r < 3 ? GOLD_LIGHT : GOLD) : NIGHT_3
+      ctx.fillRect(x + c, y + r, 1, 1)
+    }
+  }
+}
+
+/** A 10×12 padlock. */
+function drawLock(ctx: CanvasRenderingContext2D, x: number, y: number): void {
+  ctx.fillStyle = LINE
+  ctx.fillRect(x + 1, y, 8, 6)
+  ctx.fillRect(x, y + 5, 10, 8)
+  ctx.fillStyle = NIGHT_3
+  ctx.fillRect(x + 2, y + 1, 6, 5)
+  ctx.fillStyle = LINE
+  ctx.fillRect(x + 3, y + 2, 4, 4)
+  ctx.fillStyle = NIGHT_3
+  ctx.fillRect(x + 1, y + 6, 8, 6)
+  ctx.fillStyle = LINE
+  ctx.fillRect(x + 4, y + 8, 2, 3)
+}
+
+/** A 9×9 badge of what each coat uses: claws, a slam ring, a ball, a heart, a frisbee, a paw. */
+function drawRoleIcon(ctx: CanvasRenderingContext2D, kind: number, x: number, y: number): void {
+  if (kind === KIND_WHITE) {
+    drawHeart(ctx, x + 1, y + 1)
+    return
+  }
+  if (kind === KIND_BLACK) {
+    fillEllipse(ctx, x + 4, y + 4, 5, 4, LINE)
+    fillEllipse(ctx, x + 4, y + 4, 4, 3, GOLD)
+    fillEllipse(ctx, x + 4, y + 4, 2, 1, NIGHT_1)
+  } else if (kind === KIND_SESAME) {
+    fillEllipse(ctx, x + 4, y + 4, 4, 4, LINE)
+    fillEllipse(ctx, x + 4, y + 4, 3, 3, WHITE)
+    ctx.fillStyle = GOLD
+    ctx.fillRect(x + 2, y + 4, 5, 1)
+  } else if (kind === KIND_DISC) {
+    fillEllipse(ctx, x + 4, y + 4, 5, 3, LINE)
+    fillEllipse(ctx, x + 4, y + 4, 4, 2, GOLD)
+    fillEllipse(ctx, x + 4, y + 4, 2, 1, WHITE)
+  } else if (kind === KIND_BIG) {
+    fillEllipse(ctx, x + 4, y + 6, 4, 3, LINE)
+    fillEllipse(ctx, x + 4, y + 6, 3, 2, WHITE_MID)
+    for (const ox of [0, 2, 5, 7]) {
+      ctx.fillStyle = LINE
+      ctx.fillRect(x + ox, y + (ox === 0 || ox === 7 ? 2 : 0), 3, 3)
+      ctx.fillStyle = WHITE_MID
+      ctx.fillRect(x + ox + 1, y + (ox === 0 || ox === 7 ? 3 : 1), 1, 1)
+    }
+  } else {
+    // 赤: three claw marks.
+    for (let k = 0; k < 3; k++) {
+      for (let i = 0; i < 7; i++) {
+        ctx.fillStyle = LINE
+        ctx.fillRect(x + k * 2 + (i >> 1), y + 1 + i, 3, 2)
+      }
+      for (let i = 0; i < 7; i++) {
+        ctx.fillStyle = k === 1 ? WHITE : GOLD_LIGHT
+        ctx.fillRect(x + k * 2 + 1 + (i >> 1), y + 1 + i, 1, 1)
+      }
+    }
+  }
+}
+
+function presentView(ctx: CanvasRenderingContext2D, renderer: Renderer, dpr: number): void {
   const destW = frame.internalW * frame.scale
   const destH = frame.internalH * frame.scale
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
@@ -560,6 +751,10 @@ function paintCastle(ctx: CanvasRenderingContext2D, renderer: Renderer, sim: Sim
   ctx.drawImage(sprite, x, y)
   paintDogsLeft(ctx, renderer, sim, x + BOSS_W + 6, y + 6)
   paintNextWave(ctx, renderer, sim, x - 50, y + 6)
+  if (sim.free) {
+    for (let i = 0; i < STAGE_WORD.length; i++) drawLetter(ctx, STAGE_WORD[i] ?? '', x + BOSS_W + 1 + i * 10, y + 26, 1, WHITE)
+    drawNumber(ctx, renderer, sim.stage + 1, x + BOSS_W + 1 + STAGE_WORD.length * 10 + 3, y + 26, false)
+  }
 }
 
 /** 波を早く呼ぶ: a gold pill under the wave bar with chevrons and the ホネ the skip would pay. */
@@ -1765,7 +1960,7 @@ function paintCard(
     ctx.fillStyle = NIGHT_3
     ctx.fillRect(x + 2, top + cover - 1, w - 4, 1)
   }
-  if (kind === KIND_WHITE) drawHeart(ctx, x + w - 10, y + 3)
+  drawRoleIcon(ctx, kind, x + w - 12, y + 4)
   if (cost >= 0) {
     ctx.drawImage(renderer.sheets.bone, x + 1, y + h - 17)
     drawNumber(ctx, renderer, cost | 0, x + 13, y + h - 15, false)
@@ -1967,10 +2162,11 @@ function shopLayout(): { compact: boolean; cellTop: number; startY: number } {
 }
 
 /** What a tap on the result screen hits, from a flat world point (see screenToWorld): START, a coat's deck zone, or its buy button. */
-export function shopTarget(x: number, y: number, kinds: number): { type: 'start' | 'pick' | 'buy' | 'none'; kind: number } {
+export function shopTarget(x: number, y: number, kinds: number): { type: 'start' | 'pick' | 'buy' | 'home' | 'none'; kind: number } {
   const lay = shopLayout()
   const ix = x / 2
   const iy = y / 2
+  if (ix <= 28 && iy <= 28) return { type: 'home', kind: -1 }
   const bx = at(START_X)
   const by = lay.startY
   if (ix >= bx - 2 && ix <= bx + at(START_W) + 2 && iy >= by - 4 && iy <= by + at(START_H) + 4) return { type: 'start', kind: -1 }
@@ -2009,6 +2205,7 @@ function paintShop(ctx: CanvasRenderingContext2D, renderer: Renderer, sim: Sim):
   const purseY = lay.compact ? 36 : 84
   ctx.drawImage(renderer.sheets.bone, pxl, py(purseY) + 3)
   drawNumber(ctx, renderer, sim.purse, pxl + 14, py(purseY), true)
+  paintHomeButton(ctx, px(4), py(4))
   const shown = sim.free ? KINDS : 4
   for (let kind = 0; kind < shown; kind++) {
     const level = sim.levels[kind] ?? 1
@@ -2036,7 +2233,7 @@ function paintShop(ctx: CanvasRenderingContext2D, renderer: Renderer, sim: Sim):
     ctx.fillRect(x + 4, y + 4, pick - 8, HERO_PX + 4)
     const blink = inDeck && (Math.floor(sim.time * 2 + kind) & 1) === 1
     ctx.drawImage(renderer.sheets.hero, heroCell(kind, blink ? 'blink' : 'open') * HERO_PX, 0, HERO_PX, HERO_PX, x + 4 + ((pick - 8 - HERO_PX) >> 1), y + 6, HERO_PX, HERO_PX)
-    if (kind === KIND_WHITE) drawHeart(ctx, x + pick - 14, y + 7)
+    drawRoleIcon(ctx, kind, x + pick - 15, y + 8)
     if (sim.free) {
       const bxx = x + 4
       const byy = y + HERO_PX + 12
