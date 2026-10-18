@@ -41,6 +41,15 @@ export const HOME_REACH = 40
 export const WAVE_EVERY = 2.3
 export const TRICKLE_EVERY = 3.2
 export const TRICKLE_COUNT = 2
+/** Free placement, once the clash starts: waves come as named patterns, announced one wave ahead. 0 is the old mixed trickle. */
+export const WAVE_MIXED = 0
+export const WAVE_SWARM = 1
+export const WAVE_WALL = 2
+export const WAVE_PINCER = 3
+/** Dogs per pattern: 8 quick チワワ from one side, 4 ブルドッグ shoulder to shoulder, 6 コーギー split to both edges. */
+export const SWARM_COUNT = 8
+export const WALL_COUNT = 4
+export const PINCER_COUNT = 6
 
 export const COST_TAN = 34
 export const COST_BLACK = 90

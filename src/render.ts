@@ -9,7 +9,15 @@ import {
   CARD_Y,
   BOSS_HP,
   BREED_BOSS,
+  BREED_BULLDOG,
+  BREED_CHIHUAHUA,
   BREED_CORGI,
+  FREE_WAVE_SLOW,
+  WAVE_EVERY,
+  WAVE_MIXED,
+  WAVE_PINCER,
+  WAVE_SWARM,
+  WAVE_WALL,
   HOME_HP,
   FIELD_H,
   FIELD_W,
@@ -510,6 +518,7 @@ function paintCastle(ctx: CanvasRenderingContext2D, renderer: Renderer, sim: Sim
   const y = frame.topDy
   ctx.drawImage(sprite, x, y)
   paintDogsLeft(ctx, renderer, sim, x + BOSS_W + 6, y + 6)
+  paintNextWave(ctx, renderer, sim, x - 50, y + 6)
 }
 
 /** How many dogs are still to beat, the boss included: a dog-head icon and pink digits beside the mansion. */
@@ -517,6 +526,28 @@ function paintDogsLeft(ctx: CanvasRenderingContext2D, renderer: Renderer, sim: S
   const icon = renderer.sheets.cat
   ctx.drawImage(icon, 4 * CAT_PX, BREED_CORGI * 4 * CAT_PX, CAT_PX, 14, x - 3, y - 2, CAT_PX, 14)
   drawNumber(ctx, renderer, dogsLeft(sim), x + 22, y + 2, false)
+}
+
+/** Free placement: the next wave, announced one wave ahead. The breed's head and the dog count, a three-slot strip lit where it comes from, and a bar that runs down to its arrival. */
+function paintNextWave(ctx: CanvasRenderingContext2D, renderer: Renderer, sim: Sim, x: number, y: number): void {
+  if (!sim.free || sim.boss || sim.planKind === WAVE_MIXED || sim.planCount <= 0 || sim.toSend <= 0) return
+  const breed = sim.planKind === WAVE_SWARM ? BREED_CHIHUAHUA : sim.planKind === WAVE_WALL ? BREED_BULLDOG : BREED_CORGI
+  ctx.drawImage(renderer.sheets.cat, 4 * CAT_PX, breed * 4 * CAT_PX, CAT_PX, 14, x, y - 2, CAT_PX, 14)
+  drawNumber(ctx, renderer, Math.min(sim.planCount, sim.toSend), x + 22, y + 2, false)
+  // Where from: left, middle, right, or both edges for the pincer.
+  const lit = (slot: number): boolean => (sim.planKind === WAVE_PINCER ? slot !== 1 : sim.planKind === WAVE_WALL ? true : slot === (sim.planSide === 0 ? 0 : sim.planSide === 1 ? 2 : 1))
+  for (let slot = 0; slot < 3; slot++) {
+    ctx.fillStyle = LINE
+    ctx.fillRect(x + slot * 14, y + 15, 12, 5)
+    ctx.fillStyle = lit(slot) ? DANGER : NIGHT_2
+    ctx.fillRect(x + slot * 14 + 1, y + 16, 10, 3)
+  }
+  const span = Math.max(0.1, sim.free ? WAVE_EVERY * FREE_WAVE_SLOW : WAVE_EVERY)
+  const left = Math.max(0, Math.min(1, (sim.nextCat - sim.time) / span))
+  ctx.fillStyle = LINE
+  ctx.fillRect(x, y + 22, 42, 4)
+  ctx.fillStyle = GOLD
+  ctx.fillRect(x + 1, y + 23, Math.round(40 * left), 2)
 }
 
 /** The boss's HP, a wide pink bar across the top of the field while it is out. */

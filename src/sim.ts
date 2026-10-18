@@ -12,6 +12,13 @@ import {
   BREED_HP,
   BREED_SPEED,
   BULLDOG_EVERY,
+  WAVE_MIXED,
+  WAVE_SWARM,
+  WAVE_WALL,
+  WAVE_PINCER,
+  SWARM_COUNT,
+  WALL_COUNT,
+  PINCER_COUNT,
   CLASH_AT,
   COST_BLACK,
   COST_TAN,
@@ -226,6 +233,10 @@ export interface Sim {
   /** Coat whose special just fired this step, or -1. */
   sfxSpecial: number
   seq: number
+  /** Free placement: the pattern of the NEXT wave (WAVE_*), which side it comes from (0 left, 1 right, 2 middle), and how many dogs. */
+  planKind: number
+  planSide: number
+  planCount: number
   /** Clash-wave dogs sent so far; every BULLDOG_EVERY-th is a ブルドッグ. */
   horde: number
   sfxDeploy: number
@@ -313,6 +324,9 @@ export function createSim(opts?: SimOptions): Sim {
     saveSeq: 0,
     rewardT: 0,
     nextCat: CLASH_AT,
+    planKind: WAVE_MIXED,
+    planSide: 2,
+    planCount: 0,
     deny0: 0,
     deny1: 0,
     deny2: 0,
@@ -362,6 +376,9 @@ function boot(sim: Sim): void {
   sim.outcome = 'play'
   sim.rewardT = 0
   sim.nextCat = TRICKLE_EVERY
+  sim.planKind = WAVE_MIXED
+  sim.planSide = 2
+  sim.planCount = 0
   sim.deny0 = 0
   sim.deny1 = 0
   sim.deny2 = 0
@@ -439,7 +456,7 @@ export function fillMarch(sim: Sim, count: number): number {
 }
 
 /** Spawn a rival dog of the given breed at the top of a path. */
-function spawnCat(sim: Sim, lane: number, breed: number): boolean {
+function spawnCat(sim: Sim, lane: number, breed: number, at?: { x: number; y: number }): boolean {
   const unit = acquire(sim.cats, sim, 'c')
   if (!unit) return false
   const laneW = FIELD_W / LANE_COUNT
@@ -458,6 +475,11 @@ function spawnCat(sim: Sim, lane: number, breed: number): boolean {
   unit.stun = 0
   unit.y = 22 + (lane % 4) * 16
   unit.x = laneW * (lane + 0.5) + ((sim.aliveCats * 7 + lane * 5) % 17) - 8
+  if (at) {
+    unit.x = Math.max(14, Math.min(FIELD_W - 14, at.x))
+    unit.y = at.y
+    unit.lane = laneOfX(unit.x)
+  }
   sim.aliveCats += 1
   return true
 }
@@ -696,6 +718,11 @@ function laneBack(sim: Sim, lane: number): number {
 
 function spawnWave(sim: Sim): void {
   const horde = sim.time >= CLASH_AT
+  if (sim.free && horde && sim.planKind !== WAVE_MIXED) {
+    spawnPattern(sim)
+    planNext(sim)
+    return
+  }
   const size = horde ? 5 + Math.floor((sim.time - CLASH_AT) / 18) : TRICKLE_COUNT
   const every = Math.max(4, BULLDOG_EVERY - Math.floor(Math.max(0, sim.time - CLASH_AT) / 30))
   const count = Math.min(size, sim.toSend)
@@ -708,6 +735,45 @@ function spawnWave(sim: Sim): void {
       if (sim.horde % every === 0) breed = BREED_BULLDOG
     }
     spawnCat(sim, lane, breed)
+  }
+  if (sim.free) planNext(sim)
+}
+
+/** Free placement: pick the pattern of the wave after this one, never the same twice in a row, so the HUD can announce it. */
+function planNext(sim: Sim): void {
+  if (sim.time + TRICKLE_EVERY * FREE_WAVE_SLOW < CLASH_AT) {
+    sim.planKind = WAVE_MIXED
+    sim.planCount = 0
+    return
+  }
+  sim.seed = (Math.imul(sim.seed, 1664525) + 1013904223) >>> 0
+  const roll = (sim.seed >>> 11) % 4
+  let kind = roll === 0 ? WAVE_MIXED : roll
+  if (kind === sim.planKind) kind = kind === WAVE_PINCER ? WAVE_SWARM : kind + 1
+  sim.planKind = kind
+  sim.planSide = (sim.seed >>> 17) % 3
+  sim.planCount = kind === WAVE_SWARM ? SWARM_COUNT : kind === WAVE_WALL ? WALL_COUNT : kind === WAVE_PINCER ? PINCER_COUNT : 0
+}
+
+/** One announced wave: チワワ swarm from one side, ブルドッグ wall across the field, or コーギー pincer on both edges. */
+function spawnPattern(sim: Sim): void {
+  const count = Math.min(sim.planCount, sim.toSend)
+  const mid = FIELD_W / 2
+  for (let i = 0; i < count; i++) {
+    sim.toSend -= 1
+    sim.horde += 1
+    if (sim.planKind === WAVE_SWARM) {
+      const cx = sim.planSide === 0 ? 70 : sim.planSide === 1 ? FIELD_W - 70 : mid
+      spawnCat(sim, 0, BREED_CHIHUAHUA, { x: cx - 36 + (i % 4) * 24, y: 22 + Math.floor(i / 4) * 16 })
+    } else if (sim.planKind === WAVE_WALL) {
+      const span = FIELD_W - 90
+      spawnCat(sim, 0, BREED_BULLDOG, { x: 45 + (span * (i + 0.5)) / Math.max(1, count), y: 24 })
+    } else {
+      const half = count >> 1
+      const left = i < half
+      const k = left ? i : i - half
+      spawnCat(sim, 0, BREED_CORGI, { x: left ? 28 + k * 22 : FIELD_W - 28 - k * 22, y: 24 + (k % 2) * 14 })
+    }
   }
 }
 
