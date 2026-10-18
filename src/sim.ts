@@ -47,6 +47,10 @@ import {
   BARK_REACH,
   CHEESE_HIT,
   CHEESE_PUSH,
+  CHEESE_FREE_HIT,
+  CHEESE_FREE_PUSH,
+  CHEESE_STUN,
+  JERKY_FREE_HIT,
   COST_WHITE,
   COUNT_WHITE,
   CUT_TIME,
@@ -138,6 +142,8 @@ export interface Unit {
   aimY: number
   /** Match time 胡麻 last mended this unit, for the plus over its head. */
   mendAt: number
+  /** Seconds a dog stays frozen in place (チーズ!!). */
+  stun: number
 }
 
 export interface Input {
@@ -268,6 +274,7 @@ function makePool(max: number): Unit[] {
       aimX: 0,
       aimY: 0,
       mendAt: -9,
+      stun: 0,
     })
   }
   return units
@@ -406,6 +413,7 @@ export function spawnShiba(sim: Sim, kind: number, lane: number, y: number): boo
   unit.bite = BITE_EVERY * 0.5
   unit.bitAt = -9
   unit.mendAt = -9
+  unit.stun = 0
   unit.y = y
   unit.x = laneW * (lane + 0.5) + ((lane * 7 + (y | 0) * 3) % 21) - 10
   sim.aliveShibas += 1
@@ -447,6 +455,7 @@ function spawnCat(sim: Sim, lane: number, breed: number): boolean {
   unit.bite = BITE_EVERY * 0.5
   unit.bitAt = -9
   unit.mendAt = -9
+  unit.stun = 0
   unit.y = 22 + (lane % 4) * 16
   unit.x = laneW * (lane + 0.5) + ((sim.aliveCats * 7 + lane * 5) % 17) - 8
   sim.aliveCats += 1
@@ -934,6 +943,10 @@ function moveFree(sim: Sim, rawDt: number): void {
   }
   for (const dog of sim.cats) {
     if (!dog?.alive || dog.fly === 1 || dog.hp <= 0) continue
+    if (dog.stun > 0) {
+      dog.stun -= rawDt
+      continue
+    }
     const foe = nearestTaunt(sim.shibas, dog, FREE_SIGHT_DOG)
     if (!foe) {
       const d = Math.hypot(homeX - dog.x, homeY - dog.y)
@@ -1131,9 +1144,9 @@ export function strikeSpecial(sim: Sim, kind: number): void {
   } else if (kind === KIND_BLACK && sim.free) {
     const targets = cats.filter((c) => c?.alive && c.fly !== 1 && c.hp > 0).sort((a, b) => b.y - a.y).slice(0, JERKY_TARGETS)
     for (const cat of targets) {
-      const hit = Math.min(Math.max(0, cat.hp), JERKY_HIT * scale)
+      const hit = Math.min(Math.max(0, cat.hp), JERKY_FREE_HIT * scale)
       dealt += hit
-      cat.hp -= JERKY_HIT * scale
+      cat.hp -= JERKY_FREE_HIT * scale
       note(cat, hit, false)
     }
   } else if (kind === KIND_BLACK) {
@@ -1163,11 +1176,13 @@ export function strikeSpecial(sim: Sim, kind: number): void {
     for (let i = 0; i < cats.length; i++) {
       const cat = cats[i]
       if (!cat?.alive || cat.fly === 1) continue
-      const hit = Math.min(Math.max(0, cat.hp), CHEESE_HIT * scale)
+      const base = sim.free ? CHEESE_FREE_HIT : CHEESE_HIT
+      const hit = Math.min(Math.max(0, cat.hp), base * scale)
       dealt += hit
-      cat.hp -= CHEESE_HIT * scale
+      cat.hp -= base * scale
       note(cat, hit, false)
-      cat.y = Math.max(22, cat.y - CHEESE_PUSH)
+      cat.y = Math.max(22, cat.y - (sim.free ? CHEESE_FREE_PUSH : CHEESE_PUSH))
+      if (sim.free && cat.kind !== BREED_BOSS) cat.stun = CHEESE_STUN
     }
   }
   if (dealt > 0) {
