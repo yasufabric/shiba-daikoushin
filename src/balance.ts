@@ -22,16 +22,23 @@ export const LOSE_HOLD = BANNER_HOLD
 export const BREED_CHIHUAHUA = 0
 export const BREED_CORGI = 1
 export const BREED_BULLDOG = 2
-export const BREEDS = 3
+export const BREED_DACHS = 3
+export const BREED_GOLDEN = 4
+export const BREEDS = 5
 /** The boss, セントバーナード. Not part of the wave mix; it walks out of the mansion once every regular dog has been sent. */
-export const BREED_BOSS = 3
+export const BREED_BOSS = 5
 export const BOSS_HP = 1500
 export const BOSS_DPS = 40
 export const BOSS_SPEED = 10
 /** チワワ fast and frail, コーギー the baseline, ブルドッグ slow and tough. */
-export const BREED_HP = [20, 30, 60] as const
-export const BREED_DPS = [10, 12, 16] as const
-export const BREED_SPEED = [44, 30, 18] as const
+export const BREED_HP = [20, 30, 60, 14, 46] as const
+export const BREED_DPS = [10, 12, 16, 9, 13] as const
+export const BREED_SPEED = [44, 30, 18, 64, 22] as const
+/** ダックスフント: a long, low sprinter that is gone before it is noticed. ゴールデン: a slow retriever behind a bone shield, which takes this much off every single hit (never below a third of it), so quick nips bounce and heavy hits and splashes get through. */
+export const GOLDEN_ARMOR = 8
+/** In a clash wave, every Nth dog is a ダックス / ゴールデン. */
+export const DACHS_EVERY = 5
+export const GOLDEN_EVERY = 9
 /** In a clash wave, every Nth dog is a ブルドッグ; N shrinks as the match runs on. */
 export const BULLDOG_EVERY = 7
 /** 柴の家 at the bottom of the field. Cats that reach it bite it; at 0 the match is lost. */

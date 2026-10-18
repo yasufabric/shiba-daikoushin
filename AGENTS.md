@@ -155,3 +155,9 @@ Every bite shows where it lands, Clash Royale style: 赤 slashes three claw mark
 ## Recall (free placement)
 
 Tapping one of your own shibas (within `RECALL_TAP` px of its middle) sends it home instead of placing a new one: it runs to the 柴の家 at `RECALL_PACE` times its walking speed, ignores dogs, and leaves the field at the door, freeing a `FIELD_CAP` slot so you can swap in another coat. A recalled shiba leaves quietly (no ghost or burst). Tap an empty spot to place as usual.
+
+## More rival breeds
+
+- ダックスフント (`BREED_DACHS`): long, low, floppy-eared sprinter (HP 14, speed 64). Every `DACHS_EVERY`th dog of a clash wave.
+- ゴールデン (`BREED_GOLDEN`): slow retriever (HP 46, speed 22) holding a gold bone shield, which takes `GOLDEN_ARMOR` 8 off every single hit (never below a third of it). 赤's quick nips bounce off; 黒's slam and 胡麻's ball get through. Every `GOLDEN_EVERY`th dog.
+- The boss moved to `BREED_BOSS` 5. `DOG_HALVES` in art.ts holds five breeds; the sprite sheet grows with `dogArt`.

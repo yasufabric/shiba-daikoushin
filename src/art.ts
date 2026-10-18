@@ -203,6 +203,9 @@ const CAT: Record<string, string> = {
   r: DANGER_DARK,
   w: WHITE,
   n: NIGHT,
+  g: GOLD_LIGHT,
+  G: GOLD,
+  y: GOLD_DARK,
 }
 
 const BONE_MAP: Record<string, string> = {
@@ -507,6 +510,38 @@ const DOG_HALVES: readonly (readonly string[])[] = [
     '.Lhbwwwwww',
     '..Lbbbbbbb',
   ],
+  [
+    '..........',
+    '...LLLLLLL',
+    '..Lhbbbbbb',
+    '.LLhbbbbbb',
+    'LmLhbbbbbb',
+    'LmLbbLLbbb',
+    'LmLbLeeLbb',
+    'LmLbbLLbww',
+    'LmLhbbbwww',
+    '.LmLbbwwdd',
+    '..LLhbwwww',
+    '..LhbwLLLL',
+    '..Lhbbwwww',
+    '..Lbbbbbbb',
+  ],
+  [
+    '..LLLLLLLL',
+    '.LmhbbbbbL',
+    'LmmhbbbbbL',
+    'LmpLbbbbbb',
+    'LmpLbbbbbb',
+    'LmLhbLLbbb',
+    '.LLhLeeLbb',
+    '..LhbLLbbb',
+    '..Lhbbbbww',
+    '..LhbbwwwL',
+    '..LLhbwwpp',
+    '..Lhbbwwpp',
+    '..Lhbbbwww',
+    '..Lbbbbbbb',
+  ],
 ]
 
 /** Right half: the lit edge turns to body on the shadow side. */
@@ -524,6 +559,9 @@ const DOG_FEET = [
 
 const DOG_TAIL_A = ['.LL', 'LbL', 'LmL', '.L.'] as const
 const DOG_TAIL_B = ['LL.', 'LbL', 'LmL', 'L..'] as const
+/** ゴールデン's bone shield, held across the chest. */
+const DOG_SHIELD = ['.LLLLLLLL.', 'LgGGGGGGyL', 'LgGGLLGGyL', '.LGGGGGyL.', '..LLLLLL..'] as const
+
 const DOG_PAW = ['LLLL.', 'LhbbL', '.LLL.'] as const
 
 interface DogPose {
@@ -553,6 +591,7 @@ function dogFrame(breed: number, pose: DogPose): string[] {
     for (let y = 0; y < g.length; y++) g[y] = (g[y] ?? '').replace(/e/g, 'L')
   }
   if (breed !== 1) stamp(g, 16, 11, pose.tail ? DOG_TAIL_B : DOG_TAIL_A)
+  if (breed === 4) stamp(g, 5, 14, DOG_SHIELD)
   if (pose.swipe) stamp(g, 0, 12, DOG_PAW)
   return g
 }
@@ -729,7 +768,7 @@ function bossRows(step: number): string[] {
 
 export const bossArt = [seal('boss-0', bossRows(0), BOSS_MAP), seal('boss-1', bossRows(1), BOSS_MAP)]
 
-const DOG_NAMES = ['chihuahua', 'corgi', 'bulldog'] as const
+const DOG_NAMES = ['chihuahua', 'corgi', 'bulldog', 'dachs', 'golden'] as const
 
 /** One 10-frame strip per breed, in BREED_* order. */
 export const dogArt: readonly Seal[][] = DOG_NAMES.map((name, breed) =>
