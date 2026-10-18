@@ -12,6 +12,11 @@ import {
   KIND_TAN,
   KIND_WHITE,
   KIND_SESAME,
+  LEVEL_COST_BASE,
+  LEVEL_STEP,
+  LOSS_PAY,
+  MAX_LEVEL,
+  WIN_PAY,
   HEAL_AMOUNT,
   SASAMI_HOME,
   SPECIAL_NEED,
@@ -37,6 +42,8 @@ import {
   costOf,
   createSim,
   strikeSpecial,
+  buyLevel,
+  levelCost,
   NO_INPUT,
   phaseAt,
   step,
@@ -172,7 +179,7 @@ describe('battle', () => {
     expect(sim.aliveShibas).toBe(START_SHIBAS)
   })
 
-  it('loses an idle match and retries without a confirm', () => {
+  it('loses an idle match, pays a little, and waits on the level-up screen for START', () => {
     const sim = createSim({ tutorial: true, seed: 9 })
     play(sim, 180, () => NO_INPUT)
     expect(sim.outcome).toBe('lost')
@@ -182,13 +189,19 @@ describe('battle', () => {
     expect(sim.tutorial).toBe(true)
     expect(sim.rewardT).toBe(LOSE_HOLD)
     expect(LOSE_HOLD).toBe(BANNER_HOLD)
+    expect(sim.earned).toBe(LOSS_PAY)
+    expect(sim.purse).toBe(LOSS_PAY)
     step(sim, 1, NO_INPUT)
     expect(sim.outcome).toBe('lost')
     step(sim, LOSE_HOLD, NO_INPUT)
+    expect(sim.outcome).toBe('lost')
+    expect(sim.rewardT).toBe(0)
+    step(sim, 1 / 30, { card: -1, restart: true })
     expect(sim.outcome).toBe('play')
     expect(sim.time).toBe(0)
     expect(sim.aliveShibas).toBe(START_SHIBAS)
     expect(sim.tutorial).toBe(true)
+    expect(sim.purse).toBe(LOSS_PAY)
   })
 })
 
@@ -248,6 +261,39 @@ describe('胡麻柴', () => {
   })
 })
 
+describe('levels', () => {
+  it('pays every match into a purse that buys coat levels on the level-up screen', () => {
+    const sim = createSim({ tutorial: false, seed: 3, purse: 0 })
+    play(sim, 180, greedy)
+    expect(sim.outcome).toBe('won')
+    expect(sim.earned).toBeGreaterThanOrEqual(WIN_PAY)
+    expect(sim.purse).toBe(sim.earned)
+    step(sim, BANNER_HOLD + 0.1, NO_INPUT)
+    const purse = sim.purse
+    step(sim, 1 / 30, { card: -1, levelUp: KIND_BLACK, restart: false })
+    expect(sim.levels[KIND_BLACK]).toBe(2)
+    expect(sim.purse).toBe(purse - levelCost(1))
+    expect(levelCost(1)).toBe(LEVEL_COST_BASE)
+    step(sim, 1 / 30, { card: -1, restart: true })
+    expect(sim.outcome).toBe('play')
+    expect(sim.levels[KIND_BLACK]).toBe(2)
+  })
+
+  it('makes a leveled coat tougher and harder-biting, and stops at the cap or an empty purse', () => {
+    const base = createSim({ tutorial: false, seed: 1 })
+    const strong = createSim({ tutorial: false, seed: 1, levels: [5, 1, 1, 1] })
+    const a = base.shibas.find((u) => u.alive)
+    const b = strong.shibas.find((u) => u.alive)
+    expect(b?.maxHp).toBe(Math.round((a?.maxHp ?? 0) * (1 + 4 * LEVEL_STEP)))
+    expect(b?.dps ?? 0).toBeGreaterThan(a?.dps ?? 0)
+    const capped = createSim({ tutorial: false, levels: [MAX_LEVEL, 1, 1, 1], purse: 1e6 })
+    expect(buyLevel(capped, 0)).toBe(false)
+    const broke = createSim({ tutorial: false, purse: 0 })
+    expect(buyLevel(broke, 0)).toBe(false)
+    expect(broke.levels[0]).toBe(1)
+  })
+})
+
 describe('home', () => {
   it('takes bites from cats that reach the field floor', () => {
     const sim = createSim({ tutorial: false, seed: 5 })
@@ -268,6 +314,7 @@ describe('home', () => {
     expect(sim.homeHp).toBe(0)
     expect(sim.time).toBeLessThan(60)
     step(sim, LOSE_HOLD, NO_INPUT)
+    step(sim, 1 / 30, { card: -1, restart: true })
     expect(sim.outcome).toBe('play')
     expect(sim.homeHp).toBe(HOME_HP)
   })

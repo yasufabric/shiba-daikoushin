@@ -74,6 +74,12 @@ import {
   HEAL_AMOUNT,
   HEAL_EVERY,
   HEAL_REACH,
+  DAMAGE_PER_BONE,
+  LEVEL_COST_BASE,
+  LEVEL_STEP,
+  LOSS_PAY,
+  MAX_LEVEL,
+  WIN_PAY,
   SASAMI_HOME,
   KINDS,
   RUSH_TIME,
@@ -108,6 +114,8 @@ export interface Input {
   lane?: number
   /** Pick this card for the next field tap (-1 or left out for no change). */
   pick?: number
+  /** On the level-up screen, buy a level for this coat. */
+  levelUp?: number
   restart: boolean
 }
 
@@ -136,6 +144,14 @@ export interface Sim {
   tutorial: boolean
   /** The card a field tap will deploy. */
   picked: number
+  /** Coat levels, in card order. Kept across matches. */
+  levels: number[]
+  /** ホネ saved for levels. Kept across matches. */
+  purse: number
+  /** What the last match paid into the purse. */
+  earned: number
+  /** Bumps whenever levels or the purse change, so the shell knows to save. */
+  saveSeq: number
   rewardT: number
   nextCat: number
   guard: boolean
@@ -171,6 +187,10 @@ export interface Sim {
 export interface SimOptions {
   tutorial?: boolean
   seed?: number
+  /** Saved coat levels, in card order. */
+  levels?: readonly number[]
+  /** Saved ホネ for buying levels. */
+  purse?: number
 }
 
 const OPEN_Y = [430, 470, 510, 550, 400, 500, 540, 580, 620, 470]
@@ -225,6 +245,10 @@ export function createSim(opts?: SimOptions): Sim {
     outcome: 'play',
     tutorial: opts?.tutorial !== false,
     picked: KIND_TAN,
+    levels: Array.from({ length: KINDS }, (_, i) => Math.min(MAX_LEVEL, Math.max(1, Math.floor(opts?.levels?.[i] ?? 1)))),
+    purse: Math.max(0, Math.floor(opts?.purse ?? 0)),
+    earned: 0,
+    saveSeq: 0,
     rewardT: 0,
     nextCat: CLASH_AT,
     guard: false,
@@ -313,9 +337,9 @@ export function spawnShiba(sim: Sim, kind: number, lane: number, y: number): boo
   unit.alive = true
   unit.lane = lane
   unit.kind = k
-  unit.hp = HP_OF[k] ?? HP_TAN
+  unit.hp = Math.round((HP_OF[k] ?? HP_TAN) * power(sim, k))
   unit.maxHp = unit.hp
-  unit.dps = DPS_OF[k] ?? DPS_TAN
+  unit.dps = (DPS_OF[k] ?? DPS_TAN) * power(sim, k)
   unit.speed = SPEED_OF[k] ?? SPEED_TAN
   unit.fly = 0
   unit.cd = 0
@@ -381,17 +405,15 @@ function acquire(units: Unit[], sim: Sim, which: 's' | 'c'): Unit | null {
 
 export function step(sim: Sim, dt: number, input: Input = NO_INPUT): void {
   if (!(dt > 0)) return
-  if (sim.outcome === 'lost') {
-    sim.rewardT -= dt
-    if (sim.rewardT <= 0) reset(sim)
-    return
-  }
-  if (sim.outcome === 'won') {
+  if (sim.outcome !== 'play') {
+    // The CLEAR!/LOSE! banner holds, then the level-up screen waits for START.
     if (sim.rewardT > 0) {
       sim.rewardT -= dt
       if (sim.rewardT < 0) sim.rewardT = 0
+      return
     }
-    if (input.restart && sim.rewardT <= 0) reset(sim)
+    if (input.levelUp !== undefined) buyLevel(sim, input.levelUp)
+    if (input.restart) reset(sim)
     return
   }
 
@@ -456,13 +478,45 @@ export function step(sim: Sim, dt: number, input: Input = NO_INPUT): void {
     sim.castleHp = 0
     sim.outcome = 'won'
     sim.rewardT = BANNER_HOLD
+    pay(sim)
     return
   }
   if (sim.homeHp <= 0 || sim.time >= MATCH_SECONDS) {
     if (sim.homeHp < 0) sim.homeHp = 0
     sim.outcome = 'lost'
     sim.rewardT = LOSE_HOLD
+    pay(sim)
   }
+}
+
+/** Match pay: a base for the result plus ホネ for damage done to the mansion. */
+function pay(sim: Sim): void {
+  const base = sim.outcome === 'won' ? WIN_PAY : LOSS_PAY
+  sim.earned = base + Math.floor((CASTLE_HP - sim.castleHp) / DAMAGE_PER_BONE)
+  sim.purse += sim.earned
+  sim.saveSeq += 1
+}
+
+/** ホネ to take a coat from `level` to the next. */
+export function levelCost(level: number): number {
+  return LEVEL_COST_BASE * level
+}
+
+/** How much stronger a coat is for its level: 1 at level 1. */
+export function power(sim: Sim, kind: number): number {
+  return 1 + LEVEL_STEP * ((sim.levels[kind] ?? 1) - 1)
+}
+
+export function buyLevel(sim: Sim, kind: number): boolean {
+  if (kind < 0 || kind >= KINDS) return false
+  const level = sim.levels[kind] ?? 1
+  if (level >= MAX_LEVEL) return false
+  const cost = levelCost(level)
+  if (sim.purse < cost) return false
+  sim.purse -= cost
+  sim.levels[kind] = level + 1
+  sim.saveSeq += 1
+  return true
 }
 
 function tryDeploy(sim: Sim, card: number, chosen?: number): void {
@@ -621,7 +675,7 @@ function moveLane(sim: Sim, lane: number, dt: number): void {
       shiba.cd -= dt
       if (shiba.cd <= 0) {
         shiba.cd = HEAVY_EVERY
-        hurt(sim, cat, HEAVY_HIT, KIND_BLACK)
+        hurt(sim, cat, HEAVY_HIT * power(sim, KIND_BLACK), KIND_BLACK)
       }
     } else if (shiba.kind === KIND_TAN) {
       hurt(sim, cat, shiba.dps * (sim.rushT > 0 ? 2 : 1) * dt, KIND_TAN)
@@ -668,7 +722,7 @@ function bark(sim: Sim, dt: number): void {
         const cat = sim.cats[idx[j] ?? -1]
         if (!cat?.alive || cat.fly === 1 || cat.hp <= 0) continue
         if (cat.y > unit.y || unit.y - cat.y > BARK_REACH) continue
-        hurt(sim, cat, BARK_HIT, KIND_WHITE)
+        hurt(sim, cat, BARK_HIT * power(sim, KIND_WHITE), KIND_WHITE)
         hit = true
       }
     }
@@ -698,7 +752,7 @@ function heal(sim: Sim, dt: number): void {
       }
     }
     if (!best) continue
-    const mended = Math.min(HEAL_AMOUNT, best.maxHp - best.hp)
+    const mended = Math.min(HEAL_AMOUNT * power(sim, KIND_SESAME), best.maxHp - best.hp)
     best.hp += mended
     sim.charge[KIND_SESAME] = (sim.charge[KIND_SESAME] ?? 0) + mended
     healer.cd = HEAL_EVERY

@@ -107,4 +107,8 @@ Finish like a late Super Famicom game.
 
 ### Match end
 
-Destroying the 犬の屋敷 (spired towers and a keep with a floppy-eared dog face, the gate for a mouth) plays hitstop, a 4-frame explosion on the castle (white, yellow, orange, then square particles), a shiba hop, and a gold `CLEAR!` banner. The banner pops from 1.5× to 1× on integer pixels, holds for 2.4s, then the new-card reward appears. A loss shows a `LOSE!` banner for the same beat, then the match retries. No explanatory sentence.
+Destroying the 犬の屋敷 (spired towers and a keep with a floppy-eared dog face, the gate for a mouth) plays hitstop, a 4-frame explosion on the castle (white, yellow, orange, then square particles), a shiba hop, and a gold `CLEAR!` banner. The banner pops from 1.5× to 1× on integer pixels, holds for 2.4s, then the level-up screen appears. A loss shows a `LOSE!` banner for the same beat. No explanatory sentence.
+
+### Levels
+
+After either banner the level-up screen fills the view: the result word, the ホネ the match paid (`+` and gold digits), the saved purse, one row per coat (portrait, `LV` and level, the ホネ price of the next level; rows you cannot afford dim), and a gold `START` button that begins the next match. A win pays `WIN_PAY`, a loss `LOSS_PAY`, plus a ホネ per `DAMAGE_PER_BONE` damage done to the mansion. A level costs `LEVEL_COST_BASE` × the current level, caps at `MAX_LEVEL`, and adds `LEVEL_STEP` to that coat's HP, bite, bark, and heal. Levels and the purse are saved in `localStorage` under `shiba-daikoushin-save`; a blocked storage keeps them for the visit only.

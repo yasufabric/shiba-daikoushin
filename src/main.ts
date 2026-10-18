@@ -9,6 +9,15 @@ import {
   FIELD_X,
   FIELD_Y,
   LANE_COUNT,
+  SHOP_ROW_GAP,
+  SHOP_ROW_H,
+  SHOP_ROW_W,
+  SHOP_ROW_X,
+  SHOP_ROW_Y0,
+  START_H,
+  START_W,
+  START_X,
+  START_Y,
   SPECIAL_NEED,
 } from './balance'
 import { createSim, fillMarch, NO_INPUT, step, type Input, type Outcome } from './sim'
@@ -39,7 +48,38 @@ function markTutorial(): void {
   }
 }
 
-const sim = createSim({ tutorial: !seenTutorial() })
+const SAVE_KEY = 'shiba-daikoushin-save'
+
+interface Save {
+  levels: number[]
+  purse: number
+}
+
+function loadSave(): Save | null {
+  try {
+    const raw = localStorage.getItem(SAVE_KEY)
+    if (!raw) return null
+    const data: unknown = JSON.parse(raw)
+    if (!data || typeof data !== 'object') return null
+    const { levels, purse } = data as Partial<Save>
+    if (!Array.isArray(levels) || typeof purse !== 'number') return null
+    return { levels: levels.map((n) => (typeof n === 'number' ? n : 1)), purse }
+  } catch {
+    return null
+  }
+}
+
+function storeSave(): void {
+  try {
+    localStorage.setItem(SAVE_KEY, JSON.stringify({ levels: sim.levels, purse: sim.purse }))
+  } catch {
+    // Private mode can reject storage. Levels still hold for this visit.
+  }
+}
+
+const saved = loadSave()
+const sim = createSim({ tutorial: !seenTutorial(), levels: saved?.levels, purse: saved?.purse })
+let savedSeq = sim.saveSeq
 const renderer = createRenderer()
 const synth = createSynth()
 const input: Input = { card: -1, restart: false }
@@ -78,6 +118,8 @@ interface ShibaDev {
     outcome: Outcome
     tutorial: boolean
     floatDmg: number
+    purse: number
+    levels: number[]
   }
 }
 
@@ -120,6 +162,8 @@ if (devOn) {
         outcome: sim.outcome,
         tutorial: sim.tutorial,
         floatDmg: sim.floatDmg,
+        purse: sim.purse,
+        levels: [...sim.levels],
       }
     },
   }
@@ -198,11 +242,21 @@ canvas.addEventListener('pointerdown', (ev) => {
   ev.preventDefault()
   synth.unlock()
   const p = toLogical(ev)
-  if (sim.outcome === 'won') {
-    input.restart = true
+  if (sim.outcome !== 'play') {
+    if (sim.rewardT > 0) return
+    if (p.x >= START_X && p.x <= START_X + START_W && p.y >= START_Y && p.y <= START_Y + START_H) {
+      input.restart = true
+      return
+    }
+    for (let kind = 0; kind < sim.levels.length; kind++) {
+      const top = SHOP_ROW_Y0 + kind * (SHOP_ROW_H + SHOP_ROW_GAP)
+      if (p.x >= SHOP_ROW_X && p.x <= SHOP_ROW_X + SHOP_ROW_W && p.y >= top && p.y <= top + SHOP_ROW_H) {
+        input.levelUp = kind
+        return
+      }
+    }
     return
   }
-  if (sim.outcome !== 'play') return
   for (let card = 0; card < CARD_XS.length; card++) {
     if (hitCard(p.x, p.y, CARD_XS[card] ?? 0)) {
       input.pick = card
@@ -265,6 +319,11 @@ function advance(dt: number): void {
   input.card = -1
   input.lane = undefined
   input.pick = undefined
+  input.levelUp = undefined
+  if (sim.saveSeq !== savedSeq) {
+    savedSeq = sim.saveSeq
+    storeSave()
+  }
   input.restart = false
   if (!sim.tutorial && !tutorialStored) {
     tutorialStored = true
