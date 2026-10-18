@@ -405,7 +405,7 @@ export function draw(
   paintDock(g, renderer, sim)
   if (sim.outcome !== 'play' && sim.rewardT <= 0) paintShop(g, renderer, sim)
   else if (sim.outcome === 'won' || sim.outcome === 'lost') paintBanner(g, sim)
-  else if (sim.tutorial && !sim.free) paintPaw(g, renderer, sim.time)
+  else if (sim.tutorial) paintPaw(g, renderer, sim.time, sim.free)
 
   const destW = frame.internalW * frame.scale
   const destH = frame.internalH * frame.scale
@@ -1382,8 +1382,13 @@ function paintLaneArrows(ctx: CanvasRenderingContext2D, renderer: Renderer): voi
 }
 
 /** Tutorial pointer: points at a path, since a field tap is what sends a shiba. */
-function paintPaw(ctx: CanvasRenderingContext2D, renderer: Renderer, time: number): void {
+function paintPaw(ctx: CanvasRenderingContext2D, renderer: Renderer, time: number, free: boolean): void {
   const bob = BOB[Math.floor(time * 6) & 7] ?? 0
+  if (free) {
+    // Free placement: point into the deploy zone, just under its line.
+    ctx.drawImage(renderer.sheets.paw, (frame.internalW - pawArt.w) >> 1, py(at(FIELD_Y + FREE_ZONE_Y)) + 18 + bob)
+    return
+  }
   const x = px(at(FIELD_X)) + (LANE_PX[0] ?? 0) + ((LANE_PX[1] ?? 0) >> 1) - (pawArt.w >> 1)
   const y = laneArrowY(renderer) - pawArt.h - 2 + bob
   ctx.drawImage(renderer.sheets.paw, x, y)
