@@ -74,8 +74,8 @@ function assertSealed(seal: Seal, w: number, h: number): void {
 }
 
 describe('palette', () => {
-  it('keeps the 24-color set and no other rendered color', () => {
-    expect(PALETTE).toHaveLength(23)
+  it('keeps the closed palette and no other rendered color', () => {
+    expect(PALETTE).toHaveLength(29)
     expect(new Set(PALETTE).size).toBe(PALETTE.length)
     const allowed = new Set<string>(PALETTE)
     const paths = [

@@ -23,6 +23,12 @@ export const PALETTE = [
   '#2c3a63',
   '#4a5d8f',
   '#120b10',
+  '#2f5a2a',
+  '#4a8a3a',
+  '#7cba52',
+  '#b6dd7a',
+  '#8fd0f0',
+  '#d4f0fb',
 ] as const
 
 export type PaletteColor = (typeof PALETTE)[number]
@@ -50,6 +56,12 @@ export const NIGHT_1 = '#18213d'
 export const NIGHT_2 = '#2c3a63'
 export const NIGHT_3 = '#4a5d8f'
 export const LINE = '#120b10'
+export const MEADOW_DARK = '#2f5a2a'
+export const MEADOW = '#4a8a3a'
+export const MEADOW_LIGHT = '#7cba52'
+export const MEADOW_HOT = '#b6dd7a'
+export const SKY = '#8fd0f0'
+export const SKY_LIGHT = '#d4f0fb'
 
 export const INTERNAL_W = 195
 export const INTERNAL_H = 422

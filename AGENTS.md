@@ -10,7 +10,7 @@ Three cards, three soldiers, each with its own attack. Every tap of a card sends
 
 Specials fire on their own when a coat's gauge (damage it has landed) fills. A small cut-in slides in: the smug portrait, the food shouted in pixel katakana, and ゴゴゴ. Shout foods only, never a product name.
 
-The field has five marching paths. They steer the sim, but the field draws no lane stripes: it is open night meadow, and units spread a little left and right inside their path.
+The field has five marching paths. They steer the sim, but the field draws no lane stripes: it is an open daytime meadow under a thin band of sky, and units spread a little left and right inside their path.
 
 Stack: Vite, TypeScript, Canvas 2D. No runtime dependencies. Art is original pixel art in the closed palette below. Sound is Web Audio synthesis. Do not copy another game's art. External assets are allowed only when they are CC0 and recolored into this palette. No paid assets.
 
@@ -42,7 +42,7 @@ Later PRs follow this standard. Simulation coordinates stay on the 390×844 fiel
 
 ### Resolution
 
-Design grid 195×422. CSS-pixel scale is an integer of at least 2, chosen so the internal width stays near 180–215. Internal width and height then flex with `ceil` so the blit covers the viewport. An odd CSS size may overflow by less than one scale step and stay clipped; the scale does not drop to make it exact. `imageSmoothingEnabled` stays false. No letterboxing, no fractional scale, and no half pixels. 195×422 ×2 is the 390×844 phone. The night backdrop covers every extra pixel, including under the notch. Round drawn positions to integers. The page uses `100dvh`, `visualViewport`, and `viewport-fit=cover`.
+Design grid 195×422. CSS-pixel scale is an integer of at least 2, chosen so the internal width stays near 180–215. Internal width and height then flex with `ceil` so the blit covers the viewport. An odd CSS size may overflow by less than one scale step and stay clipped; the scale does not drop to make it exact. `imageSmoothingEnabled` stays false. No letterboxing, no fractional scale, and no half pixels. 195×422 ×2 is the 390×844 phone. The sky and meadow cover every extra pixel, including under the notch. Round drawn positions to integers. The page uses `100dvh`, `visualViewport`, and `viewport-fit=cover`.
 
 ### Sprite sizes
 
@@ -63,12 +63,14 @@ Only these colors:
 - Rival dogs (the enemy purples, so a foe never reads as a shiba): `#2b1d3a` `#5a3f7a` `#9a7ccf` `#d8c8f0`
 - Gold, for damage, bones, and our shots: `#7a4a00` `#e0a200` `#ffe066` `#fffbd1`
 - Enemy shots and danger: `#8a0f3a` `#ff3d7f` `#ffb3cf`
-- Night background: `#0b0f1e` `#18213d` `#2c3a63` `#4a5d8f`
+- Night, for the card dock, shadows, and UI: `#0b0f1e` `#18213d` `#2c3a63` `#4a5d8f`
+- Meadow: `#2f5a2a` `#4a8a3a` `#7cba52` `#b6dd7a`
+- Sky: `#8fd0f0` `#d4f0fb`
 - Line: `#120b10`
 
 ### Drawing
 
-Characters get a 1px outline. The outer edge is `#120b10`. Inner lines use the darker shade of that color. Backgrounds have no outline. No jaggies and no isolated single pixels. Light comes from the top-left, in two shade steps.
+Characters get a 1px outline. The outer edge is `#120b10`. Inner lines use the darker shade of that color. Backgrounds have no outline and do not move: no scrolling grass, no twinkling, no drifting particles behind the action. No jaggies and no isolated single pixels. Light comes from the top-left, in two shade steps.
 
 ### Shiba read
 

@@ -52,6 +52,12 @@ import {
   NIGHT_1,
   NIGHT_2,
   NIGHT_3,
+  MEADOW,
+  MEADOW_DARK,
+  MEADOW_HOT,
+  MEADOW_LIGHT,
+  SKY,
+  SKY_LIGHT,
   WHITE,
   WHITE_DARK,
   WHITE_MID,
@@ -351,7 +357,7 @@ export function draw(
   g.fillRect(0, 0, frame.internalW, frame.internalH)
   g.save()
   g.translate(sx, sy)
-  paintBackdrop(g, sim.time)
+  paintBackdrop(g)
   paintCastle(g, renderer, sim)
   g.save()
   g.beginPath()
@@ -382,19 +388,19 @@ export function draw(
   ctx.drawImage(renderer.view, frame.ox, frame.oy, destW, destH)
 }
 
-/** One path's strip of night meadow. No stripes: grass tufts and darker patches scroll at the march pace. */
-function paintLane(ctx: CanvasRenderingContext2D, x: number, laneW: number, lane: number, fy: number, fh: number, rows: number, scroll: number): void {
+/** One path's strip of daytime meadow. No stripes and no motion: grass tufts and darker patches stay put. */
+function paintLane(ctx: CanvasRenderingContext2D, x: number, laneW: number, lane: number, fy: number, fh: number, rows: number): void {
   if (laneW < 6) return
   for (let row = 0; row < rows; row++) {
-    const y = fy + ((row * 12 + lane * 5 + scroll) % fh)
+    const y = fy + ((row * 12 + lane * 5) % fh)
     const tx = x + 1 + ((row * 13 + lane * 11) % (laneW - 5))
     if (row % 5 === 2) {
-      ctx.fillStyle = NIGHT
+      ctx.fillStyle = MEADOW_DARK
       ctx.fillRect(tx, y + 1, 6, 2)
       ctx.fillRect(tx + 1, y, 4, 4)
       continue
     }
-    ctx.fillStyle = row % 3 === 0 ? NIGHT_3 : NIGHT_2
+    ctx.fillStyle = row % 3 === 0 ? MEADOW_HOT : MEADOW_LIGHT
     ctx.fillRect(tx, y, 1, 2)
     ctx.fillRect(tx + 1, y + 1, 1, 1)
     ctx.fillRect(tx + 2, y, 1, 2)
@@ -408,13 +414,12 @@ function paintLanes(
   fw: number,
   fh: number,
   rows: number,
-  scroll: number,
   width: number,
 ): void {
   let x = fx
   for (let lane = 0; lane < LANE_COUNT; lane++) {
     const laneW = LANE_PX[lane] ?? 0
-    paintLane(ctx, x, laneW, lane, fy, fh, rows, scroll)
+    paintLane(ctx, x, laneW, lane, fy, fh, rows)
     x += laneW
   }
   if (width === INTERNAL_W && fx === at(FIELD_X)) return
@@ -424,7 +429,7 @@ function paintLanes(
     lane = (lane - 1 + LANE_COUNT) % LANE_COUNT
     const laneW = LANE_PX[lane] ?? 0
     const drawX = Math.max(0, left - laneW)
-    paintLane(ctx, drawX, left - drawX, lane, fy, fh, rows, scroll)
+    paintLane(ctx, drawX, left - drawX, lane, fy, fh, rows)
     left = drawX
   }
   let right = fx + fw
@@ -432,57 +437,33 @@ function paintLanes(
   while (right < width) {
     const laneW = LANE_PX[lane] ?? 0
     const drawW = Math.min(laneW, width - right)
-    paintLane(ctx, right, drawW, lane, fy, fh, rows, scroll)
+    paintLane(ctx, right, drawW, lane, fy, fh, rows)
     right += drawW
     lane = (lane + 1) % LANE_COUNT
   }
 }
 
-function paintBackdrop(ctx: CanvasRenderingContext2D, time: number): void {
+function paintBackdrop(ctx: CanvasRenderingContext2D): void {
   const width = frame.internalW
   const fx = px(at(FIELD_X))
   const fy = py(at(FIELD_Y))
   const fw = at(FIELD_W)
   const fieldExtra = frame.dockDy > 0 ? frame.dockDy : 0
   const fh = at(FIELD_H) + fieldExtra
-  const skyTop = 16 + frame.topDy
-  ctx.fillStyle = NIGHT_1
-  ctx.fillRect(0, 0, width, skyTop)
-  ctx.fillStyle = NIGHT_2
-  ctx.fillRect(0, skyTop, width, Math.max(0, fy - skyTop))
-  paintStars(ctx, width, fy - 2, time)
-  ctx.fillStyle = NIGHT_3
+  ctx.fillStyle = SKY
+  ctx.fillRect(0, 0, width, fy)
+  ctx.fillStyle = SKY_LIGHT
+  ctx.fillRect(0, fy - 6, width, 2)
+  ctx.fillStyle = MEADOW_HOT
   ctx.fillRect(0, fy - 2, width, 2)
   const panel = pyDock(at(PANEL_Y))
   const groundH = Math.max(fh, panel - fy)
-  ctx.fillStyle = NIGHT_1
-  if (frame.internalW === INTERNAL_W && frame.shiftX === 0 && fieldExtra === 0 && frame.topDy === 0) {
-    ctx.fillRect(fx, fy, fw, fh)
-  } else {
-    ctx.fillRect(0, fy, width, groundH)
-  }
+  ctx.fillStyle = MEADOW
+  ctx.fillRect(0, fy, width, groundH)
   const rows = fieldExtra > 0 ? Math.ceil(fh / 12) + 2 : 28
-  const scroll = Math.floor(time * 36) % 12
-  paintLanes(ctx, fx, fy, fw, fh, rows, scroll, frame.internalW)
+  paintLanes(ctx, fx, fy, fw, fh, rows, frame.internalW)
   ctx.fillStyle = LINE
   ctx.fillRect(0, panel, width, 1)
-}
-
-const STAR_X = [9, 31, 52, 77, 118, 141, 166, 184, 20, 98, 158, 64] as const
-const STAR_Y = [3, 9, 5, 12, 4, 10, 6, 13, 18, 16, 20, 22] as const
-
-/** Plus-shaped stars in the sky band. One in four twinkles white. */
-function paintStars(ctx: CanvasRenderingContext2D, width: number, bottom: number, time: number): void {
-  const tick = Math.floor(time * 3)
-  for (let i = 0; i < STAR_X.length; i++) {
-    const x = Math.round(((STAR_X[i] ?? 0) * width) / INTERNAL_W)
-    const y = (STAR_Y[i] ?? 0) + frame.topDy
-    if (y + 2 >= bottom) continue
-    const lit = ((tick + i * 3) & 3) === 0
-    ctx.fillStyle = lit ? WHITE : NIGHT_3
-    ctx.fillRect(x, y + 1, 3, 1)
-    ctx.fillRect(x + 1, y, 1, 3)
-  }
 }
 
 function paintCastle(ctx: CanvasRenderingContext2D, renderer: Renderer, sim: Sim): void {
