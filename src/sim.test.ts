@@ -36,6 +36,8 @@ import {
   SASAMI_HOME,
   SPECIAL_NEED,
   BREED_BULLDOG,
+  BREED_POODLE,
+  POODLE_RANGE,
   BREED_GOLDEN,
   BREED_CHIHUAHUA,
   FIELD_W,
@@ -911,5 +913,30 @@ describe('soldiers', () => {
     step(sim, 1 / 30, { ...NO_INPUT, pickStage: 1 })
     expect(sim.stage).toBe(1)
     expect(sim.outcome).toBe('play')
+  })
+
+  it('a poodle lobs from a distance and never closes to biting range', () => {
+    const sim = createSim({ tutorial: false, seed: 5, free: true, stage: 1 })
+    for (const c of sim.cats) c.alive = false
+    sim.aliveCats = 0
+    for (const u of sim.shibas) u.alive = false
+    sim.aliveShibas = 0
+    sim.nextCat = 1e9
+    spawnCat(sim, 0, BREED_POODLE, { x: 97, y: 150 })
+    const shiba = spawnShiba(sim, KIND_BLACK, 0, 0) && sim.shibas.find((u) => u.alive)
+    expect(!!shiba).toBe(true)
+    if (!shiba) return
+    Object.assign(shiba, { x: 97, y: 150 + POODLE_RANGE - 6, hp: 500, maxHp: 500, speed: 0, dps: 0, cd: 99 })
+    const hp0 = shiba.hp
+    for (let i = 0; i < 90; i++) step(sim, 1 / 30, NO_INPUT)
+    const poodle = sim.cats.find((c) => c.alive && c.kind === BREED_POODLE)
+    expect(!!poodle).toBe(true)
+    expect(shiba.hp).toBeLessThan(hp0)
+    expect(Math.hypot((poodle?.x ?? 0) - shiba.x, (poodle?.y ?? 0) - shiba.y)).toBeGreaterThan(60)
+  })
+
+  it('later stages mix poodles into the clash waves; stage 1 and ?lanes have none', () => {
+    expect(STAGES[0]?.poodleEvery).toBe(0)
+    expect((STAGES[4]?.poodleEvery ?? 0) > 0).toBe(true)
   })
 })

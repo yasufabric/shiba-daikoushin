@@ -186,3 +186,6 @@ Cards and deck cells carry a 9×9 role icon (`drawRoleIcon`): claws, slam ring, 
 
 ## Sound
 `audio.ts` is a WebAudio synth (`Synth`): per-coat hit sounds, deploy, special, call, pop, heal, tap, a win jingle scaled by stars, and a procedural 4-bar BGM (triangle melody + square bass, 128 bpm) scheduled from `unlock()` (first tap). `main.ts` `battleSounds()` turns sim events into sfx. A speaker tile (`paintMute`, top-right of the title/result screens and at the end of the dock's top row in play; tap via `muteTarget`) toggles mute; the choice persists under `shiba-daikoushin-mute`. The mute tap is checked before every other tap. Never add sound that cannot be muted.
+
+## プードル (ranged dog)
+`BREED_POODLE` (5; the boss moved to 6, `BREEDS` 6) stops at `POODLE_RANGE` (92) from the nearest shiba and lobs a ball every `POODLE_EVERY` s (hit = dps × every, instant; `paintLob` draws a 0.4 s arc from `bitAt`/`aimX`/`aimY`). Frail (22 hp), slow; stages mix it in via `StageSpec.poodleEvery` (stage 1 and ?lanes: none). Enemy sprites are the usual purple palette; art is `DOG_HALVES[5]`.

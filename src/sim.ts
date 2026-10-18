@@ -12,6 +12,9 @@ import {
   BREED_BULLDOG,
   BREED_DACHS,
   BREED_GOLDEN,
+  BREED_POODLE,
+  POODLE_EVERY,
+  POODLE_RANGE,
   GOLDEN_ARMOR,
   BREED_CHIHUAHUA,
   BREED_CORGI,
@@ -482,7 +485,7 @@ export function toggleDeck(sim: Sim, kind: number): boolean {
   return true
 }
 
-const OLD_STAGE: (typeof STAGES)[number] = { count: DOG_COUNT, hp: 1, dps: 1, dachsEvery: 5, goldenEvery: 9, bulldogEvery: 7, rocks: [] }
+const OLD_STAGE: (typeof STAGES)[number] = { count: DOG_COUNT, hp: 1, dps: 1, dachsEvery: 5, poodleEvery: 0, goldenEvery: 9, bulldogEvery: 7, rocks: [] }
 
 /** Can the next wave be called now? Free play, before the boss, with dogs left and a wait to skip. */
 export function canCall(sim: Sim): boolean {
@@ -919,6 +922,7 @@ function spawnWave(sim: Sim): void {
       sim.horde += 1
       if (sim.horde % every === 0) breed = BREED_BULLDOG
       else if (st.goldenEvery > 0 && sim.horde % st.goldenEvery === 0) breed = BREED_GOLDEN
+      else if (st.poodleEvery > 0 && sim.horde % st.poodleEvery === 0) breed = BREED_POODLE
       else if (st.dachsEvery > 0 && sim.horde % st.dachsEvery === 0) breed = BREED_DACHS
     }
     spawnCat(sim, lane, breed)
@@ -1315,15 +1319,20 @@ function moveFree(sim: Sim, rawDt: number): void {
       continue
     }
     const d = Math.hypot(foe.x - dog.x, foe.y - dog.y)
-    if (d > FREE_REACH + 4) {
-      stepToward(dog, foe.x, foe.y, Math.min(d - FREE_REACH * 0.9, dog.speed * dt))
+    const poodle = dog.kind === BREED_POODLE
+    const reach = poodle ? POODLE_RANGE : FREE_REACH
+    if (d > reach + 4) {
+      stepToward(dog, foe.x, foe.y, Math.min(d - reach * 0.9, dog.speed * dt))
       continue
     }
+    const every = poodle ? POODLE_EVERY : BITE_EVERY
     dog.bite -= beat
     if (dog.bite <= 0) {
-      dog.bite += BITE_EVERY
-      foe.hp -= dog.dps * BITE_EVERY
+      dog.bite += every
+      foe.hp -= dog.dps * every
       dog.bitAt = sim.time
+      dog.aimX = foe.x
+      dog.aimY = foe.y
     }
   }
   spread(sim.shibas, rawDt)

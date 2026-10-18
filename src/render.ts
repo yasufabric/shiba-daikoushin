@@ -13,6 +13,7 @@ import {
   BREED_BULLDOG,
   BREED_CHIHUAHUA,
   BREED_CORGI,
+  BREED_POODLE,
   FIELD_CAP,
   FREE_WAVE_SLOW,
   CALL_BONE,
@@ -1213,7 +1214,7 @@ function drawCat(ctx: CanvasRenderingContext2D, renderer: Renderer, sim: Sim, in
     return
   }
   const dx = px(at(FIELD_X + cat.x)) - (CAT_PX >> 1)
-  const dy = fpy(cat.y) - CAT_PX + (cat.fly === 1 ? 0 : lunge(sim, cat.bitAt))
+  const dy = fpy(cat.y) - CAT_PX + (cat.fly === 1 || cat.kind === BREED_POODLE ? 0 : lunge(sim, cat.bitAt))
   if (cat.fly === 1) {
     if (renderer.catFly[index] !== 1) {
       renderer.catFly[index] = 1
@@ -1239,6 +1240,26 @@ function drawCat(ctx: CanvasRenderingContext2D, renderer: Renderer, sim: Sim, in
   const pose = poseOf(moved, fighting)
   const beat = offbeat(sim.time, index)
   blitCat(ctx, renderer, cat.kind, pose, fighting ? beat : sim.time, cat.lane, 0, fighting && hitFrame(beat), dx, dy)
+  if (cat.kind === BREED_POODLE) paintLob(ctx, sim.time - cat.bitAt, dx + (CAT_PX >> 1), dy + 6, px(at(FIELD_X + cat.aimX)), fpy(cat.aimY) - 8)
+}
+
+/** プードル's ball: a small arc from the dog to the shiba it was thrown at, 0.4 s in the air, a pop where it lands. */
+function paintLob(ctx: CanvasRenderingContext2D, age: number, x0: number, y0: number, x1: number, y1: number): void {
+  if (age < 0 || age > 0.5) return
+  if (age > 0.4) {
+    ctx.fillStyle = WHITE
+    ctx.fillRect(x1 - 1, y1 - 1, 3, 3)
+    return
+  }
+  const t = age / 0.4
+  const x = Math.round(x0 + (x1 - x0) * t)
+  const y = Math.round(y0 + (y1 - y0) * t - Math.sin(t * Math.PI) * 18)
+  ctx.fillStyle = NIGHT
+  ctx.fillRect(x - 2, y - 2, 5, 5)
+  ctx.fillStyle = GOLD_LIGHT
+  ctx.fillRect(x - 1, y - 1, 3, 3)
+  ctx.fillStyle = WHITE
+  ctx.fillRect(x - 1, y - 1, 1, 1)
 }
 
 /** The boss: 48×48, two walk frames, a hit flash while it fights, and a big burst when it falls. */

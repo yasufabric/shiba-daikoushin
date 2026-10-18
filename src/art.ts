@@ -574,6 +574,22 @@ const DOG_HALVES: readonly (readonly string[])[] = [
     '..Lhbbbwww',
     '..Lbbbbbbb',
   ],
+  [
+    '......LLLL',
+    '....LLhhbb',
+    '..LLhhbbbb',
+    '.LhhbbLbbb',
+    'LhhbbbbLbb',
+    'LhhbLLbbbb',
+    'LhmbLeeLbb',
+    'LhmbbLLbbb',
+    '.Lhbbbbbww',
+    '..LhbbwwwL',
+    '...LLhwwwd',
+    '..Lhhbbbbb',
+    '..Lhbbbbbb',
+    '..Lbbbbbbb',
+  ],
 ]
 
 /** Right half: the lit edge turns to body on the shadow side. */
@@ -800,7 +816,7 @@ function bossRows(step: number): string[] {
 
 export const bossArt = [seal('boss-0', bossRows(0), BOSS_MAP), seal('boss-1', bossRows(1), BOSS_MAP)]
 
-const DOG_NAMES = ['chihuahua', 'corgi', 'bulldog', 'dachs', 'golden'] as const
+const DOG_NAMES = ['chihuahua', 'corgi', 'bulldog', 'dachs', 'golden', 'poodle'] as const
 
 /** One 10-frame strip per breed, in BREED_* order. */
 export const dogArt: readonly Seal[][] = DOG_NAMES.map((name, breed) =>
