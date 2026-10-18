@@ -1,4 +1,4 @@
-import { pawArt } from './art'
+import { FUR_BLACK, FUR_CREAM, FUR_RED, FUR_SESAME, pawArt } from './art'
 import {
   ATTACK_RANGE,
   BEAM_TIME,
@@ -97,7 +97,7 @@ export interface Renderer {
   catBirth: Float64Array
   ghostX: Int16Array
   ghostY: Int16Array
-  ghostKind: Uint8Array
+  ghostFur: Uint8Array
   ghostBirth: Float64Array
   ghostVx: Int8Array
   ghostVy: Int8Array
@@ -283,7 +283,7 @@ export function createRenderer(): Renderer {
     catBirth: new Float64Array(MAX_CATS),
     ghostX: new Int16Array(GHOSTS),
     ghostY: new Int16Array(GHOSTS),
-    ghostKind: new Uint8Array(GHOSTS),
+    ghostFur: new Uint8Array(GHOSTS),
     ghostBirth: new Float64Array(GHOSTS),
     ghostVx: new Int8Array(GHOSTS),
     ghostVy: new Int8Array(GHOSTS),
@@ -369,18 +369,21 @@ export function draw(
   ctx.drawImage(renderer.view, frame.ox, frame.oy, destW, destH)
 }
 
+/** Night meadow lane: alternate shades, with grass tufts that scroll at the march pace. */
 function paintLane(ctx: CanvasRenderingContext2D, x: number, laneW: number, lane: number, fy: number, fh: number, rows: number, scroll: number): void {
   if (laneW <= 0) return
   if ((lane & 1) === 1) {
     ctx.fillStyle = NIGHT_2
     ctx.fillRect(x, fy, laneW, fh)
   }
-  if (laneW < 2) return
-  ctx.fillStyle = NIGHT_3
-  const dashX = x + (laneW >> 1)
+  if (laneW < 4) return
+  ctx.fillStyle = (lane & 1) === 1 ? NIGHT_3 : NIGHT_2
   for (let row = 0; row < rows; row++) {
-    const y = fy + ((row * 12 + scroll) % fh)
-    ctx.fillRect(dashX, y, 1, 4)
+    const y = fy + ((row * 12 + lane * 5 + scroll) % fh)
+    const tx = x + 1 + ((row * 7 + lane * 11) % (laneW - 3))
+    ctx.fillRect(tx, y, 1, 2)
+    ctx.fillRect(tx + 1, y + 1, 1, 1)
+    ctx.fillRect(tx + 2, y, 1, 2)
   }
 }
 
@@ -433,6 +436,7 @@ function paintBackdrop(ctx: CanvasRenderingContext2D, time: number): void {
   ctx.fillRect(0, 0, width, skyTop)
   ctx.fillStyle = NIGHT_2
   ctx.fillRect(0, skyTop, width, Math.max(0, fy - skyTop))
+  paintStars(ctx, width, fy - 2, time)
   ctx.fillStyle = NIGHT_3
   ctx.fillRect(0, fy - 2, width, 2)
   const panel = pyDock(at(PANEL_Y))
@@ -448,6 +452,23 @@ function paintBackdrop(ctx: CanvasRenderingContext2D, time: number): void {
   paintLanes(ctx, fx, fy, fw, fh, rows, scroll, frame.internalW)
   ctx.fillStyle = LINE
   ctx.fillRect(0, panel, width, 1)
+}
+
+const STAR_X = [9, 31, 52, 77, 118, 141, 166, 184, 20, 98, 158, 64] as const
+const STAR_Y = [3, 9, 5, 12, 4, 10, 6, 13, 18, 16, 20, 22] as const
+
+/** Plus-shaped stars in the sky band. One in four twinkles white. */
+function paintStars(ctx: CanvasRenderingContext2D, width: number, bottom: number, time: number): void {
+  const tick = Math.floor(time * 3)
+  for (let i = 0; i < STAR_X.length; i++) {
+    const x = Math.round(((STAR_X[i] ?? 0) * width) / INTERNAL_W)
+    const y = (STAR_Y[i] ?? 0) + frame.topDy
+    if (y + 2 >= bottom) continue
+    const lit = ((tick + i * 3) & 3) === 0
+    ctx.fillStyle = lit ? WHITE : NIGHT_3
+    ctx.fillRect(x, y + 1, 3, 1)
+    ctx.fillRect(x + 1, y, 1, 3)
+  }
 }
 
 function paintCastle(ctx: CanvasRenderingContext2D, renderer: Renderer, sim: Sim): void {
@@ -492,10 +513,14 @@ function drawShiba(ctx: CanvasRenderingContext2D, renderer: Renderer, sim: Sim, 
   const moved = !seen || Math.abs(unit.y - prev) > 0.2
   const fighting = foeNear(sim, unit.lane, unit.y, true)
   const pose = poseOf(moved, fighting)
-  const flash = fighting && hitFrame(sim.time)
+  const beat = offbeat(sim.time, index)
+  const flash = fighting && hitFrame(beat)
   const dx = px(at(FIELD_X + unit.x)) - (CROWD_PX >> 1)
-  const dy = py(at(FIELD_Y + unit.y)) - CROWD_PX - celebrateHop(sim, index)
-  blitCrowd(ctx, renderer, unit.kind === KIND_BLACK ? 1 : 0, pose, sim.time, unit.lane, 0, flash, dx, dy)
+  const hop = celebrateHop(sim, index)
+  const dy = py(at(FIELD_Y + unit.y)) - CROWD_PX - hop
+  ctx.fillStyle = NIGHT
+  ctx.fillRect(dx + 3, dy + hop + CROWD_PX - 2, 8, 2)
+  blitCrowd(ctx, renderer, furOf(unit.kind, index), pose, fighting ? beat : sim.time, unit.lane, 0, flash, dx, dy)
 }
 
 function drawCat(ctx: CanvasRenderingContext2D, renderer: Renderer, sim: Sim, index: number): void {
@@ -515,6 +540,8 @@ function drawCat(ctx: CanvasRenderingContext2D, renderer: Renderer, sim: Sim, in
     return
   }
   renderer.catFly[index] = 0
+  ctx.fillStyle = NIGHT
+  ctx.fillRect(dx + 4, dy + CAT_PX - 2, 16, 2)
   const prev = renderer.catY[index] ?? 0
   const seen = renderer.catSeen[index] === 1
   renderer.catY[index] = cat.y
@@ -522,7 +549,8 @@ function drawCat(ctx: CanvasRenderingContext2D, renderer: Renderer, sim: Sim, in
   const moved = !seen || Math.abs(cat.y - prev) > 0.2
   const fighting = foeNear(sim, cat.lane, cat.y, false)
   const pose = poseOf(moved, fighting)
-  blitCat(ctx, renderer, pose, sim.time, cat.lane, 0, fighting && hitFrame(sim.time), dx, dy)
+  const beat = offbeat(sim.time, index)
+  blitCat(ctx, renderer, pose, fighting ? beat : sim.time, cat.lane, 0, fighting && hitFrame(beat), dx, dy)
 }
 
 function noteDeaths(renderer: Renderer, sim: Sim): void {
@@ -533,17 +561,30 @@ function noteDeaths(renderer: Renderer, sim: Sim): void {
     if ((renderer.shibaOn[i] ?? 0) === 1 && alive === 0 && unit) {
       const dx = px(at(FIELD_X + unit.x)) - (CROWD_PX >> 1)
       const dy = py(at(FIELD_Y + unit.y)) - CROWD_PX
-      spawnGhost(renderer, sim, dx, dy, unit.kind === KIND_BLACK ? 1 : 0)
+      spawnGhost(renderer, sim, dx, dy, furOf(unit.kind, i))
       spawnBoom(renderer, sim, dx + (CROWD_PX >> 1), dy + (CROWD_PX >> 1))
     }
     renderer.shibaOn[i] = alive
   }
 }
 
+/** The black card marches as 黒柴. The tan card is mostly 赤, with a sprinkle of 胡麻 and 白 by pool slot. */
+function furOf(kind: number, index: number): number {
+  if (kind === KIND_BLACK) return FUR_BLACK
+  if (index % 7 === 3) return FUR_SESAME
+  if (index % 11 === 6) return FUR_CREAM
+  return FUR_RED
+}
+
 function poseOf(moved: boolean, fighting: boolean): Pose {
   if (fighting) return 'attack'
   if (moved) return 'walk'
   return 'idle'
+}
+
+/** Shift a fighter's attack cycle by whole frames so a packed front line does not flash in unison. */
+function offbeat(time: number, index: number): number {
+  return time + (index & 3) / 12
 }
 
 function hitFrame(time: number): boolean {
@@ -583,7 +624,7 @@ function frameCol(pose: Pose, time: number, lane: number): number {
 function blitCrowd(
   ctx: CanvasRenderingContext2D,
   renderer: Renderer,
-  kind: number,
+  fur: number,
   pose: Pose,
   time: number,
   lane: number,
@@ -594,7 +635,7 @@ function blitCrowd(
 ): void {
   const sheet = flash ? renderer.sheets.crowdFlash : renderer.sheets.crowd
   const col = frameCol(pose, time, lane)
-  const srcY = (kind * 4 + spin) * CROWD_PX
+  const srcY = (fur * 4 + spin) * CROWD_PX
   ctx.drawImage(sheet, col * CROWD_PX, srcY, CROWD_PX, CROWD_PX, dx, dy, CROWD_PX, CROWD_PX)
 }
 
@@ -669,13 +710,13 @@ function bucket(y: number): number {
   return b
 }
 
-function spawnGhost(renderer: Renderer, sim: Sim, x: number, y: number, kind: number): void {
+function spawnGhost(renderer: Renderer, sim: Sim, x: number, y: number, fur: number): void {
   const i = renderer.ghostCursor % GHOSTS
   renderer.ghostCursor = i + 1
   renderer.ghostOn[i] = 1
   renderer.ghostX[i] = x
   renderer.ghostY[i] = y
-  renderer.ghostKind[i] = kind
+  renderer.ghostFur[i] = fur
   renderer.ghostBirth[i] = sim.time
   renderer.ghostVx[i] = (i & 1) === 0 ? -1 : 1
   renderer.ghostVy[i] = -2
@@ -716,7 +757,7 @@ function paintGhosts(ctx: CanvasRenderingContext2D, renderer: Renderer, sim: Sim
     const x = (renderer.ghostX[i] ?? 0) + (renderer.ghostVx[i] ?? 0) * steps
     const y = (renderer.ghostY[i] ?? 0) + (renderer.ghostVy[i] ?? 0) * steps
     const spin = Math.floor(age / 0.08) & 3
-    blitCrowd(ctx, renderer, renderer.ghostKind[i] ?? 0, 'walk', sim.time, 0, spin, age < 0.06, x, y)
+    blitCrowd(ctx, renderer, renderer.ghostFur[i] ?? 0, 'walk', sim.time, 0, spin, age < 0.06, x, y)
   }
 }
 
@@ -789,7 +830,7 @@ function paintDock(ctx: CanvasRenderingContext2D, renderer: Renderer, sim: Sim):
   drawNumber(ctx, renderer, sim.bones | 0, px(at(BONE_X)) + 14, pyDock(at(BONE_Y)) + 1, false)
   paintCard(ctx, renderer, px(at(CARD_X0) + denyShift(sim.deny0)), 0, sim.costTan, sim.bones >= sim.costTan, sim.tutorial, sim.time)
   paintCard(ctx, renderer, px(at(CARD_X1) + denyShift(sim.deny1)), 1, sim.costBlack, sim.bones >= sim.costBlack, false, sim.time)
-  paintCannon(ctx, sim)
+  paintCannon(ctx, renderer, sim)
 }
 
 function denyShift(deny: number): number {
@@ -812,41 +853,56 @@ function paintCard(
   const h = at(CARD_H)
   ctx.fillStyle = affordable ? NIGHT_1 : NIGHT
   ctx.fillRect(x, y, w, h)
+  const hx = x + ((w - HERO_PX) >> 1)
+  ctx.fillStyle = affordable ? NIGHT_2 : NIGHT_1
+  ctx.fillRect(hx - 6, y + 4, HERO_PX + 12, HERO_PX + 2)
+  ctx.fillRect(hx - 8, y + 6, HERO_PX + 16, HERO_PX - 2)
+  ctx.fillStyle = affordable ? NIGHT_3 : NIGHT_2
+  ctx.fillRect(hx - 2, y + HERO_PX + 2, HERO_PX + 4, 2)
   const phase = Math.floor(time * 8) & 3
   const border = hint ? (GOLD_CYCLE[phase] ?? GOLD_LIGHT) : affordable ? GOLD : NIGHT_2
-  ctx.fillStyle = border
+  const inner = hint ? (GOLD_CYCLE[(phase + 2) & 3] ?? GOLD) : affordable ? GOLD_DARK : NIGHT_1
+  frameRect(ctx, x, y, w, h, border)
+  frameRect(ctx, x + 1, y + 1, w - 2, h - 2, inner)
+  ctx.fillStyle = LINE
+  ctx.fillRect(x, y, 1, 1)
+  ctx.fillRect(x + w - 1, y, 1, 1)
+  ctx.fillRect(x, y + h - 1, 1, 1)
+  ctx.fillRect(x + w - 1, y + h - 1, 1, 1)
+  const blink = (Math.floor(time * 2) & 1) === 1
+  const col = kind === KIND_BLACK ? (blink ? 3 : 2) : blink ? 1 : 0
+  const hop = affordable ? (HOP[Math.floor(time * 8) & 7] ?? 0) >> 1 : 0
+  ctx.drawImage(renderer.sheets.hero, col * HERO_PX, 0, HERO_PX, HERO_PX, hx, y + 3 - hop, HERO_PX, HERO_PX)
+  ctx.drawImage(renderer.sheets.bone, x + 3, y + h - 14)
+  drawNumber(ctx, renderer, cost | 0, x + 17, y + h - 12, false)
+}
+
+function frameRect(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, color: string): void {
+  ctx.fillStyle = color
   ctx.fillRect(x, y, w, 1)
   ctx.fillRect(x, y + h - 1, w, 1)
   ctx.fillRect(x, y, 1, h)
   ctx.fillRect(x + w - 1, y, 1, h)
-  const blink = (Math.floor(time * 2) & 1) === 1
-  const col = kind === KIND_BLACK ? (blink ? 3 : 2) : blink ? 1 : 0
-  const hx = x + ((w - HERO_PX) >> 1)
-  ctx.drawImage(renderer.sheets.hero, col * HERO_PX, 0, HERO_PX, HERO_PX, hx, y + 2, HERO_PX, HERO_PX)
-  drawNumber(ctx, renderer, cost | 0, x + 4, y + h - 12, false)
 }
 
-function paintCannon(ctx: CanvasRenderingContext2D, sim: Sim): void {
+function paintCannon(ctx: CanvasRenderingContext2D, renderer: Renderer, sim: Sim): void {
   const ready = cannonReady(sim)
-  const cx = px(at(CANNON_X))
-  const cy = py(at(CANNON_Y))
-  const size = 18
-  const x = cx - 9
-  const y = cy - 9
-  const phase = Math.floor(sim.time * 8) & 3
-  ctx.fillStyle = ready ? (GOLD_CYCLE[phase] ?? GOLD) : NIGHT_2
-  ctx.fillRect(x, y, size, size)
-  ctx.fillStyle = ready ? (GOLD_CYCLE[(phase + 1) & 3] ?? GOLD_LIGHT) : NIGHT_1
-  ctx.fillRect(x + 2, y + 2, size - 4, size - 4)
-  ctx.fillStyle = ready ? (GOLD_CYCLE[(phase + 2) & 3] ?? GOLD_HOT) : GOLD_DARK
-  ctx.fillRect(x + 5, y + 5, 8, 8)
-  ctx.fillStyle = ready ? WHITE : NIGHT
-  ctx.fillRect(cx - 2, cy + 4, 4, 6)
-  ctx.fillStyle = LINE
-  ctx.fillRect(x, y, size, 1)
-  ctx.fillRect(x, y + size - 1, size, 1)
-  ctx.fillRect(x, y, 1, size)
-  ctx.fillRect(x + size - 1, y, 1, size)
+  const sprite = ready ? renderer.sheets.cannon : renderer.sheets.cannonDim
+  const x = px(at(CANNON_X)) - (sprite.width >> 1)
+  const bob = ready ? (Math.floor(sim.time * 6) & 1) : 0
+  const y = py(at(CANNON_Y)) - (sprite.height >> 1) - bob
+  if (ready) {
+    const phase = Math.floor(sim.time * 8) & 3
+    for (let ring = 0; ring < 2; ring++) {
+      ctx.fillStyle = GOLD_CYCLE[(phase + ring) & 3] ?? GOLD
+      const r = 3 - ring
+      ctx.fillRect(x - r, y + bob - r, sprite.width + r * 2, 1)
+      ctx.fillRect(x - r, y + bob + sprite.height + r - 1, sprite.width + r * 2, 1)
+      ctx.fillRect(x - r, y + bob - r, 1, sprite.height + r * 2)
+      ctx.fillRect(x + sprite.width + r - 1, y + bob - r, 1, sprite.height + r * 2)
+    }
+  }
+  ctx.drawImage(sprite, x, y)
 }
 
 function paintPaw(ctx: CanvasRenderingContext2D, renderer: Renderer, time: number): void {
@@ -918,6 +974,9 @@ function paintBanner(ctx: CanvasRenderingContext2D, sim: Sim): void {
   const pad = 6
   ctx.fillStyle = NIGHT
   ctx.fillRect(x - pad, y - pad, width + pad * 2, gh + pad * 2)
+  const won = sim.outcome === 'won'
+  frameRect(ctx, x - pad, y - pad, width + pad * 2, gh + pad * 2, won ? GOLD : DANGER)
+  frameRect(ctx, x - pad + 2, y - pad + 2, width + pad * 2 - 4, gh + pad * 2 - 4, won ? GOLD_DARK : DANGER_DARK)
   for (let i = 0; i < word.length; i++) {
     drawLetter(ctx, word[i] ?? '', x + i * (gw + gap), y, scale, fill)
   }

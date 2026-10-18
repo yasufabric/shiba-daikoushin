@@ -7,6 +7,7 @@ import {
   CAT_MID,
   CAT_PX,
   DANGER,
+  DANGER_DARK,
   DANGER_LIGHT,
   FUR_BODY,
   FUR_DARK,
@@ -19,9 +20,10 @@ import {
   HERO_PX,
   LINE,
   NIGHT,
+  NIGHT_1,
+  NIGHT_2,
+  NIGHT_3,
   WHITE,
-  WHITE_DARK,
-  WHITE_MID,
 } from './palette'
 
 export interface Seal {
@@ -122,42 +124,76 @@ export function rot90(src: Seal): Seal {
   return { name: src.name, w, h, color }
 }
 
-const TAN: Record<string, string> = {
-  d: FUR_DARK,
-  m: FUR_MID,
-  b: FUR_BODY,
-  h: FUR_LIGHT,
-  w: WHITE,
-  n: FUR_DARK,
-  g: GOLD,
+/** Shared letters: L outline (inner L stays the darkest fur), o fur, h lit fur, m shade, w urajiro white, c curl cream, e brow, s sesame tip, k eye, x eye highlight, n nose, p tongue. */
+const RED: Record<string, string> = {
+  L: FUR_DARK,
   o: FUR_BODY,
-  s: FUR_MID,
+  h: FUR_LIGHT,
+  m: FUR_MID,
+  w: WHITE,
+  c: FUR_LIGHT,
+  e: FUR_LIGHT,
+  s: FUR_BODY,
+  k: FUR_DARK,
+  x: WHITE,
+  n: FUR_DARK,
+  p: DANGER_LIGHT,
+  g: GOLD_LIGHT,
+  G: GOLD,
 }
 
-const CREAM: Record<string, string> = {
-  d: WHITE_DARK,
-  m: WHITE_MID,
-  b: WHITE_MID,
-  h: WHITE,
-  w: WHITE,
-  n: FUR_DARK,
-  g: GOLD,
-  o: FUR_BODY,
-  s: FUR_MID,
+/** 黒柴: night fur, tan まろ眉 and tan curl underside, white urajiro. */
+const BLACK: Record<string, string> = {
+  ...RED,
+  L: NIGHT,
+  o: NIGHT_2,
+  h: NIGHT_3,
+  m: NIGHT_1,
+  c: FUR_LIGHT,
+  e: FUR_LIGHT,
+  s: NIGHT_2,
+  k: NIGHT,
 }
+
+/** 胡麻柴: red fur with dark tips on the crown and back. */
+const SESAME: Record<string, string> = {
+  ...RED,
+  s: FUR_DARK,
+}
+
+/** 白柴: cream fur. Ears and curl keep an orange shade. */
+const CREAM: Record<string, string> = {
+  ...RED,
+  L: FUR_MID,
+  o: FUR_LIGHT,
+  h: WHITE,
+  m: FUR_BODY,
+  c: WHITE,
+  e: WHITE,
+  s: FUR_LIGHT,
+}
+
+export const FUR_RED = 0
+export const FUR_BLACK = 1
+export const FUR_SESAME = 2
+export const FUR_CREAM = 3
+const FUR_MAPS = [RED, BLACK, SESAME, CREAM] as const
 
 const CAT: Record<string, string> = {
+  L: CAT_DARK,
   d: CAT_DARK,
   m: CAT_MID,
   b: CAT_BODY,
   h: CAT_LIGHT,
   p: DANGER_LIGHT,
   e: DANGER,
+  r: DANGER_DARK,
   w: WHITE,
   n: NIGHT,
 }
 
 const BONE_MAP: Record<string, string> = {
+  L: GOLD_DARK,
   d: GOLD_DARK,
   m: GOLD,
   h: GOLD_LIGHT,
@@ -165,207 +201,384 @@ const BONE_MAP: Record<string, string> = {
 }
 
 const CASTLE_MAP: Record<string, string> = {
+  L: CAT_DARK,
   d: CAT_DARK,
   m: CAT_MID,
   b: CAT_BODY,
   h: CAT_LIGHT,
   p: DANGER_LIGHT,
   e: DANGER,
+  r: DANGER_DARK,
   g: GOLD_LIGHT,
+  G: GOLD,
   n: NIGHT,
+  N: NIGHT_1,
 }
 
-/** Front-facing shiba. Rows 0–13 stay put so the face and curl survive the walk. */
-const CROWD_BODY = [
-  '...o.....s......',
-  '..ooo...sss.....',
-  '.oohoo..ssss....',
-  'oohhhobssssss...',
-  'bbbbbbbbbbbbbbb.',
-  'bbbnnwwwwwnnbb..',
-  'bbbnnwnnnwnnbb..',
-  'bbhwwwwnnwwwwb..',
-  '.bbwwwhhhwwwwb..',
-  '.bbbwwwwwwwwbb..',
-  '.bbbbbwwssss....',
-  '.bbbbbhswwss....',
-  '.bbbbbbsswws....',
-  '.bbbbbbbbsss....',
-  '.bbbbbbbb.......',
-] as const
-
-const CROWD_FEET = [
-  '..bb...bb.......',
-  '.....bb.........',
-  '..bb....b.......',
-  '..b.....bb......',
-  '..bb..b.........',
-  '..b...bb........',
-  'bb.....bb.......',
-  '..bbbb.bb.......',
-  '..bb...bb.......',
-  '..bb....b.......',
-] as const
-
-const CROWD_ROWS: readonly (readonly string[])[] = CROWD_FEET.map((feet) => [...CROWD_BODY, feet])
-
-function catBase(blink: boolean): string[] {
-  const g = blank(CAT_PX, CAT_PX)
-  blot(g, 3, 1, 7, 8, 'b')
-  blot(g, 14, 1, 7, 8, 'b')
-  shave(g, 3, 1, 7, 8, 2)
-  shave(g, 14, 1, 7, 8, 2)
-  blot(g, 5, 3, 3, 4, 'p')
-  blot(g, 16, 3, 3, 4, 'p')
-  blot(g, 4, 6, 16, 10, 'b')
-  shave(g, 4, 6, 16, 10, 2)
-  blot(g, 5, 7, 7, 4, 'h')
-  blot(g, 14, 10, 5, 4, 'm')
-  if (blink) {
-    blot(g, 7, 11, 4, 2, 'd')
-    blot(g, 13, 11, 4, 2, 'd')
-  } else {
-    blot(g, 7, 10, 4, 4, 'd')
-    blot(g, 13, 10, 4, 4, 'd')
-    blot(g, 8, 11, 2, 2, 'w')
-    blot(g, 14, 11, 2, 2, 'w')
-  }
-  blot(g, 11, 14, 2, 2, 'e')
-  blot(g, 6, 15, 12, 5, 'b')
-  blot(g, 6, 15, 5, 3, 'h')
-  blot(g, 13, 17, 5, 3, 'm')
-  return g
+const CANNON_LIVE: Record<string, string> = {
+  L: GOLD_DARK,
+  d: GOLD_DARK,
+  m: GOLD,
+  o: GOLD_LIGHT,
+  h: GOLD_HOT,
+  w: WHITE,
+  n: FUR_DARK,
+  k: NIGHT,
 }
 
-function catFrame(index: number): string[] {
-  const blink = index === 5
-  const g = catBase(blink)
-  if (index === 0) {
-    blot(g, 4, 19, 5, 4, 'm')
-    blot(g, 15, 18, 5, 3, 'd')
-  } else if (index === 1) {
-    blot(g, 5, 19, 4, 3, 'm')
-    blot(g, 15, 19, 4, 3, 'd')
-  } else if (index === 2) {
-    blot(g, 4, 18, 5, 3, 'm')
-    blot(g, 15, 19, 5, 4, 'd')
-  } else if (index === 3) {
-    blot(g, 5, 20, 4, 3, 'm')
-    blot(g, 15, 20, 4, 3, 'd')
-  } else if (index === 4 || index === 5) {
-    blot(g, 5, 19, 4, 3, 'm')
-    blot(g, 15, 19, 4, 3, 'd')
-  } else if (index === 6) {
-    blot(g, 6, 20, 5, 3, 'm')
-    blot(g, 14, 20, 5, 3, 'd')
-  } else if (index === 7) {
-    blot(g, 0, 16, 7, 3, 'b')
-    blot(g, 0, 17, 4, 2, 'h')
-    blot(g, 15, 19, 5, 3, 'd')
-  } else if (index === 8) {
-    blot(g, 2, 17, 5, 3, 'm')
-    blot(g, 15, 19, 4, 3, 'd')
-  } else {
-    blot(g, 4, 18, 5, 3, 'm')
-    blot(g, 15, 19, 4, 3, 'd')
-  }
-  return g
+const CANNON_DIM: Record<string, string> = {
+  L: NIGHT,
+  d: NIGHT,
+  m: NIGHT_1,
+  o: NIGHT_2,
+  h: NIGHT_3,
+  w: NIGHT_3,
+  n: NIGHT,
+  k: NIGHT,
 }
 
-function hero(blink: boolean, reward: boolean): string[] {
-  const g = blank(HERO_PX, HERO_PX)
-  tri(g, 3, 0, 11, 10, 'o')
-  tri(g, 18, 0, 11, 10, 's')
-  tri(g, 5, 3, 7, 6, 'h')
-  tri(g, 20, 4, 7, 5, 'm')
-  blot(g, 4, 7, 24, 16, 'b')
-  blot(g, 6, 8, 8, 5, 'h')
-  blot(g, 18, 10, 8, 5, 'm')
-  blot(g, 7, 12, 18, 10, 'w')
-  if (blink) {
-    blot(g, 9, 15, 5, 2, 'n')
-    blot(g, 18, 15, 5, 2, 'n')
-  } else {
-    blot(g, 9, 14, 5, 4, 'n')
-    blot(g, 18, 14, 5, 4, 'n')
-    put(g, 10, 15, 'w')
-    put(g, 19, 15, 'w')
-  }
-  blot(g, 14, 18, 4, 3, 'n')
-  blot(g, 8, 22, 14, 6, 'b')
-  blot(g, 10, 22, 8, 5, 'w')
-  blot(g, 17, 23, 4, 4, 'm')
-  if (reward) blot(g, 9, 21, 12, 2, 'g')
-  const tail = ['..oooooo', '.owwwwwo', 'owwhwwwo', 'owwhwwso', 'owwwwsso', 'ooosssso', '.osssoo.', '..ssso..']
-  for (let row = 0; row < tail.length; row++) {
-    const line = tail[row] ?? ''
-    for (let col = 0; col < line.length; col++) {
-      const ch = line[col] ?? '.'
-      if (ch !== '.') put(g, 22 + col, 21 + row, ch)
+function stamp(rows: string[], x: number, y: number, art: readonly string[]): void {
+  for (let j = 0; j < art.length; j++) {
+    const line = art[j] ?? ''
+    for (let i = 0; i < line.length; i++) {
+      const ch = line[i] ?? '.'
+      if (ch !== '.') put(rows, x + i, y + j, ch)
     }
   }
-  blot(g, 10, 28, 4, 3, 'm')
-  blot(g, 16, 28, 4, 3, 'b')
+}
+
+/** Mirror a left half into a full row. Lit letters turn to body on the shadow side, and the last fur pixel before the right outline takes the shade. */
+function mirror(half: readonly string[], swap: Record<string, string>, fur: string, shade: string): string[] {
+  return half.map((line) => {
+    const right = [...line].reverse().map((ch) => swap[ch] ?? ch)
+    const full = [...line, ...right]
+    for (let x = full.length - 1; x > 0; x--) {
+      if (full[x] === 'L' && full[x - 1] === fur) {
+        full[x - 1] = shade
+        break
+      }
+    }
+    return full.join('')
+  })
+}
+
+/**
+ * Front-facing marching shiba, 16×16. Rows 0–10 are the head: upright ears (left lit, right in shadow),
+ * brows, a happy squint, white urajiro cheeks and muzzle, dark nose and a シバスマイル tongue.
+ * Rows 11–13 are the white chest. The curl sits on the right hip.
+ */
+const CROWD_HEAD = [
+  '.L..........L...',
+  'LoL........LmL..',
+  'LhoL......LmmL..',
+  'LhooLLLLLLmmmL..',
+  'LhhoosoosoommL..',
+  'LhooeoooooeomL..',
+  'LookkooookkomL..',
+  'LwwwwwoowwwwwL..',
+  'LwwwwwnnwwwwwL..',
+  '.LwwwwppwwwwL...',
+  '..LLwwwwwwLL....',
+] as const
+
+const CROWD_CHEST = ['...LowwwwoL.....', '...LoowwooL.....', '...LhossomL.....'] as const
+
+const CURL_UP = ['..LLLL', '.LhooL', 'LocccL', 'LoLmmL', 'LmmmL.', '.LLL..'] as const
+const CURL_WAG = ['.LLL.', 'LhooL', 'LocmL', 'LmmmL', '.LL..'] as const
+
+const CROWD_FEET = [
+  ['...LmLLmL.......', '...LL..LL.......'],
+  ['...LmL.LmL......', '...LL..LL.......'],
+  ['....LmLmL.......', '....LL.LL.......'],
+  ['..LmL.LmL.......', '..LL..LL........'],
+  ['...LmLLmL.......', '...LLLLLL.......'],
+] as const
+
+type Mouth = 'smile' | 'shut' | 'bark'
+
+interface CrowdPose {
+  feet: number
+  wag: boolean
+  mouth: Mouth
+}
+
+/** Walk ×4, idle tail wag ×2, attack windup, bark, and two recovery frames. */
+const CROWD_POSES: readonly CrowdPose[] = [
+  { feet: 0, wag: false, mouth: 'smile' },
+  { feet: 1, wag: true, mouth: 'smile' },
+  { feet: 2, wag: false, mouth: 'smile' },
+  { feet: 3, wag: true, mouth: 'smile' },
+  { feet: 4, wag: false, mouth: 'smile' },
+  { feet: 4, wag: true, mouth: 'smile' },
+  { feet: 4, wag: false, mouth: 'shut' },
+  { feet: 0, wag: true, mouth: 'bark' },
+  { feet: 2, wag: false, mouth: 'smile' },
+  { feet: 4, wag: true, mouth: 'smile' },
+]
+
+function crowdRows(pose: CrowdPose): string[] {
+  const feet = CROWD_FEET[pose.feet] ?? CROWD_FEET[0]
+  const g = [...CROWD_HEAD, ...CROWD_CHEST, ...feet]
+  if (pose.mouth === 'shut') stamp(g, 6, 9, ['ww'])
+  if (pose.mouth === 'bark') stamp(g, 5, 8, ['wnnw', 'nppn'])
+  if (pose.wag) stamp(g, 11, 8, CURL_WAG)
+  else stamp(g, 10, 7, CURL_UP)
   return g
 }
 
-function boneRows(): string[] {
-  const g = blank(12, 12)
-  blot(g, 1, 1, 3, 3, 'h')
-  blot(g, 8, 1, 3, 3, 'h')
-  blot(g, 2, 2, 1, 1, 'w')
-  blot(g, 9, 2, 1, 1, 'w')
-  blot(g, 3, 3, 6, 2, 'm')
-  blot(g, 4, 4, 4, 4, 'h')
-  blot(g, 5, 5, 2, 2, 'w')
-  blot(g, 3, 7, 6, 2, 'm')
-  blot(g, 1, 8, 3, 3, 'h')
-  blot(g, 8, 8, 3, 3, 'h')
-  blot(g, 2, 9, 1, 1, 'd')
-  blot(g, 9, 9, 1, 1, 'd')
+const CROWD_ROWS = CROWD_POSES.map(crowdRows)
+
+/** Card portrait: the crowd face with a bigger head, lit eyes, and a thick curl. Left half, mirrored. */
+const HERO_HALF = [
+  '...L..........',
+  '..LhL.........',
+  '..LhoL........',
+  '.LhhooL.......',
+  '.LhcooL.......',
+  '.LhccooL......',
+  'LhhcccooLLLLLL',
+  'LhhcccoooooooO',
+  'LhoooooosoooOO',
+  'LhhoooooooooOO',
+  'LhoooooeeoooOO',
+  'LhooooookxkoOO',
+  'LwwoooookkkoOO',
+  'LwwwwooooooooO',
+  'LwwwwwwwwooooO',
+  'LwwwwwwwwwwooO',
+  'Lwwwwwwwwwwwnn',
+  '.Lwwwwwwwkwwwn',
+  '..Lwwwwwwwkkpp',
+  '...Lwwwwwwwwpp',
+  '....Lwwwwwwwww',
+  '....Lowwwwwwww',
+  '...Lhoowwwwwww',
+  '...Lhooowwwwww',
+  '...Lhsoowwwwww',
+  '...Lhoooowwwww',
+  '...Lhooooowwww',
+  '...Lhoooooowww',
+  '...LhoooooomwL',
+  '...LhooLwwwwwL',
+  '...LhooLwkwkwL',
+  '...LLLLLLLLLLL',
+] as const
+
+const HERO_CURL = [
+  '..LLLLL...',
+  '.LhhoooL..',
+  'LhoooooomL',
+  'LhoLLLLomL',
+  'LoLcccLomL',
+  'LoLcLLoomL',
+  'LocLooommL',
+  '.LcooommL.',
+  '..LLLLLL..',
+] as const
+
+const HERO_SWAP: Record<string, string> = { h: 'o', O: 'o' }
+
+function hero(blink: boolean, reward: boolean): string[] {
+  const half = HERO_HALF.map((line) => line.replace(/O/g, 'o'))
+  const g = mirror(half, HERO_SWAP, 'o', 'm').map((line) => `${line}....`)
+  if (blink) {
+    for (const y of [11, 12]) {
+      for (let x = 0; x < HERO_PX; x++) {
+        const ch = g[y]?.[x]
+        if (ch === 'k' || ch === 'x') put(g, x, y, y === 11 ? 'o' : 'k')
+      }
+    }
+  }
+  stamp(g, 22, 18, HERO_CURL)
+  if (reward) {
+    blot(g, 6, 20, 16, 2, 'G')
+    blot(g, 6, 20, 16, 1, 'g')
+    stamp(g, 12, 22, ['gg', 'GG'])
+  }
   return g
 }
 
-function pawRows(): string[] {
-  const g = blank(14, 16)
-  blot(g, 2, 0, 10, 8, 'b')
-  shave(g, 2, 0, 10, 8, 2)
-  blot(g, 3, 1, 4, 3, 'h')
-  blot(g, 4, 6, 6, 3, 'm')
-  blot(g, 3, 8, 3, 6, 'b')
-  blot(g, 8, 8, 3, 6, 'm')
-  blot(g, 4, 13, 2, 3, 'd')
-  blot(g, 8, 13, 2, 3, 'd')
+/** Angry cat, 24×24 front view. Left half, mirrored. Pink slit eyes and a ω mouth. */
+const CAT_HALF = [
+  '..L.........',
+  '.LbL........',
+  '.LbpL.......',
+  '.LhppL......',
+  'LhbppbL.....',
+  'LhbpppbLLLLL',
+  'LhhbbbbbbbbB',
+  'Lhhbbbbbbbbb',
+  'Lhbbbbbbbbbb',
+  'LhbbbdLbbbbb',
+  'LhbbbbdeLbbb',
+  'LhbbbbLeeLbb',
+  'LhbbbbbLLbbb',
+  'Lhbbbbbbbhhp',
+  '.Lbbbbbbhdhd',
+  '..LLbbbbhhhh',
+  '....LbbbhhhH',
+  '...LhbbbhhhH',
+  '...LhbbbbhhH',
+  '...LhbbbbbhH',
+  '...LbbbbbbbB',
+] as const
+
+const CAT_SWAP: Record<string, string> = { h: 'b', B: 'm', H: 'h' }
+
+const CAT_FEET = [
+  ['...LbbbmLbbbbbbLmbbbL...', '...LmmmL..LLLL..LmmmL...', '...LLLLL........LLLLL...'],
+  ['...LbbbmLbbbbbbLmbbbL...', '...LLLLL..LLLL..LmmmL...', '................LLLLL...'],
+  ['...LbbbmLbbbbbbLmbbbL...', '...LmmmL..LLLL..LmmmL...', '...LLLLL........LLLLL...'],
+  ['...LbbbmLbbbbbbLmbbbL...', '...LmmmL..LLLL..LLLLL...', '...LLLLL................'],
+  ['...LbbbbbbbbbbbbbbbbL...', '...LmmmLLmmmmmmLLmmmL...', '...LLLLLLLLLLLLLLLLLL...'],
+] as const
+
+const CAT_TAIL_A = ['..LL', '.LbL', 'LbL.', 'LmL.', 'LmL.'] as const
+const CAT_TAIL_B = ['LL..', 'LbL.', '.LbL', '.LmL', 'LmL.'] as const
+const CAT_PAW = ['LLLL.', 'LhhbL', 'LhbbL', '.LmL.'] as const
+
+interface CatPose {
+  feet: number
+  tail: boolean
+  blink: boolean
+  swipe: boolean
+}
+
+const CAT_POSES: readonly CatPose[] = [
+  { feet: 0, tail: false, blink: false, swipe: false },
+  { feet: 1, tail: true, blink: false, swipe: false },
+  { feet: 2, tail: false, blink: false, swipe: false },
+  { feet: 3, tail: true, blink: false, swipe: false },
+  { feet: 4, tail: false, blink: false, swipe: false },
+  { feet: 4, tail: true, blink: true, swipe: false },
+  { feet: 4, tail: false, blink: false, swipe: false },
+  { feet: 4, tail: true, blink: false, swipe: true },
+  { feet: 4, tail: false, blink: false, swipe: false },
+  { feet: 4, tail: true, blink: false, swipe: false },
+]
+
+function catFrame(pose: CatPose): string[] {
+  const g = mirror(CAT_HALF, CAT_SWAP, 'b', 'm').map((line) => line.replace(/B/g, 'b').replace(/H/g, 'h'))
+  for (const line of CAT_FEET[pose.feet] ?? CAT_FEET[0]) g.push(line)
+  if (pose.blink) {
+    for (let x = 0; x < CAT_PX; x++) {
+      if (g[11]?.[x] === 'e') put(g, x, 11, 'L')
+      if (g[10]?.[x] === 'e') put(g, x, 10, 'b')
+    }
+  }
+  stamp(g, 20, 14, pose.tail ? CAT_TAIL_B : CAT_TAIL_A)
+  if (pose.swipe) stamp(g, 0, 15, CAT_PAW)
   return g
 }
 
+const BONE_ROWS = [
+  '............',
+  '............',
+  '.LL......LL.',
+  'LwhL....LhhL',
+  'LhhhLLLLLhmL',
+  '.LhwhhhhhmL.',
+  '.LhhmmmmmmL.',
+  'LhmLLLLLLmmL',
+  'LhmL....LmmL',
+  '.LL......LL.',
+  '............',
+  '............',
+] as const
+
+/** Tutorial pointer: a shiba front leg with a white paw, pointing down. */
+const PAW_ROWS = [
+  '...LLLLLLL....',
+  '...LhooooL....',
+  '...LhoooomL...',
+  '...LhoooomL...',
+  '...LhoooomL...',
+  '...LhoooomL...',
+  '..LLwwwwwwLL..',
+  '.LwwwwwwwwwwL.',
+  '.LwwwwwwwwwwL.',
+  '.LwwwwwwwwwwL.',
+  '.LwwwLwwLwwwL.',
+  '.LwwwLwwLwwwL.',
+  '..LLLLLLLLLL..',
+  '..............',
+  '..............',
+  '..............',
+] as const
+
+/** わんわん砲: a gold cannon with shiba ears and a barking bore. Left half, mirrored. */
+const CANNON_HALF = [
+  '.L........',
+  'LhL.......',
+  'LhoL......',
+  'LhooLLLLLL',
+  'LhhooooooO',
+  'LhoookoooO',
+  'LhooooooOO',
+  'LhwoLLLLLL',
+  'LwwLkkkkkk',
+  'LwwLkkkkkk',
+  'LwwLkkkkkk',
+  'LhwoLkkkkk',
+  'LhooLLLLLL',
+  'LhoooooooO',
+  '.LhooooooO',
+  '..LLLmmLLL',
+  '...LmmmmmL',
+  '...LmLLmmL',
+  '....LL.LLL',
+  '..........',
+] as const
+
+function cannonRows(): string[] {
+  const g = mirror(CANNON_HALF, { h: 'o', O: 'm' }, 'o', 'm')
+  return g.map((line) => line.replace(/O/g, 'o'))
+}
+
+/** Cat castle: two ear-roofed towers and a keep with a cat face. The gate is the mouth. */
 function castleRows(live: boolean): string[] {
   const g = blank(BOSS_W, BOSS_H)
-  const stone = live ? 'b' : 'm'
-  const shade = live ? 'm' : 'd'
-  const hi = live ? 'h' : 'b'
-  const ear = 'p'
-  const banner = live ? 'e' : 'p'
-  blot(g, 8, 0, 12, 16, stone)
-  blot(g, 52, 0, 12, 16, stone)
-  shave(g, 8, 0, 12, 16, 4)
-  shave(g, 52, 0, 12, 16, 4)
-  blot(g, 12, 4, 4, 7, ear)
-  blot(g, 56, 4, 4, 7, ear)
-  blot(g, 6, 12, 16, 50, shade)
-  blot(g, 50, 12, 16, 50, shade)
-  blot(g, 8, 14, 6, 18, hi)
-  blot(g, 18, 30, 36, 32, stone)
-  blot(g, 20, 32, 10, 12, hi)
-  for (let x = 22; x <= 46; x += 8) blot(g, x, 24, 4, 8, shade)
-  blot(g, 30, 42, 12, 20, 'n')
-  blot(g, 10, 34, 6, 8, 'n')
-  blot(g, 56, 34, 6, 8, 'n')
-  blot(g, 22, 36, 3, 12, banner)
-  blot(g, 47, 36, 3, 12, banner)
-  if (live) {
-    blot(g, 11, 36, 4, 4, 'g')
-    blot(g, 57, 36, 4, 4, 'g')
+  const eye = live ? 'e' : 'r'
+  const glow = live ? 'g' : 'm'
+  for (const tx of [2, 52]) {
+    blot(g, tx, 14, 18, 50, 'b')
+    tri(g, tx - 1, 0, 20, 16, 'm')
+    tri(g, tx + 4, 5, 10, 9, live ? 'p' : 'b')
+    blot(g, tx + 1, 15, 2, 48, 'h')
+    blot(g, tx + 15, 15, 2, 48, 'm')
+    for (let y = 22; y < 62; y += 7) {
+      blot(g, tx + 1, y, 16, 1, 'm')
+      put(g, tx + 6 + ((y / 7) & 1) * 6, y + 3, 'm')
+      put(g, tx + 6 + ((y / 7) & 1) * 6, y + 4, 'm')
+    }
+    blot(g, tx + 6, 24, 6, 9, 'n')
+    shave(g, tx + 6, 24, 6, 9, 2)
+    blot(g, tx + 7, 27, 4, 5, glow)
+    blot(g, tx + 7, 40, 4, 14, live ? 'e' : 'p')
+    blot(g, tx + 7, 40, 1, 14, live ? 'p' : 'h')
+  }
+  blot(g, 18, 22, 36, 42, 'b')
+  tri(g, 18, 6, 14, 18, 'b')
+  tri(g, 40, 6, 14, 18, 'b')
+  tri(g, 21, 12, 8, 10, live ? 'p' : 'm')
+  tri(g, 43, 12, 8, 10, live ? 'p' : 'm')
+  blot(g, 19, 23, 10, 3, 'h')
+  blot(g, 18, 22, 1, 42, 'd')
+  blot(g, 53, 22, 1, 42, 'd')
+  blot(g, 50, 24, 3, 40, 'm')
+  for (const ex of [23, 41]) {
+    blot(g, ex, 30, 8, 6, 'd')
+    blot(g, ex + 1, 31, 6, 4, eye)
+    blot(g, ex + 3, 31, 2, 4, 'n')
+  }
+  blot(g, 34, 37, 4, 2, 'p')
+  blot(g, 35, 39, 2, 1, 'd')
+  blot(g, 28, 46, 16, 18, 'n')
+  shave(g, 28, 46, 16, 18, 4)
+  blot(g, 28, 60, 16, 4, 'n')
+  for (let x = 31; x < 42; x += 3) blot(g, x, 47, 1, 17, 'N')
+  for (const fx of [29, 39]) {
+    tri(g, fx, 46, 4, 4, 'h')
   }
   return g
 }
@@ -374,24 +587,28 @@ function sealAll(name: string, frames: readonly (readonly string[])[], map: Reco
   return frames.map((rows, i) => seal(`${name}-${i}`, rows, map))
 }
 
-export const crowdTan = sealAll('crowd-tan', CROWD_ROWS, TAN)
-export const crowdWhite = sealAll('crowd-white', CROWD_ROWS, CREAM)
+const FUR_NAMES = ['red', 'black', 'sesame', 'cream'] as const
 
-const catRows = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9].map((i) => catFrame(i))
-export const catArt = catRows.map((rows, i) => seal(`cat-${i}`, rows, CAT))
+/** One 10-frame strip per fur: 赤, 黒, 胡麻, 白. */
+export const crowdArt: readonly Seal[][] = FUR_MAPS.map((map, i) => sealAll(`crowd-${FUR_NAMES[i] ?? i}`, CROWD_ROWS, map))
 
+export const catArt = CAT_POSES.map((pose, i) => seal(`cat-${i}`, catFrame(pose), CAT))
+
+/** Red, red blink, black, black blink, reward (red with a gold collar). */
 export const heroArt = [
-  seal('hero-tan', hero(false, false), TAN),
-  seal('hero-tan-blink', hero(true, false), TAN),
-  seal('hero-white', hero(false, false), CREAM),
-  seal('hero-white-blink', hero(true, false), CREAM),
-  seal('hero-reward', hero(false, true), TAN),
+  seal('hero-red', hero(false, false), RED),
+  seal('hero-red-blink', hero(true, false), RED),
+  seal('hero-black', hero(false, false), BLACK),
+  seal('hero-black-blink', hero(true, false), BLACK),
+  seal('hero-reward', hero(false, true), RED),
 ]
 
-export const boneArt = seal('bone', boneRows(), BONE_MAP)
-export const pawArt = seal('paw', pawRows(), TAN)
+export const boneArt = seal('bone', [...BONE_ROWS], BONE_MAP)
+export const pawArt = seal('paw', [...PAW_ROWS], RED)
+export const cannonLive = seal('cannon', cannonRows(), CANNON_LIVE)
+export const cannonDim = seal('cannon-dim', cannonRows(), CANNON_DIM)
 export const castleLive = seal('castle', castleRows(true), CASTLE_MAP)
 export const castleDim = seal('castle-dim', castleRows(false), CASTLE_MAP)
 
 export const CROWD_FRAME_COUNT = CROWD_ROWS.length
-export const CAT_FRAME_COUNT = catRows.length
+export const CAT_FRAME_COUNT = CAT_POSES.length

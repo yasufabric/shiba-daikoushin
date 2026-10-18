@@ -1,10 +1,11 @@
 import {
   boneArt,
+  cannonDim,
+  cannonLive,
   castleDim,
   castleLive,
   catArt,
-  crowdTan,
-  crowdWhite,
+  crowdArt,
   heroArt,
   pawArt,
   rot90,
@@ -22,6 +23,8 @@ export interface Sheets {
   paw: HTMLCanvasElement
   castle: HTMLCanvasElement
   castleDim: HTMLCanvasElement
+  cannon: HTMLCanvasElement
+  cannonDim: HTMLCanvasElement
 }
 
 function canvas(w: number, h: number): { canvas: HTMLCanvasElement; ctx: CanvasRenderingContext2D } {
@@ -80,13 +83,12 @@ function bakeOne(seal: Seal): HTMLCanvasElement {
 }
 
 export function createSheets(): Sheets {
-  const tan = crowdTan
-  const white = crowdWhite
-  const crowdFrames = tan.length
-  const { canvas: crowd, ctx: crowdCtx } = canvas(crowdFrames * CROWD_PX, 2 * 4 * CROWD_PX)
-  const { canvas: crowdFlash, ctx: flashCtx } = canvas(crowdFrames * CROWD_PX, 2 * 4 * CROWD_PX)
-  for (let kind = 0; kind < 2; kind++) {
-    const frames = kind === 0 ? tan : white
+  const furs = crowdArt.length
+  const crowdFrames = crowdArt[0]?.length ?? 0
+  const { canvas: crowd, ctx: crowdCtx } = canvas(crowdFrames * CROWD_PX, furs * 4 * CROWD_PX)
+  const { canvas: crowdFlash, ctx: flashCtx } = canvas(crowdFrames * CROWD_PX, furs * 4 * CROWD_PX)
+  for (let fur = 0; fur < furs; fur++) {
+    const frames = crowdArt[fur] ?? []
     for (let frame = 0; frame < frames.length; frame++) {
       const seal = frames[frame]
       if (!seal) continue
@@ -94,7 +96,7 @@ export function createSheets(): Sheets {
       for (let spin = 0; spin < 4; spin++) {
         const part = turned[spin]
         if (!part) continue
-        const y = (kind * 4 + spin) * CROWD_PX
+        const y = (fur * 4 + spin) * CROWD_PX
         blit(crowdCtx, part, frame * CROWD_PX, y, false)
         blit(flashCtx, part, frame * CROWD_PX, y, true)
       }
@@ -115,5 +117,7 @@ export function createSheets(): Sheets {
     paw: bakeOne(pawArt),
     castle: bakeOne(castleLive),
     castleDim: bakeOne(castleDim),
+    cannon: bakeOne(cannonLive),
+    cannonDim: bakeOne(cannonDim),
   }
 }
