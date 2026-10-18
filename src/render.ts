@@ -939,7 +939,7 @@ function noteDeaths(renderer: Renderer, sim: Sim): void {
   for (let i = 0; i < shibas.length; i++) {
     const unit = shibas[i]
     const alive = unit?.alive ? 1 : 0
-    if ((renderer.shibaOn[i] ?? 0) === 1 && alive === 0 && unit) {
+    if ((renderer.shibaOn[i] ?? 0) === 1 && alive === 0 && unit && !unit.recall) {
       const dx = px(at(FIELD_X + unit.x)) - (CROWD_PX >> 1)
       const dy = fpy(unit.y) - CROWD_PX
       spawnGhost(renderer, sim, dx, dy, furOf(unit.kind))

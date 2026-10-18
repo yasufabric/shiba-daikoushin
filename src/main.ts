@@ -19,6 +19,8 @@ import {
   START_X,
   START_Y,
   SPECIAL_NEED,
+  RECALL_LIFT,
+  RECALL_TAP,
 } from './balance'
 import { createSim, dogsLeft, fillMarch, NO_INPUT, step, type Input, type Outcome } from './sim'
 import { createRenderer, draw, screenToWorld, type ScreenInsets } from './render'
@@ -269,8 +271,13 @@ canvas.addEventListener('pointerdown', (ev) => {
   }
   if (sim.free) {
     if (p.y < FIELD_Y || p.y > FIELD_Y + FIELD_H || p.x < FIELD_X || p.x > FIELD_X + FIELD_W) return
+    const local = { x: p.x - FIELD_X, y: p.y - FIELD_Y }
+    if (shibaAt(local.x, local.y)) {
+      input.recall = local
+      return
+    }
     input.card = input.pick ?? sim.picked
-    input.at = { x: p.x - FIELD_X, y: p.y - FIELD_Y }
+    input.at = local
     return
   }
   const lane = laneAt(p.x, p.y)
@@ -280,6 +287,11 @@ canvas.addEventListener('pointerdown', (ev) => {
     input.lane = lane
   }
 })
+
+/** True when a tap lands on one of our shibas, which sends it home instead of placing a new one. */
+function shibaAt(x: number, y: number): boolean {
+  return sim.shibas.some((u) => u.alive && !u.recall && Math.hypot(u.x - x, u.y - RECALL_LIFT - y) < RECALL_TAP)
+}
 
 /** The path under a field tap, or -1 off the field. */
 function laneAt(x: number, y: number): number {
@@ -335,6 +347,7 @@ function advance(dt: number): void {
   input.card = -1
   input.lane = undefined
   input.at = undefined
+  input.recall = undefined
   input.pick = undefined
   input.levelUp = undefined
   if (sim.saveSeq !== savedSeq) {

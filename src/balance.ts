@@ -219,3 +219,8 @@ export const CARD_X1 = 102
 export const CARD_X2 = 196
 export const CARD_X3 = 290
 export const CARD_XS = [CARD_X0, CARD_X1, CARD_X2, CARD_X3] as const
+
+/** Free placement: a tap within this many px of a shiba's middle sends it home; its middle sits this far above its feet; it runs this much faster than it walks. */
+export const RECALL_TAP = 18
+export const RECALL_LIFT = 10
+export const RECALL_PACE = 2.2
