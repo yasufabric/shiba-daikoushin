@@ -93,6 +93,17 @@ describe('deploy', () => {
     expect(sim.sfxDeploy).toBe(1)
   })
 
+  it('picks a card, then sends each tap down the path the player chose', () => {
+    const sim = createSim({ tutorial: false, seed: 3 })
+    sim.bones = 500
+    expect(sim.picked).toBe(KIND_TAN)
+    step(sim, 1 / 30, { card: -1, pick: KIND_BLACK, restart: false })
+    expect(sim.picked).toBe(KIND_BLACK)
+    for (const lane of [4, 4, 0]) step(sim, 1 / 30, { card: sim.picked, lane, restart: false })
+    const blacks = sim.shibas.filter((u) => u.alive && u.kind === KIND_BLACK).map((u) => u.lane)
+    expect(blacks.sort()).toEqual([0, 4, 4])
+  })
+
   it('refuses a card the purse cannot afford', () => {
     const sim = createSim({ tutorial: false })
     sim.bones = 0
