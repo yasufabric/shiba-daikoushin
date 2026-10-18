@@ -131,3 +131,11 @@ Each coat has a job, with a strength and a weakness:
 
 Every strike shows what it did to each unit it touched: gold digits float up over each dog it hurt, and a green plus with digits over each shiba it healed; the single total in the middle is hidden in free placement. Each special has its own job: 赤「サツマイモ!!」 is a buff, no numbers, just gold speed trails under every 赤 for the whole rush. 黒「ジャーキー!!」 is a few heavy single hits: a spear drops onto each of only `JERKY_TARGETS` (3) dogs nearest the 柴の家 for `JERKY_FREE_HIT`. 白「チーズ!!」 is crowd control: light damage (`CHEESE_FREE_HIT`), a big shove (`CHEESE_FREE_PUSH`), and every dog except the boss freezes for `CHEESE_STUN` seconds with gold stars over its head. 胡麻「ササミ!!」 is the only heal. Special damage scales with `FREE_DOG_HP` so it keeps up with the tougher dogs.
 
+
+### Wave patterns in free placement
+
+Once the clash starts, each wave is one of three named patterns (or the old mixed trickle, one time in four), picked a wave ahead and announced beside the mansion: the breed's head, the dog count, a three-slot strip lit where it comes from, and a gold bar that runs down to its arrival. No pattern repeats back to back, and nothing is announced during the opening trickle.
+
+- チワワの群れ (`WAVE_SWARM`): `SWARM_COUNT` fast, frail チワワ from the left, right, or middle. Wants 白 splash or a 黒 wall.
+- ブルドッグの壁 (`WAVE_WALL`): `WALL_COUNT` slow, tough ブルドッグ shoulder to shoulder across the field. Wants focused 赤 and specials.
+- コーギーの挟み撃ち (`WAVE_PINCER`): `PINCER_COUNT` コーギー split onto both edges. Wants shibas spread, not clumped.

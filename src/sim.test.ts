@@ -33,6 +33,14 @@ import {
   SPECIAL_NEED,
   BREED_BULLDOG,
   BREED_CHIHUAHUA,
+  FIELD_W,
+  PINCER_COUNT,
+  SWARM_COUNT,
+  WALL_COUNT,
+  WAVE_MIXED,
+  WAVE_PINCER,
+  WAVE_SWARM,
+  WAVE_WALL,
   BREED_CORGI,
   BREED_HP,
   BREED_SPEED,
@@ -487,6 +495,61 @@ describe('free placement roles', () => {
     play(sim, 8, () => NO_INPUT)
     expect(Math.hypot(hurt.x - healer.x, hurt.y - healer.y)).toBeLessThan(HEAL_RADIUS)
     expect(hurt.hp).toBeGreaterThan(10)
+  })
+})
+
+describe('wave patterns', () => {
+  function clashSim(): ReturnType<typeof createSim> {
+    const sim = createSim({ tutorial: false, seed: 11, free: true })
+    for (const u of sim.shibas) u.alive = false
+    sim.aliveShibas = 0
+    sim.time = CLASH_AT + 1
+    for (const dog of sim.cats) dog.alive = false
+    sim.aliveCats = 0
+    return sim
+  }
+
+  it('sends the announced チワワ swarm from one side, then announces a different pattern', () => {
+    const sim = clashSim()
+    sim.planKind = WAVE_SWARM
+    sim.planSide = 0
+    sim.planCount = SWARM_COUNT
+    sim.nextCat = sim.time
+    step(sim, 1 / 30, NO_INPUT)
+    const fresh = sim.cats.filter((c) => c.alive && c.fly !== 1)
+    expect(fresh.length).toBe(SWARM_COUNT)
+    for (const dog of fresh) {
+      expect(dog.kind).toBe(BREED_CHIHUAHUA)
+      expect(dog.x).toBeLessThan(FIELD_W / 2)
+    }
+    expect(sim.planKind).not.toBe(WAVE_SWARM)
+  })
+
+  it('sends a ブルドッグ wall shoulder to shoulder and a コーギー pincer to both edges', () => {
+    const wall = clashSim()
+    wall.planKind = WAVE_WALL
+    wall.planCount = WALL_COUNT
+    wall.nextCat = wall.time
+    step(wall, 1 / 30, NO_INPUT)
+    const bulls = wall.cats.filter((c) => c.alive && c.kind === BREED_BULLDOG)
+    expect(bulls.length).toBe(WALL_COUNT)
+    expect(Math.max(...bulls.map((c) => c.x)) - Math.min(...bulls.map((c) => c.x))).toBeGreaterThan(FIELD_W * 0.5)
+
+    const pincer = clashSim()
+    pincer.planKind = WAVE_PINCER
+    pincer.planCount = PINCER_COUNT
+    pincer.nextCat = pincer.time
+    step(pincer, 1 / 30, NO_INPUT)
+    const corgis = pincer.cats.filter((c) => c.alive && c.fly !== 1)
+    expect(corgis.length).toBe(PINCER_COUNT)
+    expect(corgis.filter((c) => c.x < FIELD_W * 0.3).length).toBe(PINCER_COUNT / 2)
+    expect(corgis.filter((c) => c.x > FIELD_W * 0.7).length).toBe(PINCER_COUNT / 2)
+  })
+
+  it('announces nothing during the opening trickle', () => {
+    const sim = createSim({ tutorial: false, seed: 11, free: true })
+    play(sim, 20, () => NO_INPUT)
+    expect(sim.planKind).toBe(WAVE_MIXED)
   })
 })
 
