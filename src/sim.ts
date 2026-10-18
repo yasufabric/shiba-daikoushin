@@ -3,9 +3,6 @@ import {
   BONE_PER_SHIBA,
   BONE_RATE,
   BOSS_AT,
-  CANNON_CASTLE,
-  CANNON_COOLDOWN,
-  CANNON_NEED,
   CASTLE_HP,
   CASTLE_REACH,
   CAT_DPS,
@@ -44,7 +41,6 @@ import {
   TRICKLE_COUNT,
   TRICKLE_EVERY,
   WAVE_EVERY,
-  BEAM_TIME,
   BARK_EVERY,
   BARK_HIT,
   BARK_REACH,
@@ -87,11 +83,10 @@ export interface Unit {
 
 export interface Input {
   card: number
-  cannon: boolean
   restart: boolean
 }
 
-export const NO_INPUT: Input = { card: -1, cannon: false, restart: false }
+export const NO_INPUT: Input = { card: -1, restart: false }
 
 export interface Sim {
   time: number
@@ -108,8 +103,6 @@ export interface Sim {
   costWhite: number
   castleHp: number
   boss: boolean
-  cannonCd: number
-  beam: number
   floatT: number
   floatDmg: number
   outcome: Outcome
@@ -130,7 +123,6 @@ export interface Sim {
   sfxSpecial: number
   seq: number
   sfxDeploy: number
-  sfxCannon: number
   laneS: Int16Array[]
   laneC: Int16Array[]
   laneSN: Int16Array
@@ -149,10 +141,6 @@ export function phaseAt(time: number): Phase {
   if (time >= BOSS_AT) return 'boss'
   if (time >= CLASH_AT) return 'clash'
   return 'grow'
-}
-
-export function cannonReady(sim: Sim): boolean {
-  return sim.outcome === 'play' && sim.aliveShibas >= CANNON_NEED && sim.cannonCd <= 0 && sim.beam <= 0
 }
 
 function makePool(max: number): Unit[] {
@@ -190,8 +178,6 @@ export function createSim(opts?: SimOptions): Sim {
     costWhite: COST_WHITE,
     castleHp: CASTLE_HP,
     boss: false,
-    cannonCd: 0,
-    beam: 0,
     floatT: 0,
     floatDmg: 0,
     outcome: 'play',
@@ -209,7 +195,6 @@ export function createSim(opts?: SimOptions): Sim {
     sfxSpecial: -1,
     seq: 0,
     sfxDeploy: 0,
-    sfxCannon: 0,
     laneS: Array.from({ length: LANE_COUNT }, () => new Int16Array(MAX_SHIBAS)),
     laneC: Array.from({ length: LANE_COUNT }, () => new Int16Array(MAX_CATS)),
     laneSN: new Int16Array(LANE_COUNT),
@@ -233,8 +218,6 @@ function boot(sim: Sim): void {
   sim.costWhite = COST_WHITE
   sim.castleHp = CASTLE_HP
   sim.boss = false
-  sim.cannonCd = 0
-  sim.beam = 0
   sim.floatT = 0
   sim.floatDmg = 0
   sim.outcome = 'play'
@@ -251,7 +234,6 @@ function boot(sim: Sim): void {
   sim.sfxSpecial = -1
   sim.seq = 0
   sim.sfxDeploy = 0
-  sim.sfxCannon = 0
   clear(sim.shibas)
   clear(sim.cats)
   for (let i = 0; i < START_SHIBAS; i++) {
@@ -355,7 +337,6 @@ export function step(sim: Sim, dt: number, input: Input = NO_INPUT): void {
   }
 
   if (input.card === 0 || input.card === 1 || input.card === 2) tryDeploy(sim, input.card)
-  if (input.cannon) fireCannon(sim)
 
   const income = BONE_RATE + sim.aliveShibas * BONE_PER_SHIBA
   const next = sim.time + dt >= MATCH_SECONDS - 1e-4 ? MATCH_SECONDS : sim.time + dt
@@ -396,8 +377,6 @@ export function step(sim: Sim, dt: number, input: Input = NO_INPUT): void {
     }
   }
 
-  if (sim.cannonCd > 0) sim.cannonCd -= tick
-  if (sim.beam > 0) sim.beam -= tick
   if (sim.floatT > 0) sim.floatT -= tick
   if (sim.deny0 > 0) sim.deny0 -= tick
   if (sim.deny1 > 0) sim.deny1 -= tick
@@ -480,29 +459,6 @@ function spawnWave(sim: Sim): void {
 function nextLane(sim: Sim, i: number): number {
   sim.seed = (Math.imul(sim.seed, 1664525) + 1013904223) >>> 0
   return (sim.seed + i) % LANE_COUNT
-}
-
-function fireCannon(sim: Sim): void {
-  if (!cannonReady(sim)) return
-  sim.cannonCd = CANNON_COOLDOWN
-  sim.beam = BEAM_TIME
-  let dealt = 0
-  const cats = sim.cats
-  for (let i = 0; i < cats.length; i++) {
-    const cat = cats[i]
-    if (!cat?.alive || cat.fly) continue
-    dealt += cat.hp
-    cat.hp = 0
-  }
-  if (sim.boss && sim.castleHp > 0) {
-    const hit = sim.aliveShibas * CANNON_CASTLE
-    const applied = Math.min(sim.castleHp, hit)
-    sim.castleHp -= applied
-    dealt += applied
-  }
-  sim.floatDmg = dealt
-  sim.floatT = FLOAT_TIME
-  sim.sfxCannon = 1
 }
 
 function flyCats(sim: Sim, dt: number): void {

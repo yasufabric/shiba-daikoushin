@@ -1,15 +1,12 @@
 import { createSynth } from './audio'
 import {
-  CANNON_R,
-  CANNON_X,
-  CANNON_Y,
   CARD_H,
   CARD_W,
   CARD_XS,
   CARD_Y,
   SPECIAL_NEED,
 } from './balance'
-import { cannonReady, createSim, fillMarch, NO_INPUT, step, type Input, type Outcome } from './sim'
+import { createSim, fillMarch, NO_INPUT, step, type Input, type Outcome } from './sim'
 import { createRenderer, draw, screenToWorld, type ScreenInsets } from './render'
 
 const canvasEl = document.querySelector<HTMLCanvasElement>('#game')
@@ -40,7 +37,7 @@ function markTutorial(): void {
 const sim = createSim({ tutorial: !seenTutorial() })
 const renderer = createRenderer()
 const synth = createSynth()
-const input: Input = { card: -1, cannon: false, restart: false }
+const input: Input = { card: -1, restart: false }
 const devOn = new URLSearchParams(location.search).has('dev')
 
 let viewW = 1
@@ -74,8 +71,6 @@ interface ShibaDev {
     castle: number
     outcome: Outcome
     tutorial: boolean
-    cannon: boolean
-    beam: number
     floatDmg: number
   }
 }
@@ -117,8 +112,6 @@ if (devOn) {
         castle: sim.castleHp,
         outcome: sim.outcome,
         tutorial: sim.tutorial,
-        cannon: cannonReady(sim),
-        beam: sim.beam,
         floatDmg: sim.floatDmg,
       }
     },
@@ -203,12 +196,6 @@ canvas.addEventListener('pointerdown', (ev) => {
     return
   }
   if (sim.outcome !== 'play') return
-  const dx = p.x - CANNON_X
-  const dy = p.y - CANNON_Y
-  if (dx * dx + dy * dy <= (CANNON_R + 8) * (CANNON_R + 8)) {
-    input.cannon = true
-    return
-  }
   for (let card = 0; card < CARD_XS.length; card++) {
     if (hitCard(p.x, p.y, CARD_XS[card] ?? 0)) input.card = card
   }
@@ -216,17 +203,11 @@ canvas.addEventListener('pointerdown', (ev) => {
 
 function playSounds(before: Outcome): void {
   if (sim.sfxDeploy === 1) synth.deploy()
-  if (sim.sfxCannon === 1) {
-    synth.cannon()
-    renderer.hitstop = 0.05
-    renderer.shakeUntil = sim.time + 0.3
-  }
   if (sim.sfxSpecial >= 0) {
     synth.special(sim.sfxSpecial)
     renderer.shakeUntil = sim.time + 0.25
   }
   sim.sfxDeploy = 0
-  sim.sfxCannon = 0
   sim.sfxSpecial = -1
   if (sim.outcome !== before && sim.outcome !== 'play') {
     synth.fanfare(sim.outcome === 'won')
@@ -253,7 +234,6 @@ function advance(dt: number): void {
     if (sim.outcome !== 'play') break
   }
   input.card = -1
-  input.cannon = false
   input.restart = false
   if (!sim.tutorial && !tutorialStored) {
     tutorialStored = true

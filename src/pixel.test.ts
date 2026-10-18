@@ -6,8 +6,6 @@ import {
   boneArt,
   castleDim,
   castleLive,
-  cannonDim,
-  cannonLive,
   catArt,
   crowdArt,
   heroArt,
@@ -161,8 +159,6 @@ describe('sprites', () => {
     for (const seal of heroArt) assertSealed(seal, HERO_PX, HERO_PX)
     assertSealed(boneArt, 12, 12)
     assertSealed(pawArt, 14, 16)
-    assertSealed(cannonLive, 20, 20)
-    assertSealed(cannonDim, 20, 20)
     assertSealed(castleLive, BOSS_W, BOSS_H)
     assertSealed(castleDim, BOSS_W, BOSS_H)
     expect(BOSS_W).toBeGreaterThanOrEqual(64)

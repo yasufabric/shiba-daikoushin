@@ -1,11 +1,8 @@
 import { FUR_BLACK, FUR_CREAM, FUR_RED, FUR_SESAME, HERO_REWARD, heroCell, pawArt } from './art'
 import {
   ATTACK_RANGE,
-  BEAM_TIME,
   BONE_X,
   BONE_Y,
-  CANNON_X,
-  CANNON_Y,
   CARD_H,
   CARD_W,
   CARD_X0,
@@ -58,7 +55,7 @@ import {
   WHITE_DARK,
   WHITE_MID,
 } from './palette'
-import { cannonReady, costOf, type Outcome, type Sim } from './sim'
+import { costOf, type Outcome, type Sim } from './sim'
 import { createSheets, type Sheets } from './sprites'
 
 const BUCKETS = 96
@@ -364,7 +361,6 @@ export function draw(
   paintGhosts(g, renderer, sim)
   paintBooms(g, renderer, sim)
   g.restore()
-  paintBeam(g, sim)
   paintSpecialField(g, sim)
   paintDamage(g, renderer, sim)
   paintCutIn(g, renderer, sim)
@@ -837,21 +833,6 @@ function paintBooms(ctx: CanvasRenderingContext2D, renderer: Renderer, sim: Sim)
   }
 }
 
-function paintBeam(ctx: CanvasRenderingContext2D, sim: Sim): void {
-  if (sim.beam <= 0) return
-  const p = 1 - sim.beam / BEAM_TIME
-  const clamped = p < 0 ? 0 : p > 1 ? 1 : p
-  const y = py(at(FIELD_Y) + Math.round(clamped * at(FIELD_H)) - 6)
-  const x = px(at(FIELD_X))
-  const w = at(FIELD_W)
-  const phase = Math.floor(sim.time * 16) & 3
-  for (let row = 0; row < 12; row++) {
-    const band = row < 6 ? row : 11 - row
-    ctx.fillStyle = GOLD_CYCLE[(band + phase) & 3] ?? GOLD
-    ctx.fillRect(x, y + row, w, 1)
-  }
-}
-
 const COAT_DARK = [FUR_MID, NIGHT, WHITE_DARK] as const
 const COAT_LIT = [FUR_BODY, NIGHT_2, WHITE_MID] as const
 const CUT_H = 44
@@ -955,7 +936,6 @@ function paintDock(ctx: CanvasRenderingContext2D, renderer: Renderer, sim: Sim):
     paintCard(ctx, renderer, x, kind, cost, sim.bones >= cost, kind === KIND_TAN && sim.tutorial, sim.time)
     paintGauge(ctx, x, kind, sim)
   }
-  paintCannon(ctx, renderer, sim)
 }
 
 function denyShift(deny: number): number {
@@ -1027,26 +1007,6 @@ function frameRect(ctx: CanvasRenderingContext2D, x: number, y: number, w: numbe
   ctx.fillRect(x, y + h - 1, w, 1)
   ctx.fillRect(x, y, 1, h)
   ctx.fillRect(x + w - 1, y, 1, h)
-}
-
-function paintCannon(ctx: CanvasRenderingContext2D, renderer: Renderer, sim: Sim): void {
-  const ready = cannonReady(sim)
-  const sprite = ready ? renderer.sheets.cannon : renderer.sheets.cannonDim
-  const x = px(at(CANNON_X)) - (sprite.width >> 1)
-  const bob = ready ? (Math.floor(sim.time * 6) & 1) : 0
-  const y = py(at(CANNON_Y)) - (sprite.height >> 1) - bob
-  if (ready) {
-    const phase = Math.floor(sim.time * 8) & 3
-    for (let ring = 0; ring < 2; ring++) {
-      ctx.fillStyle = GOLD_CYCLE[(phase + ring) & 3] ?? GOLD
-      const r = 3 - ring
-      ctx.fillRect(x - r, y + bob - r, sprite.width + r * 2, 1)
-      ctx.fillRect(x - r, y + bob + sprite.height + r - 1, sprite.width + r * 2, 1)
-      ctx.fillRect(x - r, y + bob - r, 1, sprite.height + r * 2)
-      ctx.fillRect(x + sprite.width + r - 1, y + bob - r, 1, sprite.height + r * 2)
-    }
-  }
-  ctx.drawImage(sprite, x, y)
 }
 
 function paintPaw(ctx: CanvasRenderingContext2D, renderer: Renderer, time: number): void {

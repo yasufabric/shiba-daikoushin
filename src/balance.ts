@@ -15,14 +15,10 @@ export const GAP = 52
 export const ATTACK_RANGE = 56
 
 export const MAX_CATS = 420
-export const CANNON_NEED = 50
-export const CANNON_COOLDOWN = 12
-export const BEAM_TIME = 0.5
 export const FLOAT_TIME = 1.15
 /** Clear and defeat banners. Short enough that the next match starts fast. */
 export const BANNER_HOLD = 2.4
 export const LOSE_HOLD = BANNER_HOLD
-export const CANNON_CASTLE = 18
 
 export const CAT_HP = 32
 export const CAT_DPS = 9
@@ -73,10 +69,6 @@ export const JERKY_CASTLE = 500
 /** 白「チーズ!!」: a field-wide shockwave that also shoves cats back. */
 export const CHEESE_HIT = 26
 export const CHEESE_PUSH = 60
-
-export const CANNON_X = 350
-export const CANNON_Y = 28
-export const CANNON_R = 30
 
 export const VIEW_W = 390
 export const VIEW_H = 844

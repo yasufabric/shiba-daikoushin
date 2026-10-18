@@ -1,6 +1,6 @@
 # しば大行進
 
-Portrait phone game. Soldier shibas march up the field, cat swarms come down, and a three-minute match ends at the cat castle. The only input is deploying a card. At 50 shibas the わんわん砲 clears the field.
+Portrait phone game. Soldier shibas march up the field, cat swarms come down, and a three-minute match ends at the cat castle. The only input is deploying a card. There is no cannon or other tap-fired attack.
 
 Three cards, three soldiers, each with its own attack:
 
@@ -38,7 +38,7 @@ npm run preview
 
 ## Pixel art
 
-Later PRs follow this standard. Simulation coordinates stay on the 390×844 field so speeds, spawns, cards, the cannon, and the three-minute clock do not move. The renderer snaps every drawn coordinate onto the internal grid.
+Later PRs follow this standard. Simulation coordinates stay on the 390×844 field so speeds, spawns, cards, and the three-minute clock do not move. The renderer snaps every drawn coordinate onto the internal grid.
 
 ### Resolution
 
@@ -96,7 +96,7 @@ Idle is 2 frames, 0.5s each. Walk and run are 4 frames at 12fps. Attack is 1 win
 
 ### Effects
 
-Particles are square dots of 1, 2, or 3px. No circles, gradients, or translucency. Glow cycles the four golds. An explosion is 4 frames: white, yellow, orange, then particles. Screen shake is integer pixels, at most 3. Hitstop is 0.05s on the cannon. Damage numbers are gold with a `#120b10` border. They pop from 1.5× to 1×, and that pop stays on integer pixels (12×15, then 8×10) with no fractional scale of the glyph grid. The わんわん砲 beam follows the same rules.
+Particles are square dots of 1, 2, or 3px. No circles, gradients, or translucency. Glow cycles the four golds. An explosion is 4 frames: white, yellow, orange, then particles. Screen shake is integer pixels, at most 3. Hitstop is 0.05s on the castle break. Damage numbers are gold with a `#120b10` border. They pop from 1.5× to 1×, and that pop stays on integer pixels (12×15, then 8×10) with no fractional scale of the glyph grid.
 
 Finish like a late Super Famicom game.
 
