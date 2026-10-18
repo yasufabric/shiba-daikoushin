@@ -50,9 +50,9 @@ Design grid 195×422. CSS-pixel scale is an integer of at least 2, chosen so the
 - Hero shiba: 32×32, big head, head and body the same height.
 - Rival dogs: 20×20 front view. Three breeds share the foot and tail rows and differ by head: チワワ (huge pointed ears, bug eyes, fast and frail), コーギー (tall ears, white blaze, the baseline, no tail), ブルドッグ (rose ears, jowls, underbite, slow and tough). ブルドッグ join only once the clash starts.
 - The code still names every foe a cat (`sim.cats`, `CAT_PX`, the cat palette names); `kind` on a foe is its breed.
-- 敵の犬小屋: 56×48, a small purple A-frame dog house with a red bone plaque and a dark round-arched door with eyes and fangs. The eyes are dim until the boss comes out.
+- 敵の犬小屋: 64×52, a purple kennel built by `kennel()` (banded gable roof with shingle dashes, plank wall, recessed arched door) with a red bone sign and glowing eyes and fangs in the door.
 - Boss dog: 32×32 front view, two walk frames, white hit flash.
-- 柴の家: 48×40, a small plank dog house with a bone plaque and a dark arched door, centered on the field floor. Its HP bar is gold, drawn over the units.
+- 柴の家: 56×46, the same `kennel()` in warm colors with a gold bone sign and a water bowl by the step. Its HP bar is gold, drawn over the units.
 - Marching soldier: 20×20 (白 is pure white; 胡麻 is speckled dark all over via `speckle()`), bare-headed, with pricked ears, tan brows, and a pale urajiro muzzle. Up to four fur colors plus the outline.
 - Damage numbers: a dedicated pixel font, 8×10 per glyph.
 

@@ -589,70 +589,86 @@ const PAW_ROWS = [
   '..............',
 ] as const
 function arch(rows: string[], x: number, y: number, w: number, h: number, ch: string): void {
-  blot(rows, x, y, w, h, ch)
-  const r = w >> 1
-  for (let i = 0; i < r; i++) {
-    const cut = r - Math.floor(Math.sqrt(r * r - (r - i - 0.5) * (r - i - 0.5)))
-    for (let j = 0; j < cut; j++) {
-      put(rows, x + j, y + i, '.')
-      put(rows, x + w - 1 - j, y + i, '.')
-    }
+  const r = w / 2
+  for (let i = 0; i < h; i++) {
+    const dy = r - i - 0.5
+    const half = i < r ? Math.sqrt(Math.max(0, r * r - dy * dy)) : r
+    const from = Math.round(x + r - half)
+    const to = Math.round(x + r + half)
+    for (let xx = from; xx < to; xx++) put(rows, xx, y + i, ch)
   }
 }
 
-/** The enemy doghouse: a small purple A-frame kennel with a dark arched door, glowing eyes inside, and a red bone plaque. */
-function castleRows(live: boolean): string[] {
-  const g = blank(BOSS_W, BOSS_H)
-  const eye = live ? 'e' : 'r'
-  // Walls: planks, a lit left edge and a shadowed right edge.
-  blot(g, 5, 20, 46, 28, 'b')
-  blot(g, 6, 21, 2, 27, 'h')
-  blot(g, 47, 21, 3, 27, 'm')
-  for (let y = 27; y < 47; y += 6) blot(g, 6, y, 44, 1, 'm')
-  // Gable roof with overhanging eaves.
-  tri(g, 0, 1, 56, 20, 'm')
-  tri(g, 4, 5, 22, 13, 'b')
-  blot(g, 0, 19, 56, 3, 'd')
-  blot(g, 1, 20, 54, 1, 'm')
-  // Bone plaque on the gable.
-  blot(g, 22, 10, 12, 3, 'r')
-  blot(g, 22, 10, 12, 1, 'e')
-  blot(g, 20, 9, 3, 3, 'e')
-  blot(g, 33, 9, 3, 3, 'e')
-  blot(g, 20, 12, 3, 3, 'r')
-  blot(g, 33, 12, 3, 3, 'r')
-  // The door: a dark round arch with a pair of eyes and fangs.
-  arch(g, 19, 26, 18, 22, 'n')
-  for (const ex of [22, 29]) {
-    blot(g, ex, 34, 5, 4, eye)
-    blot(g, ex + 1, 35, 2, 2, 'h')
+/** A front-on kennel: banded gable roof, plank wall with posts, and a recessed arched door. Returns the rows to dress. */
+function kennel(w: number, h: number, c: { roof: string; roofHi: string; edge: string; wall: string; lit: string; shade: string; grain: string; door: string; inner: string }): string[] {
+  const g = blank(w, h)
+  const roofH = Math.round(h * 0.45)
+  const wallY = roofH + 2
+  // Wall: planks with grain lines, a lit left edge, a shadowed right edge, and a dark foundation.
+  blot(g, 4, wallY, w - 8, h - wallY, c.wall)
+  for (let x = 10; x < w - 8; x += 6) blot(g, x, wallY, 1, h - wallY, c.grain)
+  blot(g, 5, wallY, 2, h - wallY, c.lit)
+  blot(g, w - 8, wallY, 3, h - wallY, c.shade)
+  blot(g, 3, h - 3, w - 6, 3, c.edge)
+  // Gable: outer roof band, inner gable wall, shingle dashes along the slopes.
+  tri(g, 0, 0, w, roofH, c.edge)
+  tri(g, 1, 1, w - 2, roofH - 2, c.roof)
+  tri(g, 7, 6, w - 14, roofH - 7, c.wall)
+  for (let row = 3; row < roofH - 2; row += 3) {
+    const span = 1 + Math.floor(((w - 3) * row) / (roofH - 1))
+    const left = Math.floor((w - span) / 2)
+    for (let i = 0; i < 4; i++) {
+      put(g, left + 1 + i * 2 + (row % 2), row, c.roofHi)
+      put(g, left + span - 2 - i * 2 - (row % 2), row, c.roofHi)
+    }
   }
-  for (let x = 22; x < 35; x += 4) {
-    blot(g, x, 43, 2, 3, 'h')
-    put(g, x, 46, 'h')
+  blot(g, 0, roofH - 1, w, 3, c.edge)
+  blot(g, 1, roofH, w - 2, 1, c.roof)
+  blot(g, (w >> 1) - 2, 0, 4, 3, c.edge)
+  // Door: frame, recessed arch with a lighter back wall for depth.
+  const dw = Math.round(w * 0.36)
+  const dx = (w - dw) >> 1
+  const dy = wallY + 3
+  arch(g, dx - 2, dy - 2, dw + 4, h - dy - 1, c.shade)
+  arch(g, dx, dy, dw, h - dy - 3, c.door)
+  arch(g, dx + 2, dy + 3, dw - 4, h - dy - 6, c.inner)
+  return g
+}
+
+function bone(g: string[], cx: number, y: number, hi: string, mid: string, lo: string): void {
+  blot(g, cx - 5, y + 1, 11, 3, mid)
+  blot(g, cx - 5, y + 1, 11, 1, hi)
+  blot(g, cx - 7, y, 3, 3, mid)
+  blot(g, cx + 5, y, 3, 3, mid)
+  blot(g, cx - 7, y + 3, 3, 3, lo)
+  blot(g, cx + 5, y + 3, 3, 3, lo)
+}
+
+/** The enemy doghouse: a purple kennel with a red bone sign and a dark door whose glowing eyes and fangs look back. */
+function castleRows(live: boolean): string[] {
+  const g = kennel(BOSS_W, BOSS_H, { roof: 'm', roofHi: 'h', edge: 'd', wall: 'b', lit: 'h', shade: 'm', grain: 'm', door: 'n', inner: 'N' })
+  const eye = live ? 'e' : 'r'
+  const dw = Math.round(BOSS_W * 0.36)
+  const cx = BOSS_W >> 1
+  const top = BOSS_H - 24
+  bone(g, cx, Math.round(BOSS_H * 0.2), 'e', 'r', 'd')
+  for (const ex of [cx - 6, cx + 1]) {
+    blot(g, ex, top + 6, 5, 4, eye)
+    blot(g, ex + 1, top + 7, 2, 2, 'h')
+  }
+  for (let x = cx - dw / 2 + 4; x < cx + dw / 2 - 3; x += 4) {
+    blot(g, x, BOSS_H - 12, 2, 4, 'h')
+    put(g, x, BOSS_H - 8, 'h')
   }
   return g
 }
 
-/** 柴の家: a small plank dog house with a deep roof, a gold bone plaque, and a dark arched door the shibas march out of. */
+/** 柴の家: a warm kennel with a gold bone sign, a recessed arched door, and a water bowl by the step. */
 function homeRows(): string[] {
-  const g = blank(HOME_W, HOME_H)
-  blot(g, 4, 14, 40, 26, 't')
-  blot(g, 5, 15, 2, 25, 'w')
-  blot(g, 41, 15, 3, 25, 'o')
-  for (let y = 21; y < 40; y += 6) blot(g, 5, y, 38, 1, 'o')
-  tri(g, 0, 0, 48, 16, 'r')
-  tri(g, 3, 3, 20, 11, 'o')
-  blot(g, 0, 14, 48, 3, 'd')
-  blot(g, 1, 15, 46, 1, 'r')
-  arch(g, 17, 22, 14, 18, 'n')
-  blot(g, 19, 33, 1, 7, 'N')
-  blot(g, 19, 7, 10, 3, 'G')
-  blot(g, 19, 7, 10, 1, 'g')
-  blot(g, 17, 6, 3, 3, 'G')
-  blot(g, 28, 6, 3, 3, 'G')
-  blot(g, 17, 9, 3, 3, 'y')
-  blot(g, 28, 9, 3, 3, 'y')
+  const g = kennel(HOME_W, HOME_H, { roof: 'r', roofHi: 'o', edge: 'd', wall: 't', lit: 'w', shade: 'o', grain: 'o', door: 'n', inner: 'N' })
+  bone(g, HOME_W >> 1, Math.round(HOME_H * 0.2), 'g', 'G', 'y')
+  blot(g, HOME_W - 13, HOME_H - 6, 8, 3, 'y')
+  blot(g, HOME_W - 12, HOME_H - 6, 6, 1, 'g')
   return g
 }
 
