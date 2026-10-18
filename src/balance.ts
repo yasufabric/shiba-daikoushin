@@ -1,14 +1,12 @@
-export const MATCH_SECONDS = 180
 export const CLASH_AT = 60
-export const BOSS_AT = 150
+/** Every match sends this many regular dogs. Once the last has left the mansion the boss follows; beat every dog to win. */
+export const DOG_COUNT = 110
 export const BONE_RATE = 12
 export const BONE_PER_SHIBA = 0.3
 export const START_BONES = 40
 export const START_SHIBAS = 5
 
-export const HOLD_Y = 118
-export const CASTLE_REACH = 100
-export const GATE_DEPTH = 210
+export const HOLD_Y = 240
 /** Feet-to-feet gap. A 24×24 soldier is 48 world px tall, so 52 leaves a sliver of meadow between dogs. */
 export const GAP = 52
 /** Must reach past GAP, or the two front lines would stop just out of bite. */
@@ -25,13 +23,17 @@ export const BREED_CHIHUAHUA = 0
 export const BREED_CORGI = 1
 export const BREED_BULLDOG = 2
 export const BREEDS = 3
+/** The boss, セントバーナード. Not part of the wave mix; it walks out of the mansion once every regular dog has been sent. */
+export const BREED_BOSS = 3
+export const BOSS_HP = 2000
+export const BOSS_DPS = 36
+export const BOSS_SPEED = 16
 /** チワワ fast and frail, コーギー the baseline, ブルドッグ slow and tough. */
 export const BREED_HP = [20, 30, 60] as const
 export const BREED_DPS = [7, 9, 12] as const
 export const BREED_SPEED = [72, 50, 30] as const
 /** In a clash wave, every Nth dog is a ブルドッグ; N shrinks as the match runs on. */
-export const BULLDOG_EVERY = 8
-export const CASTLE_HP = 5600
+export const BULLDOG_EVERY = 7
 /** 柴の家 at the bottom of the field. Cats that reach it bite it; at 0 the match is lost. */
 export const HOME_HP = 1500
 /** How far above the field floor a cat must be to bite the home. */
@@ -39,7 +41,6 @@ export const HOME_REACH = 40
 export const WAVE_EVERY = 3.2
 export const TRICKLE_EVERY = 3.2
 export const TRICKLE_COUNT = 2
-export const GUARD_CATS = 10
 
 export const COST_TAN = 34
 export const COST_BLACK = 90
@@ -92,10 +93,9 @@ export const CUT_TIME = 1.1
 export const FX_TIME = 0.9
 /** 赤「サツマイモ!!」: every 赤 charges at double pace and double bite. */
 export const RUSH_TIME = 4
-/** 黒「ジャーキー!!」: the front three cats of every lane, and the castle once it can be hit. */
+/** 黒「ジャーキー!!」: the front three dogs of every lane, the boss included. */
 export const JERKY_HIT = 80
 export const JERKY_DEPTH = 3
-export const JERKY_CASTLE = 500
 /** 胡麻「ササミ!!」: every shiba back to full, and the 柴の家 mended by this much. */
 export const SASAMI_HOME = 300
 /** 白「チーズ!!」: a field-wide shockwave that also shoves cats back. */
@@ -129,10 +129,10 @@ export const CARD_Y = 714
 export const MAX_LEVEL = 10
 export const LEVEL_STEP = 0.12
 export const LEVEL_COST_BASE = 120
-/** Match pay: a win pays WIN_PAY, a loss LOSS_PAY, plus one ホネ for every DAMAGE_PER_BONE damage dealt to the mansion. */
+/** Match pay: a win pays WIN_PAY, a loss LOSS_PAY, plus BONE_PER_KILL for every dog beaten. */
 export const WIN_PAY = 300
 export const LOSS_PAY = 80
-export const DAMAGE_PER_BONE = 40
+export const BONE_PER_KILL = 2
 
 /** Level-up screen layout, in world px. Four coat rows, then the START button. */
 export const SHOP_ROW_X = 30

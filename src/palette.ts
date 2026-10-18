@@ -72,6 +72,7 @@ export const HERO_PX = 32
 export const BOSS_W = 72
 export const BOSS_H = 64
 export const HOME_W = 64
+export const BOSS_PX = 48
 export const HOME_H = 48
 export const GLYPH_W = 8
 export const GLYPH_H = 10

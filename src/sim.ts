@@ -2,11 +2,9 @@ import {
   ATTACK_RANGE,
   BONE_PER_SHIBA,
   BONE_RATE,
-  BOSS_AT,
-  CASTLE_HP,
+  DOG_COUNT,
   HOME_HP,
   HOME_REACH,
-  CASTLE_REACH,
   BREED_BULLDOG,
   BREED_CHIHUAHUA,
   BREED_CORGI,
@@ -25,8 +23,6 @@ import {
   FIELD_W,
   FLOAT_TIME,
   GAP,
-  GATE_DEPTH,
-  GUARD_CATS,
   HOLD_Y,
   HP_BLACK,
   HP_TAN,
@@ -35,7 +31,6 @@ import {
   LANE_COUNT,
   BANNER_HOLD,
   LOSE_HOLD,
-  MATCH_SECONDS,
   MAX_CATS,
   MAX_SHIBAS,
   SPEED_BLACK,
@@ -60,7 +55,6 @@ import {
   HEAVY_EVERY,
   HEAVY_HIT,
   HP_WHITE,
-  JERKY_CASTLE,
   JERKY_DEPTH,
   JERKY_HIT,
   KIND_WHITE,
@@ -75,7 +69,11 @@ import {
   HEAL_EVERY,
   HEAL_REACH,
   RECHARGE,
-  DAMAGE_PER_BONE,
+  BONE_PER_KILL,
+  BOSS_DPS,
+  BOSS_HP,
+  BOSS_SPEED,
+  BREED_BOSS,
   LEVEL_COST_BASE,
   LEVEL_STEP,
   LOSS_PAY,
@@ -89,7 +87,7 @@ import {
   STEP_WHITE,
 } from './balance'
 
-export type Phase = 'grow' | 'clash' | 'boss'
+export type Phase = 'grow' | 'clash'
 export type Outcome = 'play' | 'won' | 'lost'
 
 export interface Unit {
@@ -136,7 +134,12 @@ export interface Sim {
   costBlack: number
   costWhite: number
   costSesame: number
-  castleHp: number
+  /** The boss dog's slot in sim.cats once it has come out, or -1. */
+  bossIndex: number
+  /** Dogs beaten this match. */
+  kills: number
+  /** Regular dogs still waiting in the mansion. */
+  toSend: number
   homeHp: number
   boss: boolean
   floatT: number
@@ -157,7 +160,6 @@ export interface Sim {
   saveSeq: number
   rewardT: number
   nextCat: number
-  guard: boolean
   deny0: number
   deny1: number
   deny2: number
@@ -200,7 +202,6 @@ const OPEN_Y = [430, 470, 510, 550, 400, 500, 540, 580, 620, 470]
 const OPEN_LANE = [0, 1, 2, 3, 4, 0, 1, 2, 3, 4]
 
 export function phaseAt(time: number): Phase {
-  if (time >= BOSS_AT) return 'boss'
   if (time >= CLASH_AT) return 'clash'
   return 'grow'
 }
@@ -240,7 +241,9 @@ export function createSim(opts?: SimOptions): Sim {
     costBlack: COST_BLACK,
     costWhite: COST_WHITE,
     costSesame: COST_SESAME,
-    castleHp: CASTLE_HP,
+    bossIndex: -1,
+    kills: 0,
+    toSend: DOG_COUNT,
     homeHp: HOME_HP,
     boss: false,
     floatT: 0,
@@ -255,7 +258,6 @@ export function createSim(opts?: SimOptions): Sim {
     saveSeq: 0,
     rewardT: 0,
     nextCat: CLASH_AT,
-    guard: false,
     deny0: 0,
     deny1: 0,
     deny2: 0,
@@ -294,7 +296,9 @@ function boot(sim: Sim): void {
   sim.costBlack = COST_BLACK
   sim.costWhite = COST_WHITE
   sim.costSesame = COST_SESAME
-  sim.castleHp = CASTLE_HP
+  sim.bossIndex = -1
+  sim.kills = 0
+  sim.toSend = DOG_COUNT
   sim.homeHp = HOME_HP
   sim.boss = false
   sim.floatT = 0
@@ -302,7 +306,6 @@ function boot(sim: Sim): void {
   sim.outcome = 'play'
   sim.rewardT = 0
   sim.nextCat = TRICKLE_EVERY
-  sim.guard = false
   sim.deny0 = 0
   sim.deny1 = 0
   sim.deny2 = 0
@@ -324,7 +327,10 @@ function boot(sim: Sim): void {
   for (let i = 0; i < START_SHIBAS; i++) {
     spawnShiba(sim, KIND_TAN, OPEN_LANE[i] ?? 0, OPEN_Y[i] ?? 480)
   }
-  for (let i = 0; i < TRICKLE_COUNT; i++) spawnCat(sim, i, i % 2 === 0 ? BREED_CHIHUAHUA : BREED_CORGI)
+  for (let i = 0; i < TRICKLE_COUNT; i++) {
+    sim.toSend -= 1
+    spawnCat(sim, i, i % 2 === 0 ? BREED_CHIHUAHUA : BREED_CORGI)
+  }
 }
 
 function clear(units: Unit[]): void {
@@ -392,6 +398,24 @@ function spawnCat(sim: Sim, lane: number, breed: number): boolean {
   return true
 }
 
+/** The boss walks out of the mansion down the middle path. */
+function spawnBoss(sim: Sim): void {
+  const lane = LANE_COUNT >> 1
+  if (!spawnCat(sim, lane, BREED_CORGI)) return
+  for (let i = 0; i < sim.cats.length; i++) {
+    const unit = sim.cats[i]
+    if (!unit?.alive || unit.lane !== lane || unit.y > 80 || unit.kind !== BREED_CORGI || unit.hp !== unit.maxHp) continue
+    unit.kind = BREED_BOSS
+    unit.hp = BOSS_HP
+    unit.maxHp = BOSS_HP
+    unit.dps = BOSS_DPS
+    unit.speed = BOSS_SPEED
+    unit.x = (FIELD_W / LANE_COUNT) * (lane + 0.5)
+    sim.bossIndex = i
+    return
+  }
+}
+
 function acquire(units: Unit[], sim: Sim, which: 's' | 'c'): Unit | null {
   const n = units.length
   let cursor = which === 's' ? sim.cursorS : sim.cursorC
@@ -426,24 +450,20 @@ export function step(sim: Sim, dt: number, input: Input = NO_INPUT): void {
   if (input.card >= 0 && input.card < KINDS) tryDeploy(sim, input.card, input.lane)
 
   const income = BONE_RATE + sim.aliveShibas * BONE_PER_SHIBA
-  const next = sim.time + dt >= MATCH_SECONDS - 1e-4 ? MATCH_SECONDS : sim.time + dt
-  const tick = next - sim.time
+  const tick = dt
   sim.bones += tick * income
-  sim.time = next
+  sim.time += tick
 
   let waves = 0
-  while (sim.time >= sim.nextCat && sim.time < BOSS_AT && waves < 3) {
+  while (sim.time >= sim.nextCat && sim.toSend > 0 && waves < 3) {
     const every = sim.time >= CLASH_AT ? WAVE_EVERY : TRICKLE_EVERY
     spawnWave(sim)
     sim.nextCat += every
     waves += 1
   }
-  if (sim.time >= BOSS_AT && !sim.boss) {
+  if (sim.toSend <= 0 && !sim.boss) {
     sim.boss = true
-    if (!sim.guard) {
-      sim.guard = true
-      for (let i = 0; i < GUARD_CATS; i++) spawnCat(sim, i % LANE_COUNT, i % 3 === 2 ? BREED_BULLDOG : BREED_CORGI)
-    }
+    spawnBoss(sim)
   }
 
   flyCats(sim, tick)
@@ -483,15 +503,14 @@ export function step(sim: Sim, dt: number, input: Input = NO_INPUT): void {
     if (left > 0) sim.recharge[k] = Math.max(0, left - tick)
   }
 
-  if (sim.castleHp <= 0) {
-    sim.castleHp = 0
+  if (sim.boss && sim.toSend <= 0 && sim.aliveCats <= 0) {
     sim.outcome = 'won'
     sim.rewardT = BANNER_HOLD
     pay(sim)
     return
   }
-  if (sim.homeHp <= 0 || sim.time >= MATCH_SECONDS) {
-    if (sim.homeHp < 0) sim.homeHp = 0
+  if (sim.homeHp <= 0) {
+    sim.homeHp = 0
     sim.outcome = 'lost'
     sim.rewardT = LOSE_HOLD
     pay(sim)
@@ -501,9 +520,14 @@ export function step(sim: Sim, dt: number, input: Input = NO_INPUT): void {
 /** Match pay: a base for the result plus ホネ for damage done to the mansion. */
 function pay(sim: Sim): void {
   const base = sim.outcome === 'won' ? WIN_PAY : LOSS_PAY
-  sim.earned = base + Math.floor((CASTLE_HP - sim.castleHp) / DAMAGE_PER_BONE)
+  sim.earned = base + sim.kills * BONE_PER_KILL
   sim.purse += sim.earned
   sim.saveSeq += 1
+}
+
+/** Dogs left to beat this match, the boss included. */
+export function dogsLeft(sim: Sim): number {
+  return sim.toSend + sim.aliveCats + (sim.boss ? 0 : 1)
 }
 
 /** ホネ to take a coat from `level` to the next. */
@@ -598,7 +622,9 @@ function spawnWave(sim: Sim): void {
   const horde = sim.time >= CLASH_AT
   const size = horde ? 5 + Math.floor((sim.time - CLASH_AT) / 18) : TRICKLE_COUNT
   const every = Math.max(4, BULLDOG_EVERY - Math.floor(Math.max(0, sim.time - CLASH_AT) / 30))
-  for (let i = 0; i < size; i++) {
+  const count = Math.min(size, sim.toSend)
+  for (let i = 0; i < count; i++) {
+    sim.toSend -= 1
     const lane = nextLane(sim, i)
     let breed = (sim.seed >>> 9) & 1 ? BREED_CHIHUAHUA : BREED_CORGI
     if (horde) {
@@ -660,7 +686,7 @@ function moveLane(sim: Sim, lane: number, dt: number): void {
   sortLane(cIdx, cn, sim.cats, false)
 
   const frontCat = cn > 0 ? sim.cats[cIdx[0] ?? -1] : undefined
-  let stop = sim.boss ? CASTLE_REACH : HOLD_Y
+  let stop = HOLD_Y
   if (frontCat?.alive) stop = Math.max(stop, frontCat.y + GAP)
   for (let i = 0; i < sn; i++) {
     const unit = sim.shibas[sIdx[i] ?? -1]
@@ -695,17 +721,6 @@ function moveLane(sim: Sim, lane: number, dt: number): void {
       hurt(sim, cat, shiba.dps * (sim.rushT > 0 ? 2 : 1) * dt, KIND_TAN)
     } else {
       hurt(sim, cat, shiba.dps * dt, shiba.kind)
-    }
-  }
-
-  if (sim.boss && cn === 0) {
-    const limit = CASTLE_REACH + GATE_DEPTH
-    for (let i = 0; i < sn; i++) {
-      const unit = sim.shibas[sIdx[i] ?? -1]
-      if (!unit?.alive) continue
-      if (unit.y > limit) break
-      const rush = unit.kind === KIND_TAN && sim.rushT > 0 ? 2 : 1
-      sim.castleHp -= unit.dps * rush * dt
     }
   }
 }
@@ -804,11 +819,6 @@ export function strikeSpecial(sim: Sim, kind: number): void {
         cat.hp -= JERKY_HIT
       }
     }
-    if (sim.boss && sim.castleHp > 0) {
-      const applied = Math.min(sim.castleHp, JERKY_CASTLE)
-      sim.castleHp -= applied
-      dealt += applied
-    }
   } else if (kind === KIND_SESAME) {
     for (let i = 0; i < sim.shibas.length; i++) {
       const unit = sim.shibas[i]
@@ -862,5 +872,6 @@ function reap(sim: Sim): void {
     cat.hp = 0
     cat.fly = 1
     sim.aliveCats -= 1
+    sim.kills += 1
   }
 }

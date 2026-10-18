@@ -1,11 +1,11 @@
 # しば大行進
 
-Portrait phone game. Soldier shibas march up the field from the 柴の家 at the bottom, rival dogs come down, and a three-minute match ends at the 犬の屋敷. Dogs that reach the field floor bite the 柴の家; when its gold HP bar empties the match is lost, as it is when the clock runs out. The only input is deploying a shiba: tap a card to pick it (it lifts with a gold frame and stays picked), then tap anywhere on a path to send one shiba of that coat down it. 赤 starts picked. While a match is on, a small gold up-arrow sits above the 柴の家 in each path to show where taps land; the tutorial paw points at one. Dogs arrive on random paths, so where you send each shiba matters: a path left empty lets dogs walk to the 柴の家. There is no cannon or other tap-fired attack.
+Portrait phone game about holding the line. Rival dogs walk out of the 犬の屋敷 at the top on random paths; soldier shibas march up from the 柴の家 at the bottom and hold a line mid-field. Each match sends a fixed pack of `DOG_COUNT` dogs; once the last has left the mansion the boss, a 48×48 セントバーナード with a gold barrel, walks out down the middle path. Beat every dog, the boss included, to win. Dogs that reach the field floor bite the 柴の家; when its gold HP bar empties the match is lost. There is no clock and no attack on the mansion. A dog icon and number beside the mansion count the dogs left, and a wide pink bar across the top shows the boss's HP while it is out. Match pay is a base for the result plus `BONE_PER_KILL` per dog beaten.
 
 Four cards, four soldiers, each with its own role. The cards sit in one row of four. Every tap of a card sends out exactly one shiba, so the field stays readable (about a dozen shibas in a typical match); the next shiba of that coat costs a little more. After sending a shiba a card also needs a short recharge (`RECHARGE`: 赤 2.5s, 黒 6s, 白 4s, 胡麻 7s), shown as a night shutter over its portrait that slides away; a tap while it recharges is denied with the card shake, so a hoard of ホネ can't be dumped all at once. A match opens with one 赤 on each path.
 
 - 赤 (tan card): a steady bite. Special 「サツマイモ!!」 sends every 赤 into a double-pace, double-bite rush.
-- 黒 (black card): one heavy bite at a time that drops a small dog. Special 「ジャーキー!!」 pierces the front three dogs on every path and hits the castle once it can be hit.
+- 黒 (black card): one heavy bite at a time that drops a small dog. Special 「ジャーキー!!」 pierces the front three dogs on every path, the boss included.
 - 白 (white card): barks from the second row into its own path and both neighbors. Special 「チーズ!!」 is a field-wide shockwave that shoves every dog back.
 - 胡麻 (sesame card): the healer. Every second it mends the most-hurt shiba near it, in its own path or the two beside, and a pink heart floats up. Its gauge fills with healing done. Special 「ササミ!!」 brings every shiba back to full and mends the 柴の家. A small pink heart badge marks the 胡麻 card and every 胡麻 on the field, since the coat alone is hard to tell from 赤 at a glance.
 
@@ -50,7 +50,8 @@ Design grid 195×422. CSS-pixel scale is an integer of at least 2, chosen so the
 - Hero shiba: 32×32, big head, head and body the same height.
 - Rival dogs: 28×28 front view. Three breeds share the foot and tail rows and differ by head: チワワ (huge pointed ears, bug eyes, fast and frail), コーギー (tall ears, white blaze, the baseline, no tail), ブルドッグ (rose ears, jowls, underbite, slow and tough). ブルドッグ join only once the clash starts.
 - The code still names every foe a cat (`sim.cats`, `CAT_PX`, the cat palette names); `kind` on a foe is its breed.
-- Boss: 64×64 or larger.
+- 犬の屋敷: 72×64, dim until the boss comes out.
+- Boss dog: 48×48 front view, two walk frames, white hit flash.
 - 柴の家: 64×48, a plank dog house with a bone plaque and a dark arched door, centered on the field floor. Its HP bar is gold, drawn over the units.
 - Marching soldier: 24×24, with a steel helmet between the ears and a coat-colored band. Up to four fur colors plus the outline.
 - Damage numbers: a dedicated pixel font, 8×10 per glyph.
@@ -101,14 +102,14 @@ Idle is 2 frames, 0.5s each. Walk and run are 4 frames at 12fps. Attack is 1 win
 
 ### Effects
 
-Particles are square dots of 1, 2, or 3px. No circles, gradients, or translucency. Glow cycles the four golds. An explosion is 4 frames: white, yellow, orange, then particles. Screen shake is integer pixels, at most 3. Hitstop is 0.05s on the castle break. A hurt unit shows a 16×2 HP bar 4px above its sprite with a `#120b10` border: gold for shibas, pink for dogs. Full-health units show none, so a calm field stays clean. Damage numbers are gold with a `#120b10` border. They pop from 1.5× to 1×, and that pop stays on integer pixels (12×15, then 8×10) with no fractional scale of the glyph grid.
+Particles are square dots of 1, 2, or 3px. No circles, gradients, or translucency. Glow cycles the four golds. An explosion is 4 frames: white, yellow, orange, then particles. Screen shake is integer pixels, at most 3. Hitstop is 0.05s when a match is won and when a special strikes. A hurt unit shows a 16×2 HP bar 4px above its sprite with a `#120b10` border: gold for shibas, pink for dogs. Full-health units show none, so a calm field stays clean. Damage numbers are gold with a `#120b10` border. They pop from 1.5× to 1×, and that pop stays on integer pixels (12×15, then 8×10) with no fractional scale of the glyph grid.
 
 Finish like a late Super Famicom game.
 
 ### Match end
 
-Destroying the 犬の屋敷 (spired towers and a keep with a floppy-eared dog face, the gate for a mouth) plays hitstop, a 4-frame explosion on the castle (white, yellow, orange, then square particles), a shiba hop, and a gold `CLEAR!` banner. The banner pops from 1.5× to 1× on integer pixels, holds for 2.4s, then the level-up screen appears. A loss shows a `LOSE!` banner for the same beat. No explanatory sentence.
+Beating the last dog plays the 犬の屋敷 (spired towers and a keep with a floppy-eared dog face, the gate for a mouth) bursting: hitstop, a 4-frame explosion on the castle (white, yellow, orange, then square particles), a shiba hop, and a gold `CLEAR!` banner. The banner pops from 1.5× to 1× on integer pixels, holds for 2.4s, then the level-up screen appears. A loss shows a `LOSE!` banner for the same beat. No explanatory sentence.
 
 ### Levels
 
-After either banner the level-up screen fills the view: the result word, the ホネ the match paid (`+` and gold digits), the saved purse, one row per coat (portrait, `LV` and level, the ホネ price of the next level; rows you cannot afford dim), and a gold `START` button that begins the next match. A win pays `WIN_PAY`, a loss `LOSS_PAY`, plus a ホネ per `DAMAGE_PER_BONE` damage done to the mansion. A level costs `LEVEL_COST_BASE` × the current level, caps at `MAX_LEVEL`, and adds `LEVEL_STEP` to that coat's HP, bite, bark, and heal. Levels and the purse are saved in `localStorage` under `shiba-daikoushin-save`; a blocked storage keeps them for the visit only.
+After either banner the level-up screen fills the view: the result word, the ホネ the match paid (`+` and gold digits), the saved purse, one row per coat (portrait, `LV` and level, the ホネ price of the next level; rows you cannot afford dim), and a gold `START` button that begins the next match. A win pays `WIN_PAY`, a loss `LOSS_PAY`, plus `BONE_PER_KILL` per dog beaten. A level costs `LEVEL_COST_BASE` × the current level, caps at `MAX_LEVEL`, and adds `LEVEL_STEP` to that coat's HP, bite, bark, and heal. Levels and the purse are saved in `localStorage` under `shiba-daikoushin-save`; a blocked storage keeps them for the visit only.
