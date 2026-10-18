@@ -86,6 +86,8 @@ import {
   BARK_SPLASH,
   HEAL_RADIUS,
   HEAL_FOLLOW,
+  HEAL_CLOSE,
+  HEAL_SEEK_SPAN,
   TAN_HASTE,
   JERKY_TARGETS,
   FREE_RECHARGE,
@@ -794,8 +796,11 @@ function nearestTaunt(shibas: Unit[], dog: Unit, sight: number): Unit | undefine
   return best
 }
 
-/** 胡麻: trail the nearest fighting shiba from just behind, and every HEAL_EVERY mend every shiba inside HEAL_RADIUS. */
+/** 胡麻: walk to the most-hurt shiba (else trail the nearest one from just behind), and every HEAL_EVERY mend every shiba inside HEAL_RADIUS. */
 function mendFree(sim: Sim, healer: Unit, dt: number, beat: number): void {
+  // Head for the shiba that needs it most (low HP share, nearer wins ties); with nobody hurt, trail the nearest shiba.
+  let hurt: Unit | undefined
+  let hurtScore = Infinity
   let lead: Unit | undefined
   let leadD = Infinity
   for (const u of sim.shibas) {
@@ -805,8 +810,17 @@ function mendFree(sim: Sim, healer: Unit, dt: number, beat: number): void {
       leadD = d
       lead = u
     }
+    if (u.hp <= 0 || u.hp >= u.maxHp) continue
+    const score = u.hp / u.maxHp + d / HEAL_SEEK_SPAN
+    if (score < hurtScore) {
+      hurtScore = score
+      hurt = u
+    }
   }
-  if (lead) {
+  if (hurt) {
+    const d = Math.hypot(hurt.x - healer.x, hurt.y - healer.y)
+    if (d > HEAL_RADIUS * HEAL_CLOSE) stepToward(healer, hurt.x, hurt.y, Math.min(d, healer.speed * dt))
+  } else if (lead) {
     const tx = lead.x
     const ty = lead.y + HEAL_FOLLOW
     const d = Math.hypot(tx - healer.x, ty - healer.y)
