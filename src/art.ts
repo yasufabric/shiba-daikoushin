@@ -24,6 +24,8 @@ import {
   NIGHT_2,
   NIGHT_3,
   WHITE,
+  WHITE_DARK,
+  WHITE_MID,
 } from './palette'
 
 export interface Seal {
@@ -140,6 +142,10 @@ const RED: Record<string, string> = {
   p: DANGER_LIGHT,
   g: GOLD_LIGHT,
   G: GOLD,
+  t: WHITE_MID,
+  T: WHITE_DARK,
+  u: WHITE,
+  q: WHITE_DARK,
 }
 
 /** 黒柴: night fur, tan まろ眉 and tan curl underside, white urajiro. */
@@ -153,6 +159,7 @@ const BLACK: Record<string, string> = {
   e: FUR_LIGHT,
   s: NIGHT_2,
   k: NIGHT,
+  q: GOLD,
 }
 
 /** 胡麻柴: red fur with dark tips on the crown and back. */
@@ -171,6 +178,7 @@ const CREAM: Record<string, string> = {
   c: WHITE,
   e: WHITE,
   s: FUR_LIGHT,
+  q: DANGER,
 }
 
 export const FUR_RED = 0
@@ -263,67 +271,109 @@ function mirror(half: readonly string[], swap: Record<string, string>, fur: stri
 }
 
 /**
- * Front-facing marching shiba, 16×16. Rows 0–10 are the head: upright ears (left lit, right in shadow),
- * brows, a happy squint, white urajiro cheeks and muzzle, dark nose and a シバスマイル tongue.
- * Rows 11–13 are the white chest. The curl sits on the right hip.
+ * Front-facing soldier shiba, 24×24. Left half, mirrored. A steel helmet sits between upright ears
+ * (left lit, right in shadow) with a coat-colored band, then brows, open eyes with a highlight,
+ * white urajiro cheeks and muzzle, a dark nose and a シバスマイル tongue. The curl sits on the right hip.
  */
-const CROWD_HEAD = [
-  '.L..........L...',
-  'LoL........LmL..',
-  'LhoL......LmmL..',
-  'LhooLLLLLLmmmL..',
-  'LhhoosoosoommL..',
-  'LhooeoooooeomL..',
-  'LookkooookkomL..',
-  'LwwwwwoowwwwwL..',
-  'LwwwwwnnwwwwwL..',
-  '.LwwwwppwwwwL...',
-  '..LLwwwwwwLL....',
+const CROWD_HALF = [
+  '..L.........',
+  '.LhL........',
+  '.LhoL...LLLL',
+  'LhhcoL.Luutt',
+  'LhccoLLuuttt',
+  'LhccLuuttttt',
+  'LhcLtttttttt',
+  'LhoLqqqqqqqq',
+  'LhhooooooooO',
+  'LhoooeeooooO',
+  'LhoooookxooO',
+  'LwwooookkooO',
+  'LwwwwooooooO',
+  'Lwwwwwwwwooo',
+  'Lwwwwwwwwwnn',
+  '.Lwwwwwwkwwn',
+  '..Lwwwwwwkpp',
+  '...Lwwwwwwww',
+  '...Lowwwwwww',
+  '..Lhoswwwwww',
+  '..Lhooowwwww',
 ] as const
 
-const CROWD_CHEST = ['...LowwwwoL.....', '...LoowwooL.....', '...LhossomL.....'] as const
+const PAW_DOWN = ['..LhoooLwwwL', '..LhooLwwwwL', '..LLLLLLLLLL'] as const
+const PAW_UP = ['..LhooLwwwwL', '..LLLLLLLLLL', '............'] as const
 
-const CURL_UP = ['..LLLL', '.LhooL', 'LocccL', 'LoLmmL', 'LmmmL.', '.LLL..'] as const
-const CURL_WAG = ['.LLL.', 'LhooL', 'LocmL', 'LmmmL', '.LL..'] as const
+const CROWD_SWAP: Record<string, string> = { h: 'o', O: 'o', u: 't', t: 'T' }
 
-const CROWD_FEET = [
-  ['...LmLLmL.......', '...LL..LL.......'],
-  ['...LmL.LmL......', '...LL..LL.......'],
-  ['....LmLmL.......', '....LL.LL.......'],
-  ['..LmL.LmL.......', '..LL..LL........'],
-  ['...LmLLmL.......', '...LLLLLL.......'],
+const CURL_UP = [
+  '..LLLL..',
+  '.LhoooL.',
+  'LhoLLomL',
+  'LoLccLmL',
+  'LoLcLomL',
+  'LocLoomL',
+  '.LmmmmL.',
+  '..LLLL..',
+] as const
+const CURL_WAG = [
+  '.LLLL...',
+  'LhoooL..',
+  'LoLLomL.',
+  'LLccLmL.',
+  'LcLLomL.',
+  '.LcoomL.',
+  '..LmmL..',
+  '...LL...',
 ] as const
 
 type Mouth = 'smile' | 'shut' | 'bark'
 
 interface CrowdPose {
-  feet: number
+  left: boolean
+  right: boolean
   wag: boolean
   mouth: Mouth
 }
 
-/** Walk ×4, idle tail wag ×2, attack windup, bark, and two recovery frames. */
+/** Walk ×4, idle tail wag ×2, attack windup, bark, and two recovery frames. true = paw down. */
 const CROWD_POSES: readonly CrowdPose[] = [
-  { feet: 0, wag: false, mouth: 'smile' },
-  { feet: 1, wag: true, mouth: 'smile' },
-  { feet: 2, wag: false, mouth: 'smile' },
-  { feet: 3, wag: true, mouth: 'smile' },
-  { feet: 4, wag: false, mouth: 'smile' },
-  { feet: 4, wag: true, mouth: 'smile' },
-  { feet: 4, wag: false, mouth: 'shut' },
-  { feet: 0, wag: true, mouth: 'bark' },
-  { feet: 2, wag: false, mouth: 'smile' },
-  { feet: 4, wag: true, mouth: 'smile' },
+  { left: true, right: false, wag: false, mouth: 'smile' },
+  { left: true, right: true, wag: true, mouth: 'smile' },
+  { left: false, right: true, wag: false, mouth: 'smile' },
+  { left: true, right: true, wag: true, mouth: 'smile' },
+  { left: true, right: true, wag: false, mouth: 'smile' },
+  { left: true, right: true, wag: true, mouth: 'smile' },
+  { left: true, right: true, wag: false, mouth: 'shut' },
+  { left: true, right: false, wag: true, mouth: 'bark' },
+  { left: true, right: true, wag: false, mouth: 'smile' },
+  { left: true, right: true, wag: true, mouth: 'smile' },
 ]
 
 function crowdRows(pose: CrowdPose): string[] {
-  const feet = CROWD_FEET[pose.feet] ?? CROWD_FEET[0]
-  const g = [...CROWD_HEAD, ...CROWD_CHEST, ...feet]
-  if (pose.mouth === 'shut') stamp(g, 6, 9, ['ww'])
-  if (pose.mouth === 'bark') stamp(g, 5, 8, ['wnnw', 'nppn'])
-  if (pose.wag) stamp(g, 11, 8, CURL_WAG)
-  else stamp(g, 10, 7, CURL_UP)
+  const half = [...CROWD_HALF.map((line) => line.replace(/O/g, 'o'))]
+  const body = mirror(half, CROWD_SWAP, 'o', 'm')
+  const left = pose.left ? PAW_DOWN : PAW_UP
+  const right = pose.right ? PAW_DOWN : PAW_UP
+  const feet = mirrorPair(left, right, CROWD_SWAP, 'o', 'm')
+  const g = [...body, ...feet]
+  if (pose.mouth === 'shut') stamp(g, 10, 16, ['wwww'])
+  if (pose.mouth === 'bark') stamp(g, 9, 14, ['wnnnnw', 'nppppn', 'wnnnnw'])
+  if (pose.wag) stamp(g, 17, 14, CURL_WAG)
+  else stamp(g, 16, 14, CURL_UP)
   return g
+}
+
+/** Mirror a right half from its own left-half rows, so each paw can lift on its own. */
+function mirrorPair(
+  left: readonly string[],
+  right: readonly string[],
+  swap: Record<string, string>,
+  fur: string,
+  shade: string,
+): string[] {
+  return left.map((line, i) => {
+    const mirrored = mirror([right[i] ?? ''], swap, fur, shade)[0] ?? ''
+    return line + mirrored.slice(line.length)
+  })
 }
 
 const CROWD_ROWS = CROWD_POSES.map(crowdRows)
@@ -332,13 +382,13 @@ const CROWD_ROWS = CROWD_POSES.map(crowdRows)
 const HERO_HALF = [
   '...L..........',
   '..LhL.........',
-  '..LhoL........',
-  '.LhhooL.......',
-  '.LhcooL.......',
-  '.LhccooL......',
-  'LhhcccooLLLLLL',
-  'LhhcccoooooooO',
-  'LhoooooosoooOO',
+  '..LhoL....LLLL',
+  '.LhhooL.LLuutt',
+  '.LhcooLLuuuttt',
+  '.LhccoLuuttttt',
+  'LhhccLuttttttt',
+  'LhhcLttttttttt',
+  'LhoLqqqqqqqqqq',
   'LhhoooooooooOO',
   'LhoooooeeoooOO',
   'LhooooookxkoOO',
@@ -376,18 +426,36 @@ const HERO_CURL = [
   '..LLLLLL..',
 ] as const
 
-const HERO_SWAP: Record<string, string> = { h: 'o', O: 'o' }
+const HERO_SWAP: Record<string, string> = { h: 'o', O: 'o', u: 't', t: 'T' }
 
-function hero(blink: boolean, reward: boolean): string[] {
+export type Face = 'open' | 'blink' | 'smug'
+
+function hero(face: Face, reward: boolean): string[] {
   const half = HERO_HALF.map((line) => line.replace(/O/g, 'o'))
   const g = mirror(half, HERO_SWAP, 'o', 'm').map((line) => `${line}....`)
-  if (blink) {
+  if (face === 'blink') {
     for (const y of [11, 12]) {
       for (let x = 0; x < HERO_PX; x++) {
         const ch = g[y]?.[x]
         if (ch === 'k' || ch === 'x') put(g, x, y, y === 11 ? 'o' : 'k')
       }
     }
+  }
+  if (face === 'smug') {
+    // Heavy lids, eyes sliding sideways, one brow up, and a lopsided smirk instead of the tongue.
+    for (let x = 0; x < HERO_PX; x++) {
+      const ch = g[11]?.[x]
+      if (ch === 'k' || ch === 'x') put(g, x, 11, 'L')
+    }
+    put(g, 9, 12, 'x')
+    put(g, 20, 12, 'x')
+    stamp(g, 6, 9, ['eee'])
+    stamp(g, 7, 10, ['oo'])
+    stamp(g, 12, 18, ['wwww', 'wwww'])
+    stamp(g, 9, 17, ['w'])
+    stamp(g, 12, 18, ['kk'])
+    stamp(g, 18, 16, ['wk'])
+    stamp(g, 18, 17, ['k'])
   }
   stamp(g, 22, 18, HERO_CURL)
   if (reward) {
@@ -398,44 +466,47 @@ function hero(blink: boolean, reward: boolean): string[] {
   return g
 }
 
-/** Angry cat, 24×24 front view. Left half, mirrored. Pink slit eyes and a ω mouth. */
+/** Angry cat, 28×28 front view. Left half, mirrored. Pink slit eyes and a ω mouth. */
 const CAT_HALF = [
-  '..L.........',
-  '.LbL........',
-  '.LbpL.......',
-  '.LhppL......',
-  'LhbppbL.....',
-  'LhbpppbLLLLL',
-  'LhhbbbbbbbbB',
-  'Lhhbbbbbbbbb',
-  'Lhbbbbbbbbbb',
-  'LhbbbdLbbbbb',
-  'LhbbbbdeLbbb',
-  'LhbbbbLeeLbb',
-  'LhbbbbbLLbbb',
-  'Lhbbbbbbbhhp',
-  '.Lbbbbbbhdhd',
-  '..LLbbbbhhhh',
-  '....LbbbhhhH',
-  '...LhbbbhhhH',
-  '...LhbbbbhhH',
-  '...LhbbbbbhH',
-  '...LbbbbbbbB',
+  '..L...........',
+  '.LbL..........',
+  '.LbpL.........',
+  '.LhppL........',
+  'LhbppbL.......',
+  'LhbpppbL......',
+  'LhbppppbLLLLLL',
+  'LhhbbbbbbbbbbB',
+  'LhhbbbbbbbbbbB',
+  'Lhbbbbbbbbbbbb',
+  'LhbbbbddLbbbbb',
+  'LhbbbbbbdeLbbb',
+  'LhbbbbbbLeeLbb',
+  'LhbbbbbbbLLbbb',
+  'Lhbbbbbbbbbbhp',
+  'Lhbbbbbbbbhdhd',
+  '.Lbbbbbbbbhhhh',
+  '..LLbbbbbbhhhh',
+  '....LbbbbbhhhH',
+  '...LhbbbbbhhhH',
+  '...LhbbbbbbhhH',
+  '...LhbbbbbbbhH',
+  '...LhbbbbbbbbB',
+  '...LbbbbbbbbbB',
 ] as const
 
 const CAT_SWAP: Record<string, string> = { h: 'b', B: 'm', H: 'h' }
 
 const CAT_FEET = [
-  ['...LbbbmLbbbbbbLmbbbL...', '...LmmmL..LLLL..LmmmL...', '...LLLLL........LLLLL...'],
-  ['...LbbbmLbbbbbbLmbbbL...', '...LLLLL..LLLL..LmmmL...', '................LLLLL...'],
-  ['...LbbbmLbbbbbbLmbbbL...', '...LmmmL..LLLL..LmmmL...', '...LLLLL........LLLLL...'],
-  ['...LbbbmLbbbbbbLmbbbL...', '...LmmmL..LLLL..LLLLL...', '...LLLLL................'],
-  ['...LbbbbbbbbbbbbbbbbL...', '...LmmmLLmmmmmmLLmmmL...', '...LLLLLLLLLLLLLLLLLL...'],
+  ['...LbbbbmLbbbbbbbbLmbbbbL...', '...LmmmmL.LLLLLLLL.LmmmmL...', '...LmmmmL..........LLLLLL...', '...LLLLLL...................'],
+  ['...LbbbbmLbbbbbbbbLmbbbbL...', '...LmmmmL.LLLLLLLL.LmmmmL...', '...LmmmmL..........LmmmmL...', '...LLLLLL..........LLLLLL...'],
+  ['...LbbbbmLbbbbbbbbLmbbbbL...', '...LmmmmL.LLLLLLLL.LmmmmL...', '...LLLLLL..........LmmmmL...', '...................LLLLLL...'],
+  ['...LbbbbmLbbbbbbbbLmbbbbL...', '...LmmmmL.LLLLLLLL.LmmmmL...', '...LmmmmL..........LmmmmL...', '...LLLLLL..........LLLLLL...'],
+  ['...LbbbbbbbbbbbbbbbbbbbbL...', '...LmmmmLLmmmmmmmmLLmmmmL...', '...LmmmmL..........LmmmmL...', '...LLLLLL..........LLLLLL...'],
 ] as const
 
-const CAT_TAIL_A = ['..LL', '.LbL', 'LbL.', 'LmL.', 'LmL.'] as const
-const CAT_TAIL_B = ['LL..', 'LbL.', '.LbL', '.LmL', 'LmL.'] as const
-const CAT_PAW = ['LLLL.', 'LhhbL', 'LhbbL', '.LmL.'] as const
+const CAT_TAIL_A = ['..LL', '.LbL', 'LbL.', 'LmL.', 'LmL.', 'LmL.'] as const
+const CAT_TAIL_B = ['LL..', 'LbL.', '.LbL', '.LmL', 'LmL.', 'LmL.'] as const
+const CAT_PAW = ['LLLLL.', 'LhhhbL', 'LhbbbL', '.LmmL.'] as const
 
 interface CatPose {
   feet: number
@@ -462,12 +533,12 @@ function catFrame(pose: CatPose): string[] {
   for (const line of CAT_FEET[pose.feet] ?? CAT_FEET[0]) g.push(line)
   if (pose.blink) {
     for (let x = 0; x < CAT_PX; x++) {
-      if (g[11]?.[x] === 'e') put(g, x, 11, 'L')
-      if (g[10]?.[x] === 'e') put(g, x, 10, 'b')
+      if (g[12]?.[x] === 'e') put(g, x, 12, 'L')
+      if (g[11]?.[x] === 'e') put(g, x, 11, 'b')
     }
   }
-  stamp(g, 20, 14, pose.tail ? CAT_TAIL_B : CAT_TAIL_A)
-  if (pose.swipe) stamp(g, 0, 15, CAT_PAW)
+  stamp(g, 24, 16, pose.tail ? CAT_TAIL_B : CAT_TAIL_A)
+  if (pose.swipe) stamp(g, 0, 17, CAT_PAW)
   return g
 }
 
@@ -594,14 +665,24 @@ export const crowdArt: readonly Seal[][] = FUR_MAPS.map((map, i) => sealAll(`cro
 
 export const catArt = CAT_POSES.map((pose, i) => seal(`cat-${i}`, catFrame(pose), CAT))
 
-/** Red, red blink, black, black blink, reward (red with a gold collar). */
+export const HERO_FACES: readonly Face[] = ['open', 'blink', 'smug']
+const HERO_COATS = [
+  ['red', RED],
+  ['black', BLACK],
+  ['cream', CREAM],
+] as const
+
+/** Three coats × open, blink, smug, then the reward (red with a gold collar). Index with heroCell. */
 export const heroArt = [
-  seal('hero-red', hero(false, false), RED),
-  seal('hero-red-blink', hero(true, false), RED),
-  seal('hero-black', hero(false, false), BLACK),
-  seal('hero-black-blink', hero(true, false), BLACK),
-  seal('hero-reward', hero(false, true), RED),
+  ...HERO_COATS.flatMap(([name, map]) => HERO_FACES.map((face) => seal(`hero-${name}-${face}`, hero(face, false), map))),
+  seal('hero-reward', hero('open', true), RED),
 ]
+
+export const HERO_REWARD = HERO_COATS.length * HERO_FACES.length
+
+export function heroCell(coat: number, face: Face): number {
+  return coat * HERO_FACES.length + HERO_FACES.indexOf(face)
+}
 
 export const boneArt = seal('bone', [...BONE_ROWS], BONE_MAP)
 export const pawArt = seal('paw', [...PAW_ROWS], RED)

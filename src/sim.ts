@@ -45,6 +45,27 @@ import {
   TRICKLE_EVERY,
   WAVE_EVERY,
   BEAM_TIME,
+  BARK_EVERY,
+  BARK_HIT,
+  BARK_REACH,
+  CHEESE_HIT,
+  CHEESE_PUSH,
+  COST_WHITE,
+  COUNT_WHITE,
+  CUT_TIME,
+  DPS_WHITE,
+  HEAVY_EVERY,
+  HEAVY_HIT,
+  HP_WHITE,
+  JERKY_CASTLE,
+  JERKY_DEPTH,
+  JERKY_HIT,
+  KIND_WHITE,
+  KINDS,
+  RUSH_TIME,
+  SPECIAL_NEED,
+  SPEED_WHITE,
+  STEP_WHITE,
 } from './balance'
 
 export type Phase = 'grow' | 'clash' | 'boss'
@@ -60,6 +81,8 @@ export interface Unit {
   hp: number
   dps: number
   fly: number
+  /** Seconds until the next heavy bite or bark. */
+  cd: number
 }
 
 export interface Input {
@@ -82,6 +105,7 @@ export interface Sim {
   cats: Unit[]
   costTan: number
   costBlack: number
+  costWhite: number
   castleHp: number
   boss: boolean
   cannonCd: number
@@ -95,6 +119,15 @@ export interface Sim {
   guard: boolean
   deny0: number
   deny1: number
+  deny2: number
+  /** Special gauge per coat, in damage dealt. Fires at SPECIAL_NEED. */
+  charge: number[]
+  /** The coat whose special cut-in is showing, or -1. */
+  cutKind: number
+  cutT: number
+  rushT: number
+  /** Coat whose special just fired this step, or -1. */
+  sfxSpecial: number
   seq: number
   sfxDeploy: number
   sfxCannon: number
@@ -109,8 +142,8 @@ export interface SimOptions {
   seed?: number
 }
 
-const OPEN_Y = [430, 470, 510, 550, 400, 460, 520, 570, 390, 500]
-const OPEN_LANE = [0, 1, 2, 3, 4, 5, 6, 7, 2, 5]
+const OPEN_Y = [430, 470, 510, 550, 400, 500, 540, 580, 620, 470]
+const OPEN_LANE = [0, 1, 2, 3, 4, 0, 1, 2, 3, 4]
 
 export function phaseAt(time: number): Phase {
   if (time >= BOSS_AT) return 'boss'
@@ -135,6 +168,7 @@ function makePool(max: number): Unit[] {
       hp: 0,
       dps: 0,
       fly: 0,
+      cd: 0,
     })
   }
   return units
@@ -153,6 +187,7 @@ export function createSim(opts?: SimOptions): Sim {
     cats: makePool(MAX_CATS),
     costTan: COST_TAN,
     costBlack: COST_BLACK,
+    costWhite: COST_WHITE,
     castleHp: CASTLE_HP,
     boss: false,
     cannonCd: 0,
@@ -166,6 +201,12 @@ export function createSim(opts?: SimOptions): Sim {
     guard: false,
     deny0: 0,
     deny1: 0,
+    deny2: 0,
+    charge: [0, 0, 0],
+    cutKind: -1,
+    cutT: 0,
+    rushT: 0,
+    sfxSpecial: -1,
     seq: 0,
     sfxDeploy: 0,
     sfxCannon: 0,
@@ -189,6 +230,7 @@ function boot(sim: Sim): void {
   sim.aliveCats = 0
   sim.costTan = COST_TAN
   sim.costBlack = COST_BLACK
+  sim.costWhite = COST_WHITE
   sim.castleHp = CASTLE_HP
   sim.boss = false
   sim.cannonCd = 0
@@ -201,6 +243,12 @@ function boot(sim: Sim): void {
   sim.guard = false
   sim.deny0 = 0
   sim.deny1 = 0
+  sim.deny2 = 0
+  sim.charge.fill(0)
+  sim.cutKind = -1
+  sim.cutT = 0
+  sim.rushT = 0
+  sim.sfxSpecial = -1
   sim.seq = 0
   sim.sfxDeploy = 0
   sim.sfxCannon = 0
@@ -222,20 +270,27 @@ function clear(units: Unit[]): void {
 export function spawnShiba(sim: Sim, kind: number, lane: number, y: number): boolean {
   const unit = acquire(sim.shibas, sim, 's')
   if (!unit) return false
-  const black = kind === KIND_BLACK
   const laneW = FIELD_W / LANE_COUNT
+  const k = kind === KIND_BLACK || kind === KIND_WHITE ? kind : KIND_TAN
   unit.alive = true
   unit.lane = lane
-  unit.kind = black ? KIND_BLACK : KIND_TAN
-  unit.hp = black ? HP_BLACK : HP_TAN
-  unit.dps = black ? DPS_BLACK : DPS_TAN
-  unit.speed = black ? SPEED_BLACK : SPEED_TAN
+  unit.kind = k
+  unit.hp = HP_OF[k] ?? HP_TAN
+  unit.dps = DPS_OF[k] ?? DPS_TAN
+  unit.speed = SPEED_OF[k] ?? SPEED_TAN
   unit.fly = 0
+  unit.cd = 0
   unit.y = y
-  unit.x = laneW * (lane + 0.5) + ((lane * 3 + (y | 0)) % 7) - 3
+  unit.x = laneW * (lane + 0.5) + ((lane * 7 + (y | 0) * 3) % 21) - 10
   sim.aliveShibas += 1
   return true
 }
+
+const HP_OF = [HP_TAN, HP_BLACK, HP_WHITE] as const
+const DPS_OF = [DPS_TAN, DPS_BLACK, DPS_WHITE] as const
+const SPEED_OF = [SPEED_TAN, SPEED_BLACK, SPEED_WHITE] as const
+const COUNT_OF = [COUNT_TAN, COUNT_BLACK, COUNT_WHITE] as const
+const STEP_OF = [STEP_TAN, STEP_BLACK, STEP_WHITE] as const
 
 export function fillMarch(sim: Sim, count: number): number {
   let spawned = 0
@@ -260,8 +315,9 @@ function spawnCat(sim: Sim, lane: number): boolean {
   unit.dps = CAT_DPS
   unit.speed = CAT_SPEED
   unit.fly = 0
+  unit.cd = 0
   unit.y = 22 + (lane % 4) * 16
-  unit.x = laneW * (lane + 0.5)
+  unit.x = laneW * (lane + 0.5) + ((sim.aliveCats * 7 + lane * 5) % 17) - 8
   sim.aliveCats += 1
   return true
 }
@@ -298,8 +354,7 @@ export function step(sim: Sim, dt: number, input: Input = NO_INPUT): void {
     return
   }
 
-  if (input.card === 0) tryDeploy(sim, 0)
-  else if (input.card === 1) tryDeploy(sim, 1)
+  if (input.card === 0 || input.card === 1 || input.card === 2) tryDeploy(sim, input.card)
   if (input.cannon) fireCannon(sim)
 
   const income = BONE_RATE + sim.aliveShibas * BONE_PER_SHIBA
@@ -325,13 +380,28 @@ export function step(sim: Sim, dt: number, input: Input = NO_INPUT): void {
 
   flyCats(sim, tick)
   fight(sim, tick)
+  bark(sim, tick)
   reap(sim)
+  if (sim.rushT > 0) sim.rushT -= tick
+  if (sim.cutT > 0) {
+    sim.cutT -= tick
+    if (sim.cutT <= 0) sim.cutKind = -1
+  }
+  if (sim.cutT <= 0) {
+    for (let kind = 0; kind < KINDS; kind++) {
+      if ((sim.charge[kind] ?? 0) < (SPECIAL_NEED[kind] ?? Infinity)) continue
+      fireSpecial(sim, kind)
+      reap(sim)
+      break
+    }
+  }
 
   if (sim.cannonCd > 0) sim.cannonCd -= tick
   if (sim.beam > 0) sim.beam -= tick
   if (sim.floatT > 0) sim.floatT -= tick
   if (sim.deny0 > 0) sim.deny0 -= tick
   if (sim.deny1 > 0) sim.deny1 -= tick
+  if (sim.deny2 > 0) sim.deny2 -= tick
 
   if (sim.castleHp <= 0) {
     sim.castleHp = 0
@@ -345,37 +415,49 @@ export function step(sim: Sim, dt: number, input: Input = NO_INPUT): void {
   }
 }
 
-function tryDeploy(sim: Sim, card: 0 | 1): void {
-  const cost = card === 0 ? sim.costTan : sim.costBlack
-  const count = card === 0 ? COUNT_TAN : COUNT_BLACK
-  const kind = card === 0 ? KIND_TAN : KIND_BLACK
+function tryDeploy(sim: Sim, card: number): void {
+  const cost = costOf(sim, card)
+  const count = COUNT_OF[card] ?? COUNT_TAN
   if (sim.bones < cost) {
-    if (card === 0) sim.deny0 = 0.18
-    else sim.deny1 = 0.18
+    deny(sim, card)
     return
   }
   const start = sim.seq % LANE_COUNT
   sim.seq += 1
   let spawned = 0
   for (let i = 0; i < count; i++) {
-    const lane = (start + i) % LANE_COUNT
+    const lane = (start + i * (card === KIND_WHITE ? 3 : 1)) % LANE_COUNT
     const y = laneBack(sim, lane)
     if (y > FIELD_H + 240) continue
-    if (spawnShiba(sim, kind, lane, y)) spawned += 1
+    if (spawnShiba(sim, card, lane, y)) spawned += 1
   }
   if (spawned === 0) {
-    if (card === 0) sim.deny0 = 0.18
-    else sim.deny1 = 0.18
+    deny(sim, card)
     return
   }
   sim.bones -= cost
-  if (card === 0) {
-    sim.costTan += STEP_TAN
+  const step = STEP_OF[card] ?? STEP_TAN
+  if (card === KIND_TAN) {
+    sim.costTan += step
     sim.tutorial = false
+  } else if (card === KIND_BLACK) {
+    sim.costBlack += step
   } else {
-    sim.costBlack += STEP_BLACK
+    sim.costWhite += step
   }
   sim.sfxDeploy = 1
+}
+
+export function costOf(sim: Sim, card: number): number {
+  if (card === KIND_BLACK) return sim.costBlack
+  if (card === KIND_WHITE) return sim.costWhite
+  return sim.costTan
+}
+
+function deny(sim: Sim, card: number): void {
+  if (card === KIND_BLACK) sim.deny1 = 0.18
+  else if (card === KIND_WHITE) sim.deny2 = 0.18
+  else sim.deny0 = 0.18
 }
 
 function laneBack(sim: Sim, lane: number): number {
@@ -391,7 +473,7 @@ function laneBack(sim: Sim, lane: number): number {
 
 function spawnWave(sim: Sim): void {
   const horde = sim.time >= CLASH_AT
-  const size = horde ? 8 + Math.floor((sim.time - CLASH_AT) / 12) : TRICKLE_COUNT
+  const size = horde ? 5 + Math.floor((sim.time - CLASH_AT) / 18) : TRICKLE_COUNT
   for (let i = 0; i < size; i++) spawnCat(sim, nextLane(sim, i))
 }
 
@@ -474,7 +556,8 @@ function moveLane(sim: Sim, lane: number, dt: number): void {
   for (let i = 0; i < sn; i++) {
     const unit = sim.shibas[sIdx[i] ?? -1]
     if (!unit?.alive) continue
-    if (unit.y > stop) unit.y = Math.max(stop, unit.y - unit.speed * dt)
+    const pace = unit.kind === KIND_TAN && sim.rushT > 0 ? 1.8 : 1
+    if (unit.y > stop) unit.y = Math.max(stop, unit.y - unit.speed * pace * dt)
     stop = unit.y + GAP
   }
 
@@ -492,7 +575,17 @@ function moveLane(sim: Sim, lane: number, dt: number): void {
   const cat = cn > 0 ? sim.cats[cIdx[0] ?? -1] : undefined
   if (shiba?.alive && cat?.alive && Math.abs(shiba.y - cat.y) <= ATTACK_RANGE) {
     shiba.hp -= cat.dps * dt
-    cat.hp -= shiba.dps * dt
+    if (shiba.kind === KIND_BLACK) {
+      shiba.cd -= dt
+      if (shiba.cd <= 0) {
+        shiba.cd = HEAVY_EVERY
+        hurt(sim, cat, HEAVY_HIT, KIND_BLACK)
+      }
+    } else if (shiba.kind === KIND_TAN) {
+      hurt(sim, cat, shiba.dps * (sim.rushT > 0 ? 2 : 1) * dt, KIND_TAN)
+    } else {
+      hurt(sim, cat, shiba.dps * dt, KIND_WHITE)
+    }
   }
 
   if (sim.boss && cn === 0) {
@@ -501,8 +594,85 @@ function moveLane(sim: Sim, lane: number, dt: number): void {
       const unit = sim.shibas[sIdx[i] ?? -1]
       if (!unit?.alive) continue
       if (unit.y > limit) break
-      sim.castleHp -= unit.dps * dt
+      const rush = unit.kind === KIND_TAN && sim.rushT > 0 ? 2 : 1
+      sim.castleHp -= unit.dps * rush * dt
     }
+  }
+}
+
+/** Damage a cat and fill that coat's special gauge with what landed. */
+function hurt(sim: Sim, cat: Unit, amount: number, kind: number): number {
+  const landed = Math.min(Math.max(0, cat.hp), amount)
+  cat.hp -= amount
+  sim.charge[kind] = (sim.charge[kind] ?? 0) + landed
+  return landed
+}
+
+/** 白柴 bark: a short-range blast into its own lane and both neighbors. */
+function bark(sim: Sim, dt: number): void {
+  const shibas = sim.shibas
+  for (let i = 0; i < shibas.length; i++) {
+    const unit = shibas[i]
+    if (!unit?.alive || unit.kind !== KIND_WHITE) continue
+    if (unit.cd > 0) unit.cd -= dt
+    if (unit.cd > 0) continue
+    let hit = false
+    for (let lane = unit.lane - 1; lane <= unit.lane + 1; lane++) {
+      if (lane < 0 || lane >= LANE_COUNT) continue
+      const n = sim.laneCN[lane] ?? 0
+      const idx = sim.laneC[lane]
+      if (!idx) continue
+      for (let j = 0; j < n; j++) {
+        const cat = sim.cats[idx[j] ?? -1]
+        if (!cat?.alive || cat.fly === 1 || cat.hp <= 0) continue
+        if (cat.y > unit.y || unit.y - cat.y > BARK_REACH) continue
+        hurt(sim, cat, BARK_HIT, KIND_WHITE)
+        hit = true
+      }
+    }
+    if (hit) unit.cd = BARK_EVERY
+  }
+}
+
+/** Specials: 赤「サツマイモ!!」rush, 黒「ジャーキー!!」pierce, 白「チーズ!!」shockwave. */
+export function fireSpecial(sim: Sim, kind: number): void {
+  sim.charge[kind] = 0
+  sim.cutKind = kind
+  sim.cutT = CUT_TIME
+  sim.sfxSpecial = kind
+  let dealt = 0
+  const cats = sim.cats
+  if (kind === KIND_TAN) {
+    sim.rushT = RUSH_TIME
+  } else if (kind === KIND_BLACK) {
+    for (let lane = 0; lane < LANE_COUNT; lane++) {
+      const n = Math.min(JERKY_DEPTH, sim.laneCN[lane] ?? 0)
+      const idx = sim.laneC[lane]
+      if (!idx) continue
+      for (let j = 0; j < n; j++) {
+        const cat = cats[idx[j] ?? -1]
+        if (!cat?.alive || cat.fly === 1) continue
+        dealt += Math.min(Math.max(0, cat.hp), JERKY_HIT)
+        cat.hp -= JERKY_HIT
+      }
+    }
+    if (sim.boss && sim.castleHp > 0) {
+      const applied = Math.min(sim.castleHp, JERKY_CASTLE)
+      sim.castleHp -= applied
+      dealt += applied
+    }
+  } else {
+    for (let i = 0; i < cats.length; i++) {
+      const cat = cats[i]
+      if (!cat?.alive || cat.fly === 1) continue
+      dealt += Math.min(Math.max(0, cat.hp), CHEESE_HIT)
+      cat.hp -= CHEESE_HIT
+      cat.y = Math.max(22, cat.y - CHEESE_PUSH)
+    }
+  }
+  if (dealt > 0) {
+    sim.floatDmg = dealt
+    sim.floatT = FLOAT_TIME
   }
 }
 

@@ -14,7 +14,7 @@ import {
   pawArt,
   type Seal,
 } from './art'
-import { BANNER_POP, BANNER_REST, CLEAR_WORD, GLYPHS, letterBit, LOSE_WORD, POP_COL, POP_ROW } from './font'
+import { BANNER_POP, BANNER_REST, CLEAR_WORD, GLYPHS, letterBit, LOSE_WORD, POP_COL, POP_ROW, RUMBLE_WORD, SPECIAL_WORDS } from './font'
 import {
   BOSS_H,
   BOSS_W,
@@ -148,7 +148,8 @@ describe('sprites', () => {
   it('uses the pixel-standard sizes and a 1px outline', () => {
     expect(INTERNAL_W * 2).toBe(VIEW_W)
     expect(INTERNAL_H * 2).toBe(VIEW_H)
-    expect(CROWD_PX).toBe(16)
+    expect(CROWD_PX).toBe(24)
+    expect(CAT_PX).toBe(28)
     expect(crowdArt).toHaveLength(4)
     expect(catArt).toHaveLength(10)
     for (const fur of crowdArt) {
@@ -156,6 +157,7 @@ describe('sprites', () => {
       for (const seal of fur) assertSealed(seal, CROWD_PX, CROWD_PX)
     }
     for (const seal of catArt) assertSealed(seal, CAT_PX, CAT_PX)
+    expect(heroArt).toHaveLength(10)
     for (const seal of heroArt) assertSealed(seal, HERO_PX, HERO_PX)
     assertSealed(boneArt, 12, 12)
     assertSealed(pawArt, 14, 16)
@@ -223,14 +225,14 @@ describe('sprites', () => {
     expect(GLYPH_H * BANNER_REST).toBe(20)
     expect(GLYPH_W * BANNER_POP).toBe(24)
     expect(GLYPH_H * BANNER_POP).toBe(30)
-    for (const word of [CLEAR_WORD, LOSE_WORD]) {
-      expect(word.length).toBeGreaterThan(3)
+    for (const word of [CLEAR_WORD, LOSE_WORD, ...SPECIAL_WORDS, RUMBLE_WORD]) {
+      expect(word.length).toBeGreaterThanOrEqual(3)
       for (const ch of word) {
         let on = 0
         for (let y = 0; y < GLYPH_H; y++) {
           for (let x = 0; x < GLYPH_W; x++) if (letterBit(ch, x, y)) on += 1
         }
-        expect(on, ch).toBeGreaterThan(8)
+        expect(on, ch).toBeGreaterThan(ch === 'ー' ? 8 : 10)
       }
     }
   })

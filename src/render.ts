@@ -1,4 +1,4 @@
-import { FUR_BLACK, FUR_CREAM, FUR_RED, FUR_SESAME, pawArt } from './art'
+import { FUR_BLACK, FUR_CREAM, FUR_RED, FUR_SESAME, HERO_REWARD, heroCell, pawArt } from './art'
 import {
   ATTACK_RANGE,
   BEAM_TIME,
@@ -9,7 +9,6 @@ import {
   CARD_H,
   CARD_W,
   CARD_X0,
-  CARD_X1,
   CARD_Y,
   CASTLE_HP,
   FIELD_H,
@@ -19,12 +18,18 @@ import {
   BANNER_HOLD,
   FLOAT_TIME,
   KIND_BLACK,
+  KIND_TAN,
+  KIND_WHITE,
+  KINDS,
+  CARD_XS,
+  CUT_TIME,
+  SPECIAL_NEED,
   LANE_COUNT,
   MAX_CATS,
   MAX_SHIBAS,
   PANEL_Y,
 } from './balance'
-import { BANNER_POP, BANNER_REST, CLEAR_WORD, glyphBit, letterBit, LOSE_WORD, POP_COL, POP_ROW } from './font'
+import { BANNER_POP, BANNER_REST, CLEAR_WORD, glyphBit, letterBit, LOSE_WORD, POP_COL, POP_ROW, RUMBLE_WORD, SPECIAL_WORDS } from './font'
 import {
   BOSS_H,
   BOSS_W,
@@ -39,6 +44,7 @@ import {
   GLYPH_H,
   GLYPH_W,
   FUR_BODY,
+  FUR_MID,
   GOLD_LIGHT,
   HERO_PX,
   INTERNAL_H,
@@ -49,8 +55,10 @@ import {
   NIGHT_2,
   NIGHT_3,
   WHITE,
+  WHITE_DARK,
+  WHITE_MID,
 } from './palette'
-import { cannonReady, type Outcome, type Sim } from './sim'
+import { cannonReady, costOf, type Outcome, type Sim } from './sim'
 import { createSheets, type Sheets } from './sprites'
 
 const BUCKETS = 96
@@ -60,7 +68,7 @@ const PARTS = 128
 const POP_MASK_W = 14
 const POP_MASK_H = 17
 
-const LANE_PX = [23, 23, 23, 23, 23, 23, 23, 22] as const
+const LANE_PX = [37, 37, 37, 36, 36] as const
 const GOLD_CYCLE = [GOLD_DARK, GOLD, GOLD_LIGHT, GOLD_HOT] as const
 const BOOM_COLOR = [WHITE, GOLD_LIGHT, GOLD, GOLD_HOT] as const
 const PART_COLOR = [WHITE, GOLD_LIGHT, GOLD, DANGER] as const
@@ -91,6 +99,8 @@ export interface Renderer {
   shibaOn: Uint8Array
   shibaSeen: Uint8Array
   shibaY: Float32Array
+  shibaCd: Float32Array
+  shibaAct: Float64Array
   catFly: Uint8Array
   catSeen: Uint8Array
   catY: Float32Array
@@ -277,6 +287,8 @@ export function createRenderer(): Renderer {
     shibaOn: new Uint8Array(MAX_SHIBAS),
     shibaSeen: new Uint8Array(MAX_SHIBAS),
     shibaY: new Float32Array(MAX_SHIBAS),
+    shibaCd: new Float32Array(MAX_SHIBAS),
+    shibaAct: new Float64Array(MAX_SHIBAS).fill(-9),
     catFly: new Uint8Array(MAX_CATS),
     catSeen: new Uint8Array(MAX_CATS),
     catY: new Float32Array(MAX_CATS),
@@ -353,7 +365,9 @@ export function draw(
   paintBooms(g, renderer, sim)
   g.restore()
   paintBeam(g, sim)
+  paintSpecialField(g, sim)
   paintDamage(g, renderer, sim)
+  paintCutIn(g, renderer, sim)
   g.restore()
   paintDock(g, renderer, sim)
   if (sim.outcome === 'won' && sim.rewardT <= 0) paintReward(g, renderer, sim)
@@ -369,18 +383,19 @@ export function draw(
   ctx.drawImage(renderer.view, frame.ox, frame.oy, destW, destH)
 }
 
-/** Night meadow lane: alternate shades, with grass tufts that scroll at the march pace. */
+/** One path's strip of night meadow. No stripes: grass tufts and darker patches scroll at the march pace. */
 function paintLane(ctx: CanvasRenderingContext2D, x: number, laneW: number, lane: number, fy: number, fh: number, rows: number, scroll: number): void {
-  if (laneW <= 0) return
-  if ((lane & 1) === 1) {
-    ctx.fillStyle = NIGHT_2
-    ctx.fillRect(x, fy, laneW, fh)
-  }
-  if (laneW < 4) return
-  ctx.fillStyle = (lane & 1) === 1 ? NIGHT_3 : NIGHT_2
+  if (laneW < 6) return
   for (let row = 0; row < rows; row++) {
     const y = fy + ((row * 12 + lane * 5 + scroll) % fh)
-    const tx = x + 1 + ((row * 7 + lane * 11) % (laneW - 3))
+    const tx = x + 1 + ((row * 13 + lane * 11) % (laneW - 5))
+    if (row % 5 === 2) {
+      ctx.fillStyle = NIGHT
+      ctx.fillRect(tx, y + 1, 6, 2)
+      ctx.fillRect(tx + 1, y, 4, 4)
+      continue
+    }
+    ctx.fillStyle = row % 3 === 0 ? NIGHT_3 : NIGHT_2
     ctx.fillRect(tx, y, 1, 2)
     ctx.fillRect(tx + 1, y + 1, 1, 1)
     ctx.fillRect(tx + 2, y, 1, 2)
@@ -519,8 +534,34 @@ function drawShiba(ctx: CanvasRenderingContext2D, renderer: Renderer, sim: Sim, 
   const hop = celebrateHop(sim, index)
   const dy = py(at(FIELD_Y + unit.y)) - CROWD_PX - hop
   ctx.fillStyle = NIGHT
-  ctx.fillRect(dx + 3, dy + hop + CROWD_PX - 2, 8, 2)
+  ctx.fillRect(dx + 4, dy + hop + CROWD_PX - 2, 16, 2)
+  const cd = unit.cd
+  if (seen && cd > (renderer.shibaCd[index] ?? 0) + 0.5) {
+    renderer.shibaAct[index] = sim.time
+    if (unit.kind === KIND_BLACK) spawnBoom(renderer, sim, dx + 11, dy - 4)
+  }
+  renderer.shibaCd[index] = cd
+  if (unit.kind === KIND_TAN && sim.rushT > 0 && moved) {
+    ctx.fillStyle = (Math.floor(sim.time * 24) & 1) === 0 ? GOLD : GOLD_LIGHT
+    ctx.fillRect(dx + 6, dy + CROWD_PX, 1, 4)
+    ctx.fillRect(dx + 16, dy + CROWD_PX + 1, 1, 5)
+  }
   blitCrowd(ctx, renderer, furOf(unit.kind, index), pose, fighting ? beat : sim.time, unit.lane, 0, flash, dx, dy)
+  if (unit.kind === KIND_WHITE) paintBark(ctx, sim.time - (renderer.shibaAct[index] ?? -9), dx + 12, dy)
+}
+
+/** 白柴's bark: three widening bars rising off the helmet, ")))" turned upward. */
+function paintBark(ctx: CanvasRenderingContext2D, age: number, cx: number, top: number): void {
+  if (age < 0 || age > 0.3) return
+  const rise = Math.floor(age * 30)
+  for (let ring = 0; ring < 3; ring++) {
+    const half = 3 + ring * 3
+    const y = top - 3 - ring * 3 - rise
+    ctx.fillStyle = ring === 0 ? WHITE : ring === 1 ? GOLD_HOT : GOLD_LIGHT
+    ctx.fillRect(cx - half + 1, y, half * 2 - 2, 1)
+    ctx.fillRect(cx - half, y + 1, 1, 2)
+    ctx.fillRect(cx + half - 1, y + 1, 1, 2)
+  }
 }
 
 function drawCat(ctx: CanvasRenderingContext2D, renderer: Renderer, sim: Sim, index: number): void {
@@ -541,7 +582,7 @@ function drawCat(ctx: CanvasRenderingContext2D, renderer: Renderer, sim: Sim, in
   }
   renderer.catFly[index] = 0
   ctx.fillStyle = NIGHT
-  ctx.fillRect(dx + 4, dy + CAT_PX - 2, 16, 2)
+  ctx.fillRect(dx + 4, dy + CAT_PX - 2, 20, 2)
   const prev = renderer.catY[index] ?? 0
   const seen = renderer.catSeen[index] === 1
   renderer.catY[index] = cat.y
@@ -568,11 +609,11 @@ function noteDeaths(renderer: Renderer, sim: Sim): void {
   }
 }
 
-/** The black card marches as 黒柴. The tan card is mostly 赤, with a sprinkle of 胡麻 and 白 by pool slot. */
+/** Each card is one coat: 赤 (with a sprinkle of 胡麻), 黒, and 白. */
 function furOf(kind: number, index: number): number {
   if (kind === KIND_BLACK) return FUR_BLACK
+  if (kind === KIND_WHITE) return FUR_CREAM
   if (index % 7 === 3) return FUR_SESAME
-  if (index % 11 === 6) return FUR_CREAM
   return FUR_RED
 }
 
@@ -811,6 +852,85 @@ function paintBeam(ctx: CanvasRenderingContext2D, sim: Sim): void {
   }
 }
 
+const COAT_DARK = [FUR_MID, NIGHT, WHITE_DARK] as const
+const COAT_LIT = [FUR_BODY, NIGHT_2, WHITE_MID] as const
+const CUT_H = 44
+const CUT_SLIDE = 0.12
+
+/** Field-wide effect for the first beat of a special: 黒 slashes down every path, 白 sweeps a shockwave up. */
+function paintSpecialField(ctx: CanvasRenderingContext2D, sim: Sim): void {
+  if (sim.cutKind < 0) return
+  const age = CUT_TIME - sim.cutT
+  const fx = px(at(FIELD_X))
+  const fy = py(at(FIELD_Y))
+  const fh = at(FIELD_H)
+  if (sim.cutKind === KIND_BLACK && age < 0.36) {
+    const reach = Math.floor((Math.min(1, age / 0.18) * fh) / 4) * 4
+    let x = fx
+    for (let lane = 0; lane < LANE_PX.length; lane++) {
+      const cx = x + ((LANE_PX[lane] ?? 0) >> 1)
+      ctx.fillStyle = GOLD_CYCLE[(Math.floor(age * 24) + lane) & 3] ?? GOLD
+      ctx.fillRect(cx - 1, fy, 3, reach)
+      ctx.fillStyle = WHITE
+      ctx.fillRect(cx, fy, 1, reach)
+      x += LANE_PX[lane] ?? 0
+    }
+  }
+  if (sim.cutKind === KIND_WHITE && age < 0.45) {
+    const y = fy + fh - Math.floor((age / 0.45) * fh)
+    const w = frame.internalW
+    ctx.fillStyle = WHITE_MID
+    ctx.fillRect(0, y + 4, w, 2)
+    ctx.fillStyle = WHITE
+    ctx.fillRect(0, y, w, 4)
+    ctx.fillStyle = GOLD_HOT
+    for (let x = (Math.floor(age * 60) & 7); x < w; x += 8) ctx.fillRect(x, y - 2, 3, 2)
+  }
+}
+
+/** Small cut-in: a striped band slides in, the smug face shouts the food, and ゴゴゴ shakes above it. */
+function paintCutIn(ctx: CanvasRenderingContext2D, renderer: Renderer, sim: Sim): void {
+  const kind = sim.cutKind
+  if (kind < 0 || sim.cutT <= 0) return
+  const age = CUT_TIME - sim.cutT
+  const w = frame.internalW
+  let slide = 0
+  if (age < CUT_SLIDE) slide = -Math.ceil(w * (1 - age / CUT_SLIDE))
+  else if (sim.cutT < CUT_SLIDE) slide = Math.ceil(w * (1 - sim.cutT / CUT_SLIDE))
+  const y = py(at(FIELD_Y)) + Math.round(at(FIELD_H) * 0.56)
+  ctx.fillStyle = LINE
+  ctx.fillRect(0, y - 2, w, CUT_H + 4)
+  ctx.fillStyle = COAT_DARK[kind] ?? NIGHT
+  ctx.fillRect(0, y, w, CUT_H)
+  ctx.fillStyle = COAT_LIT[kind] ?? NIGHT_2
+  const drift = Math.floor(age * 48) % 12
+  for (let row = 0; row < CUT_H; row++) {
+    for (let x = -CUT_H + ((drift + row) % 12); x < w; x += 12) ctx.fillRect(x + slide, y + row, 4, 1)
+  }
+  ctx.fillStyle = GOLD
+  ctx.fillRect(0, y, w, 1)
+  ctx.fillRect(0, y + CUT_H - 1, w, 1)
+  const col = heroCell(kind, 'smug')
+  const hx = 6 + slide
+  ctx.fillStyle = NIGHT
+  ctx.fillRect(hx - 2, y + 4, HERO_PX + 4, HERO_PX + 4)
+  frameRect(ctx, hx - 2, y + 4, HERO_PX + 4, HERO_PX + 4, GOLD_LIGHT)
+  ctx.drawImage(renderer.sheets.hero, col * HERO_PX, 0, HERO_PX, HERO_PX, hx, y + 6, HERO_PX, HERO_PX)
+  const word = SPECIAL_WORDS[kind] ?? ''
+  const shake = age < 0.3 ? (Math.floor(age * 30) & 1) : 0
+  const tx = hx + HERO_PX + 8
+  for (let i = 0; i < word.length; i++) {
+    drawLetter(ctx, word[i] ?? '', tx + i * 18 + shake, y + 12, 2, GOLD_LIGHT)
+  }
+  if (slide !== 0) return
+  const jitter = Math.floor(age * 16) & 1
+  for (let i = 0; i < RUMBLE_WORD.length; i++) {
+    const gx = w - 4 - (RUMBLE_WORD.length - i) * 11 + ((i + jitter) & 1)
+    const gy = y - 13 - ((i + jitter) & 1)
+    drawLetter(ctx, RUMBLE_WORD[i] ?? '', gx, gy, 1, DANGER)
+  }
+}
+
 function paintDamage(ctx: CanvasRenderingContext2D, renderer: Renderer, sim: Sim): void {
   if (sim.floatT <= 0 || sim.floatDmg <= 0) return
   const pop = sim.floatT > FLOAT_TIME - 0.12
@@ -828,8 +948,13 @@ function paintDock(ctx: CanvasRenderingContext2D, renderer: Renderer, sim: Sim):
   ctx.fillRect(0, y + 1, frame.internalW, Math.max(0, frame.internalH - y - 1))
   ctx.drawImage(renderer.sheets.bone, px(at(BONE_X)), pyDock(at(BONE_Y)))
   drawNumber(ctx, renderer, sim.bones | 0, px(at(BONE_X)) + 14, pyDock(at(BONE_Y)) + 1, false)
-  paintCard(ctx, renderer, px(at(CARD_X0) + denyShift(sim.deny0)), 0, sim.costTan, sim.bones >= sim.costTan, sim.tutorial, sim.time)
-  paintCard(ctx, renderer, px(at(CARD_X1) + denyShift(sim.deny1)), 1, sim.costBlack, sim.bones >= sim.costBlack, false, sim.time)
+  for (let kind = 0; kind < KINDS; kind++) {
+    const deny = kind === KIND_TAN ? sim.deny0 : kind === KIND_BLACK ? sim.deny1 : sim.deny2
+    const cost = costOf(sim, kind)
+    const x = px(at(CARD_XS[kind] ?? CARD_X0) + denyShift(deny))
+    paintCard(ctx, renderer, x, kind, cost, sim.bones >= cost, kind === KIND_TAN && sim.tutorial, sim.time)
+    paintGauge(ctx, x, kind, sim)
+  }
   paintCannon(ctx, renderer, sim)
 }
 
@@ -870,11 +995,30 @@ function paintCard(
   ctx.fillRect(x, y + h - 1, 1, 1)
   ctx.fillRect(x + w - 1, y + h - 1, 1, 1)
   const blink = (Math.floor(time * 2) & 1) === 1
-  const col = kind === KIND_BLACK ? (blink ? 3 : 2) : blink ? 1 : 0
+  const col = heroCell(kind, blink ? 'blink' : 'open')
   const hop = affordable ? (HOP[Math.floor(time * 8) & 7] ?? 0) >> 1 : 0
   ctx.drawImage(renderer.sheets.hero, col * HERO_PX, 0, HERO_PX, HERO_PX, hx, y + 3 - hop, HERO_PX, HERO_PX)
   ctx.drawImage(renderer.sheets.bone, x + 3, y + h - 14)
   drawNumber(ctx, renderer, cost | 0, x + 17, y + h - 12, false)
+}
+
+/** Special gauge under the portrait. Full gauges flash through the golds until the cut-in plays. */
+function paintGauge(ctx: CanvasRenderingContext2D, x: number, kind: number, sim: Sim): void {
+  const y = pyDock(at(CARD_Y)) + 38
+  const w = at(CARD_W) - 8
+  const need = SPECIAL_NEED[kind] ?? 1
+  const fill = Math.min(w, Math.floor((w * (sim.charge[kind] ?? 0)) / need))
+  ctx.fillStyle = LINE
+  ctx.fillRect(x + 3, y - 1, w + 2, 4)
+  ctx.fillStyle = NIGHT_1
+  ctx.fillRect(x + 4, y, w, 2)
+  const full = fill >= w
+  ctx.fillStyle = full ? (GOLD_CYCLE[Math.floor(sim.time * 12) & 3] ?? GOLD) : GOLD
+  ctx.fillRect(x + 4, y, fill, 2)
+  if (!full && fill > 0) {
+    ctx.fillStyle = GOLD_LIGHT
+    ctx.fillRect(x + 4, y, fill, 1)
+  }
 }
 
 function frameRect(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, color: string): void {
@@ -908,7 +1052,7 @@ function paintCannon(ctx: CanvasRenderingContext2D, renderer: Renderer, sim: Sim
 function paintPaw(ctx: CanvasRenderingContext2D, renderer: Renderer, time: number): void {
   const bob = BOB[Math.floor(time * 6) & 7] ?? 0
   const x = px(at(CARD_X0) + ((at(CARD_W) - pawArt.w) >> 1))
-  const y = pyDock(at(CARD_Y) - pawArt.h - 2 + bob)
+  const y = pyDock(at(CARD_Y)) - 6 + bob
   ctx.drawImage(renderer.sheets.paw, x, y)
 }
 
@@ -1024,7 +1168,7 @@ function paintReward(ctx: CanvasRenderingContext2D, renderer: Renderer, sim: Sim
   ctx.fillRect(x, y, 1, h)
   ctx.fillRect(x + w - 1, y, 1, h)
   const hx = x + ((w - HERO_PX) >> 1)
-  ctx.drawImage(renderer.sheets.hero, 4 * HERO_PX, 0, HERO_PX, HERO_PX, hx, y + 16, HERO_PX, HERO_PX)
+  ctx.drawImage(renderer.sheets.hero, HERO_REWARD * HERO_PX, 0, HERO_PX, HERO_PX, hx, y + 16, HERO_PX, HERO_PX)
   const spark = Math.floor(sim.time * 12)
   ctx.fillStyle = GOLD_HOT
   for (let i = 0; i < 6; i++) {

@@ -54,8 +54,8 @@ export const LINE = '#120b10'
 export const INTERNAL_W = 195
 export const INTERNAL_H = 422
 
-export const CROWD_PX = 16
-export const CAT_PX = 24
+export const CROWD_PX = 24
+export const CAT_PX = 28
 export const HERO_PX = 32
 export const BOSS_W = 72
 export const BOSS_H = 64

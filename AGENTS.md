@@ -1,6 +1,16 @@
 # しば大行進
 
-Portrait phone game. Shibas march up the field, cat swarms come down, and a three-minute match ends at the cat castle. The only input is deploying a card. At 50 shibas the わんわん砲 clears the field.
+Portrait phone game. Soldier shibas march up the field, cat swarms come down, and a three-minute match ends at the cat castle. The only input is deploying a card. At 50 shibas the わんわん砲 clears the field.
+
+Three cards, three soldiers, each with its own attack:
+
+- 赤 (tan card): a steady bite. Special 「サツマイモ!!」 sends every 赤 into a double-pace, double-bite rush.
+- 黒 (black card): one heavy bite at a time that drops a cat. Special 「ジャーキー!!」 pierces the front three cats on every path and hits the castle once it can be hit.
+- 白 (white card): barks from the second row into its own path and both neighbors. Special 「チーズ!!」 is a field-wide shockwave that shoves every cat back.
+
+Specials fire on their own when a coat's gauge (damage it has landed) fills. A small cut-in slides in: the smug portrait, the food shouted in pixel katakana, and ゴゴゴ. Shout foods only, never a product name.
+
+The field has five marching paths. They steer the sim, but the field draws no lane stripes: it is open night meadow, and units spread a little left and right inside their path.
 
 Stack: Vite, TypeScript, Canvas 2D. No runtime dependencies. Art is original pixel art in the closed palette below. Sound is Web Audio synthesis. Do not copy another game's art. External assets are allowed only when they are CC0 and recolored into this palette. No paid assets.
 
@@ -37,9 +47,9 @@ Design grid 195×422. CSS-pixel scale is an integer of at least 2, chosen so the
 ### Sprite sizes
 
 - Hero shiba: 32×32, big head, head and body the same height.
-- Regular cats: 24×24.
+- Regular cats: 28×28.
 - Boss: 64×64 or larger.
-- Marching crowd: 16×16. Up to four fur colors plus the outline. This replaces the old 12×12 sprites.
+- Marching soldier: 24×24, with a steel helmet between the ears and a coat-colored band. Up to four fur colors plus the outline.
 - Damage numbers: a dedicated pixel font, 8×10 per glyph.
 
 ### Palette
@@ -60,14 +70,14 @@ Characters get a 1px outline. The outer edge is `#120b10`. Inner lines use the d
 
 ### Shiba read
 
-The crowd sprite and the 32×32 card portrait are the same front-facing shiba. A later PR keeps this read. At 16×16, in this order:
+The crowd sprite and the 32×32 card portrait are the same front-facing shiba. A later PR keeps this read. At 24×24, in this order:
 
 - Two pointed upright triangular ears. The left ear is lit `#e08a3c`, the right ear is in shadow `#a8521e`.
 - Orange and tan fur with cream and white cheeks, muzzle, and chest (`#fffaf0`, `#f6c27a`).
 - A dark nose, `#6b2e12`.
 - A curled tail over the hip with a cream center.
 
-The portrait is that same view with a larger head, eye highlights, and a thicker curl.
+The portrait is that same view with a larger head, eye highlights, and a thicker curl. It has three faces: open, blink, and smug (heavy lids, one brow up, a lopsided smirk) for the cut-in. Cute, but a little hateful.
 
 The face smiles: a happy squint and a pink tongue (`#ffb3cf`), the シバスマイル. Urajiro runs unbroken from the cheeks down the chest.
 
@@ -75,8 +85,8 @@ Four coats share one set of rows and differ only by color map:
 
 - 赤 (red): the tan card and most of its crowd.
 - 胡麻 (sesame): red with `#6b2e12` tips on the crown and back. A sprinkle of the tan crowd.
-- 白 (cream): `#f6c27a` body with `#e08a3c` ear and curl shade. A sprinkle of the tan crowd.
-- 黒 (black and tan): the second card. Night shades for fur (`#2c3a63` body, `#4a5d8f` lit, `#18213d` shade), tan まろ眉 brows, tan curl underside, white urajiro.
+- 白 (cream): `#f6c27a` body with `#e08a3c` ear and curl shade. The white card.
+- 黒 (black and tan): the black card. Night shades for fur (`#2c3a63` body, `#4a5d8f` lit, `#18213d` shade), tan まろ眉 brows, tan curl underside, white urajiro.
 
 Gestures: idle wags the curl, the attack windup shuts the mouth and the hit frame barks.
 
