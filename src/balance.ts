@@ -128,15 +128,22 @@ export const FREE_REACH = 46
 export const FREE_SPACE = 30
 /** With nothing in sight, shibas walk up to this line and wait. */
 export const FREE_HOLD_Y = 250
+/** Shibas never chase above this line, so they can't camp the mansion gate. */
+export const FREE_SHIBA_TOP = 190
 /** A dog this close to the 柴の家 door bites the house. */
 export const FREE_HOME_REACH = 60
 /** A dog with nothing in sight walks straight down and turns for the door only this close to the bottom. */
 export const FREE_TURN = 150
 /** Shibas gang up on dogs in free placement, so dogs there get tougher and bite harder. */
-export const FREE_DOG_HP = 2.2
+export const FREE_DOG_HP = 1.65
 export const FREE_DOG_DPS = 1.2
 /** Waves come this many times slower in free placement, so fewer dogs crowd the field at once. */
 export const FREE_WAVE_SLOW = 1.8
+/** Everything walks this much slower in free placement, so each chase and bite reads. */
+export const FREE_PACE = 0.65
+/** Cards recharge this many times slower, and ホネ come in at this share, so shibas can't be spammed. */
+export const FREE_RECHARGE = 1.5
+export const FREE_INCOME = 0.8
 export const MAX_SHIBAS = 600
 export const MARCH_COUNT = 240
 

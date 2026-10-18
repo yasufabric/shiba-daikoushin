@@ -78,6 +78,10 @@ import {
   FREE_DOG_DPS,
   FREE_DOG_HP,
   FREE_WAVE_SLOW,
+  FREE_INCOME,
+  FREE_PACE,
+  FREE_SHIBA_TOP,
+  FREE_RECHARGE,
   FREE_ZONE_Y,
   BITE_EVERY,
   RECHARGE,
@@ -478,7 +482,7 @@ export function step(sim: Sim, dt: number, input: Input = NO_INPUT): void {
   if (input.pick !== undefined && input.pick >= 0 && input.pick < KINDS) sim.picked = input.pick
   if (input.card >= 0 && input.card < KINDS) tryDeploy(sim, input.card, input.lane, input.at)
 
-  const income = BONE_RATE + sim.aliveShibas * BONE_PER_SHIBA
+  const income = (BONE_RATE + sim.aliveShibas * BONE_PER_SHIBA) * (sim.free ? FREE_INCOME : 1)
   const tick = dt
   sim.bones += tick * income
   sim.time += tick
@@ -617,7 +621,7 @@ function tryDeploy(sim: Sim, card: number, chosen?: number, at?: { x: number; y:
     return
   }
   sim.bones -= cost
-  sim.recharge[card] = RECHARGE[card] ?? 0
+  sim.recharge[card] = (RECHARGE[card] ?? 0) * (sim.free ? FREE_RECHARGE : 1)
   const step = STEP_OF[card] ?? STEP_TAN
   sim.tutorial = false
   if (card === KIND_TAN) {
@@ -781,7 +785,10 @@ function spread(units: Unit[], dt: number): void {
 }
 
 /** Free placement: every shiba and dog walks to the nearest foe it can see and bites on the beat; dogs with nothing in sight head for the 柴の家. */
-function moveFree(sim: Sim, dt: number): void {
+function moveFree(sim: Sim, rawDt: number): void {
+  // Movement runs slower; bites keep their beat.
+  const dt = rawDt * FREE_PACE
+  const beat = rawDt
   const homeX = FIELD_W / 2
   const homeY = FIELD_H - 6
   for (const shiba of sim.shibas) {
@@ -799,14 +806,14 @@ function moveFree(sim: Sim, dt: number): void {
       continue
     }
     if (shiba.kind === KIND_BLACK) {
-      shiba.cd -= dt
+      shiba.cd -= beat
       if (shiba.cd <= 0) {
         shiba.cd = HEAVY_EVERY
         hurt(sim, foe, HEAVY_HIT * power(sim, KIND_BLACK), KIND_BLACK)
         shiba.bitAt = sim.time
       }
     } else {
-      shiba.bite -= dt * pace
+      shiba.bite -= beat * pace
       if (shiba.bite <= 0) {
         shiba.bite += BITE_EVERY
         hurt(sim, foe, shiba.dps * BITE_EVERY, shiba.kind)
@@ -827,7 +834,7 @@ function moveFree(sim: Sim, dt: number): void {
         stepToward(dog, tx, ty, Math.min(d - FREE_HOME_REACH * 0.9, dog.speed * dt))
         dog.bite = BITE_EVERY * 0.5
       } else {
-        dog.bite -= dt
+        dog.bite -= beat
         if (dog.bite <= 0) {
           dog.bite += BITE_EVERY
           sim.homeHp -= dog.dps * BITE_EVERY
@@ -841,16 +848,20 @@ function moveFree(sim: Sim, dt: number): void {
       stepToward(dog, foe.x, foe.y, Math.min(d - FREE_REACH * 0.9, dog.speed * dt))
       continue
     }
-    dog.bite -= dt
+    dog.bite -= beat
     if (dog.bite <= 0) {
       dog.bite += BITE_EVERY
       foe.hp -= dog.dps * BITE_EVERY
       dog.bitAt = sim.time
     }
   }
-  spread(sim.shibas, dt)
-  spread(sim.cats, dt)
-  for (const u of sim.shibas) if (u?.alive) u.lane = laneOfX(u.x)
+  spread(sim.shibas, rawDt)
+  spread(sim.cats, rawDt)
+  for (const u of sim.shibas) {
+    if (!u?.alive) continue
+    if (u.y < FREE_SHIBA_TOP) u.y = FREE_SHIBA_TOP
+    u.lane = laneOfX(u.x)
+  }
   for (const u of sim.cats) if (u?.alive && u.fly !== 1) u.lane = laneOfX(u.x)
 }
 

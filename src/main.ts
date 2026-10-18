@@ -78,7 +78,8 @@ function storeSave(): void {
 }
 
 const saved = loadSave()
-const freeOn = new URLSearchParams(location.search).has('free')
+// Free placement is the game; ?lanes keeps the older five-path game for comparison.
+const freeOn = !new URLSearchParams(location.search).has('lanes')
 const sim = createSim({ tutorial: !seenTutorial(), levels: saved?.levels, purse: saved?.purse, free: freeOn })
 let savedSeq = sim.saveSeq
 const renderer = createRenderer()
