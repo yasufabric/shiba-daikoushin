@@ -604,7 +604,7 @@ function drawCat(ctx: CanvasRenderingContext2D, renderer: Renderer, sim: Sim, in
     }
     const age = sim.time - (renderer.catBirth[index] ?? sim.time)
     const spin = Math.floor(age / 0.08) & 3
-    blitCat(ctx, renderer, 'walk', sim.time, cat.lane, spin, age < 0.06, dx, dy)
+    blitCat(ctx, renderer, cat.kind, 'walk', sim.time, cat.lane, spin, age < 0.06, dx, dy)
     return
   }
   renderer.catFly[index] = 0
@@ -618,7 +618,7 @@ function drawCat(ctx: CanvasRenderingContext2D, renderer: Renderer, sim: Sim, in
   const fighting = foeNear(sim, cat.lane, cat.y, false)
   const pose = poseOf(moved, fighting)
   const beat = offbeat(sim.time, index)
-  blitCat(ctx, renderer, pose, fighting ? beat : sim.time, cat.lane, 0, fighting && hitFrame(beat), dx, dy)
+  blitCat(ctx, renderer, cat.kind, pose, fighting ? beat : sim.time, cat.lane, 0, fighting && hitFrame(beat), dx, dy)
 }
 
 function noteDeaths(renderer: Renderer, sim: Sim): void {
@@ -710,6 +710,7 @@ function blitCrowd(
 function blitCat(
   ctx: CanvasRenderingContext2D,
   renderer: Renderer,
+  breed: number,
   pose: Pose,
   time: number,
   lane: number,
@@ -720,7 +721,7 @@ function blitCat(
 ): void {
   const sheet = flash ? renderer.sheets.catFlash : renderer.sheets.cat
   const col = frameCol(pose, time, lane)
-  ctx.drawImage(sheet, col * CAT_PX, spin * CAT_PX, CAT_PX, CAT_PX, dx, dy, CAT_PX, CAT_PX)
+  ctx.drawImage(sheet, col * CAT_PX, (breed * 4 + spin) * CAT_PX, CAT_PX, CAT_PX, dx, dy, CAT_PX, CAT_PX)
 }
 
 function orderByY(renderer: Renderer, sim: Sim): number {

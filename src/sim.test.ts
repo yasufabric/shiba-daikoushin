@@ -8,6 +8,11 @@ import {
   KIND_TAN,
   KIND_WHITE,
   SPECIAL_NEED,
+  BREED_BULLDOG,
+  BREED_CHIHUAHUA,
+  BREED_CORGI,
+  BREED_HP,
+  BREED_SPEED,
   CASTLE_HP,
   HOME_HP,
   CLASH_AT,
@@ -118,7 +123,7 @@ describe('cats', () => {
 })
 
 describe('battle', () => {
-  it('brings the cat castle at 150s and lets a deploying player destroy it', () => {
+  it('brings the dog mansion at 150s and lets a deploying player destroy it', () => {
     const sim = createSim({ tutorial: false, seed: 3 })
     let sawCats = false
     let sawBoss = false
@@ -165,6 +170,34 @@ describe('battle', () => {
     expect(sim.time).toBe(0)
     expect(sim.aliveShibas).toBe(START_SHIBAS)
     expect(sim.tutorial).toBe(true)
+  })
+})
+
+describe('rival dogs', () => {
+  it('sends チワワ and コーギー first, then mixes in ブルドッグ once the clash starts', () => {
+    const sim = createSim({ tutorial: false, seed: 7 })
+    const seen = new Set<number>()
+    const note = (): void => {
+      for (const dog of sim.cats) if (dog.alive && dog.fly === 0) seen.add(dog.kind)
+    }
+    play(sim, CLASH_AT - 1, () => {
+      note()
+      return NO_INPUT
+    })
+    expect(seen.has(BREED_BULLDOG)).toBe(false)
+    expect(seen.has(BREED_CHIHUAHUA) || seen.has(BREED_CORGI)).toBe(true)
+    play(sim, 40, () => {
+      note()
+      return NO_INPUT
+    })
+    expect(seen.has(BREED_BULLDOG)).toBe(true)
+  })
+
+  it('gives each breed its own toughness and pace', () => {
+    expect(BREED_HP[BREED_BULLDOG]).toBeGreaterThan(BREED_HP[BREED_CORGI])
+    expect(BREED_HP[BREED_CORGI]).toBeGreaterThan(BREED_HP[BREED_CHIHUAHUA])
+    expect(BREED_SPEED[BREED_CHIHUAHUA]).toBeGreaterThan(BREED_SPEED[BREED_CORGI])
+    expect(BREED_SPEED[BREED_CORGI]).toBeGreaterThan(BREED_SPEED[BREED_BULLDOG])
   })
 })
 
@@ -245,7 +278,7 @@ describe('soldiers', () => {
     expect(ys.length).toBeGreaterThan(0)
     fireSpecial(sim, KIND_WHITE)
     const after = sim.cats.filter((c) => c.alive && c.fly === 0)
-    expect(after.every((c) => c.hp < 32)).toBe(true)
+    expect(after.every((c) => c.hp < (BREED_HP[c.kind] ?? 0))).toBe(true)
     expect(sim.floatDmg).toBeGreaterThan(0)
 
     const boss = createSim({ tutorial: false, seed: 4 })

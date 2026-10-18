@@ -20,9 +20,17 @@ export const FLOAT_TIME = 1.15
 export const BANNER_HOLD = 2.4
 export const LOSE_HOLD = BANNER_HOLD
 
-export const CAT_HP = 32
-export const CAT_DPS = 9
-export const CAT_SPEED = 50
+/** Rival breeds. The code still calls every foe a "cat"; kind is the breed. */
+export const BREED_CHIHUAHUA = 0
+export const BREED_CORGI = 1
+export const BREED_BULLDOG = 2
+export const BREEDS = 3
+/** チワワ fast and frail, コーギー the baseline, ブルドッグ slow and tough. */
+export const BREED_HP = [20, 30, 60] as const
+export const BREED_DPS = [7, 9, 12] as const
+export const BREED_SPEED = [72, 50, 30] as const
+/** In a clash wave, every Nth dog is a ブルドッグ; N shrinks as the match runs on. */
+export const BULLDOG_EVERY = 8
 export const CASTLE_HP = 6000
 /** 柴の家 at the bottom of the field. Cats that reach it bite it; at 0 the match is lost. */
 export const HOME_HP = 1500

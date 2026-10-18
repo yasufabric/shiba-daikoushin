@@ -7,9 +7,13 @@ import {
   HOME_HP,
   HOME_REACH,
   CASTLE_REACH,
-  CAT_DPS,
-  CAT_HP,
-  CAT_SPEED,
+  BREED_BULLDOG,
+  BREED_CHIHUAHUA,
+  BREED_CORGI,
+  BREED_DPS,
+  BREED_HP,
+  BREED_SPEED,
+  BULLDOG_EVERY,
   CLASH_AT,
   COST_BLACK,
   COST_TAN,
@@ -125,6 +129,8 @@ export interface Sim {
   /** Coat whose special just fired this step, or -1. */
   sfxSpecial: number
   seq: number
+  /** Clash-wave dogs sent so far; every BULLDOG_EVERY-th is a ブルドッグ. */
+  horde: number
   sfxDeploy: number
   laneS: Int16Array[]
   laneC: Int16Array[]
@@ -198,6 +204,7 @@ export function createSim(opts?: SimOptions): Sim {
     rushT: 0,
     sfxSpecial: -1,
     seq: 0,
+    horde: 0,
     sfxDeploy: 0,
     laneS: Array.from({ length: LANE_COUNT }, () => new Int16Array(MAX_SHIBAS)),
     laneC: Array.from({ length: LANE_COUNT }, () => new Int16Array(MAX_CATS)),
@@ -238,13 +245,14 @@ function boot(sim: Sim): void {
   sim.rushT = 0
   sim.sfxSpecial = -1
   sim.seq = 0
+  sim.horde = 0
   sim.sfxDeploy = 0
   clear(sim.shibas)
   clear(sim.cats)
   for (let i = 0; i < START_SHIBAS; i++) {
     spawnShiba(sim, KIND_TAN, OPEN_LANE[i] ?? 0, OPEN_Y[i] ?? 480)
   }
-  for (let i = 0; i < TRICKLE_COUNT; i++) spawnCat(sim, i)
+  for (let i = 0; i < TRICKLE_COUNT; i++) spawnCat(sim, i, i % 2 === 0 ? BREED_CHIHUAHUA : BREED_CORGI)
 }
 
 function clear(units: Unit[]): void {
@@ -291,16 +299,17 @@ export function fillMarch(sim: Sim, count: number): number {
   return spawned
 }
 
-function spawnCat(sim: Sim, lane: number): boolean {
+/** Spawn a rival dog of the given breed at the top of a path. */
+function spawnCat(sim: Sim, lane: number, breed: number): boolean {
   const unit = acquire(sim.cats, sim, 'c')
   if (!unit) return false
   const laneW = FIELD_W / LANE_COUNT
   unit.alive = true
   unit.lane = lane
-  unit.kind = 2
-  unit.hp = CAT_HP
-  unit.dps = CAT_DPS
-  unit.speed = CAT_SPEED
+  unit.kind = breed
+  unit.hp = BREED_HP[breed] ?? BREED_HP[BREED_CORGI]
+  unit.dps = BREED_DPS[breed] ?? BREED_DPS[BREED_CORGI]
+  unit.speed = BREED_SPEED[breed] ?? BREED_SPEED[BREED_CORGI]
   unit.fly = 0
   unit.cd = 0
   unit.y = 22 + (lane % 4) * 16
@@ -360,7 +369,7 @@ export function step(sim: Sim, dt: number, input: Input = NO_INPUT): void {
     sim.boss = true
     if (!sim.guard) {
       sim.guard = true
-      for (let i = 0; i < GUARD_CATS; i++) spawnCat(sim, i % LANE_COUNT)
+      for (let i = 0; i < GUARD_CATS; i++) spawnCat(sim, i % LANE_COUNT, i % 3 === 2 ? BREED_BULLDOG : BREED_CORGI)
     }
   }
 
@@ -459,7 +468,16 @@ function laneBack(sim: Sim, lane: number): number {
 function spawnWave(sim: Sim): void {
   const horde = sim.time >= CLASH_AT
   const size = horde ? 5 + Math.floor((sim.time - CLASH_AT) / 18) : TRICKLE_COUNT
-  for (let i = 0; i < size; i++) spawnCat(sim, nextLane(sim, i))
+  const every = Math.max(4, BULLDOG_EVERY - Math.floor(Math.max(0, sim.time - CLASH_AT) / 30))
+  for (let i = 0; i < size; i++) {
+    const lane = nextLane(sim, i)
+    let breed = (sim.seed >>> 9) & 1 ? BREED_CHIHUAHUA : BREED_CORGI
+    if (horde) {
+      sim.horde += 1
+      if (sim.horde % every === 0) breed = BREED_BULLDOG
+    }
+    spawnCat(sim, lane, breed)
+  }
 }
 
 function nextLane(sim: Sim, i: number): number {
