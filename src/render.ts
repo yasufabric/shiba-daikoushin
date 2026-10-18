@@ -1,4 +1,4 @@
-import { FUR_BLACK, FUR_CREAM, FUR_RED, FUR_SESAME, HERO_REWARD, heroCell, pawArt } from './art'
+import { FUR_BLACK, FUR_CREAM, FUR_RED, FUR_SESAME, heroCell, pawArt } from './art'
 import {
   ATTACK_RANGE,
   BONE_X,
@@ -21,6 +21,16 @@ import {
   KIND_SESAME,
   KINDS,
   CARD_XS,
+  MAX_LEVEL,
+  SHOP_ROW_GAP,
+  SHOP_ROW_H,
+  SHOP_ROW_W,
+  SHOP_ROW_X,
+  SHOP_ROW_Y0,
+  START_H,
+  START_W,
+  START_X,
+  START_Y,
   CUT_TIME,
   FX_TIME,
   SPECIAL_NEED,
@@ -29,7 +39,7 @@ import {
   MAX_SHIBAS,
   PANEL_Y,
 } from './balance'
-import { BANNER_POP, BANNER_REST, CLEAR_WORD, glyphBit, letterBit, LOSE_WORD, POP_COL, POP_ROW, RUMBLE_WORD, SPECIAL_WORDS } from './font'
+import { BANNER_POP, BANNER_REST, CLEAR_WORD, glyphBit, LEVEL_WORD, letterBit, LOSE_WORD, START_WORD, POP_COL, POP_ROW, RUMBLE_WORD, SPECIAL_WORDS } from './font'
 import {
   BOSS_H,
   BOSS_W,
@@ -66,7 +76,7 @@ import {
   WHITE_DARK,
   WHITE_MID,
 } from './palette'
-import { costOf, type Outcome, type Sim } from './sim'
+import { costOf, levelCost, type Outcome, type Sim } from './sim'
 import { createSheets, type Sheets } from './sprites'
 
 const BUCKETS = 96
@@ -383,7 +393,7 @@ export function draw(
   paintCutIn(g, renderer, sim)
   g.restore()
   paintDock(g, renderer, sim)
-  if (sim.outcome === 'won' && sim.rewardT <= 0) paintReward(g, renderer, sim)
+  if (sim.outcome !== 'play' && sim.rewardT <= 0) paintShop(g, renderer, sim)
   else if (sim.outcome === 'won' || sim.outcome === 'lost') paintBanner(g, sim)
   else if (sim.tutorial) paintPaw(g, renderer, sim.time)
 
@@ -1337,32 +1347,74 @@ function drawLetter(
   }
 }
 
-function paintReward(ctx: CanvasRenderingContext2D, renderer: Renderer, sim: Sim): void {
+/** Between matches: what the match paid, the purse, a row per coat to buy a level, and START. */
+function paintShop(ctx: CanvasRenderingContext2D, renderer: Renderer, sim: Sim): void {
   ctx.fillStyle = NIGHT
   ctx.fillRect(0, 0, frame.internalW, frame.internalH)
-  const w = 96
-  const h = 112
-  const bob = BOB[Math.floor(sim.time * 3) & 7] ?? 0
-  const x = (frame.internalW - w) >> 1
-  const y = 120 + bob
-  ctx.fillStyle = GOLD
-  ctx.fillRect(x - 2, y - 2, w + 4, h + 4)
-  ctx.fillStyle = NIGHT_1
-  ctx.fillRect(x, y, w, h)
-  ctx.fillStyle = LINE
-  ctx.fillRect(x, y, w, 1)
-  ctx.fillRect(x, y + h - 1, w, 1)
-  ctx.fillRect(x, y, 1, h)
-  ctx.fillRect(x + w - 1, y, 1, h)
-  const hx = x + ((w - HERO_PX) >> 1)
-  ctx.drawImage(renderer.sheets.hero, HERO_REWARD * HERO_PX, 0, HERO_PX, HERO_PX, hx, y + 16, HERO_PX, HERO_PX)
-  const spark = Math.floor(sim.time * 12)
-  ctx.fillStyle = GOLD_HOT
-  for (let i = 0; i < 6; i++) {
-    const sx = x + 4 + ((i * 17 + spark) % (w - 8))
-    const sy = y + 4 + ((i * 9) % 14)
-    ctx.fillRect(sx, sy, 2, 2)
+  const won = sim.outcome === 'won'
+  const word = won ? CLEAR_WORD : LOSE_WORD
+  const wx = (frame.internalW - word.length * 18) >> 1
+  for (let i = 0; i < word.length; i++) drawLetter(ctx, word[i] ?? '', wx + i * 18, py(28), 2, won ? GOLD_LIGHT : DANGER)
+  const earnedDigits = digitCount(sim.earned)
+  const ex = (frame.internalW - (22 + earnedDigits * 10)) >> 1
+  ctx.drawImage(renderer.sheets.bone, ex, py(62) + 1)
+  drawLetter(ctx, '+', ex + 13, py(62), 1, GOLD_LIGHT)
+  drawNumber(ctx, renderer, sim.earned, ex + 22, py(62), false)
+  const purseDigits = digitCount(sim.purse)
+  const pxl = (frame.internalW - (14 + purseDigits * 14)) >> 1
+  ctx.drawImage(renderer.sheets.bone, pxl, py(84) + 3)
+  drawNumber(ctx, renderer, sim.purse, pxl + 14, py(84), true)
+  for (let kind = 0; kind < sim.levels.length; kind++) {
+    const level = sim.levels[kind] ?? 1
+    const maxed = level >= MAX_LEVEL
+    const cost = levelCost(level)
+    const can = !maxed && sim.purse >= cost
+    const x = px(at(SHOP_ROW_X))
+    const y = py(at(SHOP_ROW_Y0 + kind * (SHOP_ROW_H + SHOP_ROW_GAP)))
+    const w = at(SHOP_ROW_W)
+    const h = at(SHOP_ROW_H)
+    ctx.fillStyle = can ? NIGHT_2 : NIGHT_1
+    ctx.fillRect(x, y, w, h)
+    frameRect(ctx, x, y, w, h, can ? GOLD : NIGHT_3)
+    frameRect(ctx, x + 1, y + 1, w - 2, h - 2, can ? GOLD_DARK : NIGHT_2)
+    const blink = can && (Math.floor(sim.time * 2 + kind) & 1) === 1
+    ctx.drawImage(renderer.sheets.hero, heroCell(kind, blink ? 'blink' : 'open') * HERO_PX, 0, HERO_PX, HERO_PX, x + 6, y + ((h - HERO_PX) >> 1), HERO_PX, HERO_PX)
+    if (kind === KIND_SESAME) drawHeart(ctx, x + 32, y + 6)
+    const lx = x + 46
+    const ly = y + ((h - 10) >> 1)
+    drawLetter(ctx, LEVEL_WORD[0] ?? '', lx, ly, 1, WHITE)
+    drawLetter(ctx, LEVEL_WORD[1] ?? '', lx + 9, ly, 1, WHITE)
+    drawNumber(ctx, renderer, level, lx + 20, ly, false)
+    if (maxed) {
+      ctx.fillStyle = GOLD_CYCLE[Math.floor(sim.time * 8) & 3] ?? GOLD
+      ctx.fillRect(x + w - 22, ly + 2, 10, 6)
+      ctx.fillRect(x + w - 19, ly - 1, 4, 12)
+      continue
+    }
+    const cx = x + w - 10 - digitCount(cost) * 10
+    ctx.drawImage(renderer.sheets.bone, cx - 14, ly + 1)
+    drawNumber(ctx, renderer, cost, cx, ly, false)
+    const lock = can ? 0 : 1
+    if (lock) {
+      ctx.fillStyle = NIGHT
+      for (let k = 0; k < 3; k++) ctx.fillRect(cx - 14 + k * 12, ly + 12, 6, 1)
+    }
   }
+  const bx = px(at(START_X))
+  const by = py(at(START_Y))
+  const bw = at(START_W)
+  const bh = at(START_H)
+  const bob = BOB[Math.floor(sim.time * 4) & 7] ?? 0
+  ctx.fillStyle = GOLD
+  ctx.fillRect(bx, by - (bob >> 1), bw, bh)
+  frameRect(ctx, bx, by - (bob >> 1), bw, bh, LINE)
+  frameRect(ctx, bx + 1, by - (bob >> 1) + 1, bw - 2, bh - 2, GOLD_LIGHT)
+  ctx.fillStyle = GOLD_DARK
+  ctx.fillRect(bx + 2, by - (bob >> 1) + bh - 4, bw - 4, 2)
+  const sw = START_WORD.length * 18 - 2
+  const sx = bx + ((bw - sw) >> 1)
+  const sy = by - (bob >> 1) + ((bh - 20) >> 1)
+  for (let i = 0; i < START_WORD.length; i++) drawLetter(ctx, START_WORD[i] ?? '', sx + i * 18, sy, 2, WHITE)
 }
 
 function digitCount(value: number): number {

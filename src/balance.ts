@@ -122,6 +122,26 @@ export const KINDS = 4
 export const BONE_X = 16
 export const BONE_Y = 678
 export const CARD_Y = 714
+/** Between matches: ホネ saved across matches buy coat levels. Every level adds LEVEL_STEP to a coat's HP, bite, bark, and heal. */
+export const MAX_LEVEL = 10
+export const LEVEL_STEP = 0.12
+export const LEVEL_COST_BASE = 120
+/** Match pay: a win pays WIN_PAY, a loss LOSS_PAY, plus one ホネ for every DAMAGE_PER_BONE damage dealt to the mansion. */
+export const WIN_PAY = 300
+export const LOSS_PAY = 80
+export const DAMAGE_PER_BONE = 40
+
+/** Level-up screen layout, in world px. Four coat rows, then the START button. */
+export const SHOP_ROW_X = 30
+export const SHOP_ROW_W = 330
+export const SHOP_ROW_Y0 = 236
+export const SHOP_ROW_H = 92
+export const SHOP_ROW_GAP = 10
+export const START_X = 95
+export const START_Y = 660
+export const START_W = 200
+export const START_H = 72
+
 export const CARD_W = 90
 export const CARD_H = 110
 export const CARD_X0 = 8
