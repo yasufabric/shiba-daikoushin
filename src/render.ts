@@ -16,6 +16,7 @@ import {
   FIELD_X,
   FIELD_Y,
   FREE_ZONE_Y,
+  HEAL_RADIUS,
   BANNER_HOLD,
   FLOAT_TIME,
   KIND_BLACK,
@@ -387,6 +388,7 @@ export function draw(
   g.clip()
   paintHome(g, renderer)
   paintUnits(g, renderer, sim)
+  if (sim.free) paintRoles(g, sim)
   paintBiteSparks(g, sim)
   paintHpBars(g, sim)
   paintBossBar(g, sim)
@@ -557,6 +559,60 @@ function paintHomeBar(ctx: CanvasRenderingContext2D, renderer: Renderer, sim: Si
   ctx.fillRect(barX, barY, fill, 4)
   ctx.fillStyle = GOLD_LIGHT
   ctx.fillRect(barX, barY, fill, 1)
+}
+
+/** Free placement role cues: a dotted pink ring around every 胡麻 shows who its heal reaches, a ring pulses out when it heals, a green plus floats over each shiba it mended, and 白's bark travels to the dog it hit as gold arcs. */
+function paintRoles(ctx: CanvasRenderingContext2D, sim: Sim): void {
+  for (const unit of sim.shibas) {
+    if (!unit?.alive) continue
+    const cx = px(at(FIELD_X + unit.x))
+    const cy = py(at(FIELD_Y + unit.y)) - (CROWD_PX >> 1)
+    if (unit.kind === KIND_SESAME) {
+      const r = at(HEAL_RADIUS)
+      const age = sim.time - unit.bitAt
+      ctx.fillStyle = DANGER_LIGHT
+      for (let k = 0; k < 28; k++) {
+        const a = (k / 28) * Math.PI * 2
+        ctx.fillRect(cx + Math.round(Math.cos(a) * r), cy + Math.round(Math.sin(a) * r * 0.75), 2, 1)
+      }
+      if (age >= 0 && age < 0.3) {
+        const rr = Math.round(r * (age / 0.3))
+        ctx.fillStyle = WHITE
+        for (let k = 0; k < 20; k++) {
+          const a = (k / 20) * Math.PI * 2
+          ctx.fillRect(cx + Math.round(Math.cos(a) * rr), cy + Math.round(Math.sin(a) * rr * 0.75), 2, 2)
+        }
+      }
+    }
+    const mend = sim.time - unit.mendAt
+    if (mend >= 0 && mend < 0.45) {
+      const top = py(at(FIELD_Y + unit.y)) - CROWD_PX - 6 - Math.floor(mend * 20)
+      ctx.fillStyle = LINE
+      ctx.fillRect(cx - 3, top - 1, 7, 3)
+      ctx.fillRect(cx - 1, top - 3, 3, 7)
+      ctx.fillStyle = MEADOW_HOT
+      ctx.fillRect(cx - 2, top, 5, 1)
+      ctx.fillRect(cx, top - 2, 1, 5)
+    }
+    if (unit.kind === KIND_WHITE) {
+      const age = sim.time - unit.bitAt
+      if (age >= 0 && age < 0.18) {
+        const tx = px(at(FIELD_X + unit.aimX))
+        const ty = py(at(FIELD_Y + unit.aimY)) - (CAT_PX >> 1)
+        const reach = age / 0.18
+        for (let k = 1; k <= 3; k++) {
+          const f = Math.min(1, reach * 1.2 - (3 - k) * 0.15)
+          if (f <= 0) continue
+          const wx = Math.round(cx + (tx - cx) * f)
+          const wy = Math.round(cy + (ty - cy) * f)
+          ctx.fillStyle = k === 3 ? WHITE : GOLD_LIGHT
+          ctx.fillRect(wx - 2, wy - 2, 5, 1)
+          ctx.fillRect(wx - 3, wy - 1, 1, 3)
+          ctx.fillRect(wx + 3, wy - 1, 1, 3)
+        }
+      }
+    }
+  }
 }
 
 /** A bite lunges the biter 3px toward its foe for a tenth of a second. */

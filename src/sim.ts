@@ -81,6 +81,12 @@ import {
   FREE_INCOME,
   FREE_PACE,
   FREE_SHIBA_TOP,
+  TAUNT,
+  BARK_RANGE,
+  BARK_SPLASH,
+  HEAL_RADIUS,
+  HEAL_FOLLOW,
+  TAN_HASTE,
   FREE_RECHARGE,
   FREE_ZONE_Y,
   BITE_EVERY,
@@ -124,6 +130,11 @@ export interface Unit {
   bite: number
   /** Match time of the last bite this unit landed, for the lunge and spark. */
   bitAt: number
+  /** Where 白's last bark landed, for its sound wave. */
+  aimX: number
+  aimY: number
+  /** Match time 胡麻 last mended this unit, for the plus over its head. */
+  mendAt: number
 }
 
 export interface Input {
@@ -249,6 +260,9 @@ function makePool(max: number): Unit[] {
       cd: 0,
       bite: 0,
       bitAt: -9,
+      aimX: 0,
+      aimY: 0,
+      mendAt: -9,
     })
   }
   return units
@@ -385,6 +399,7 @@ export function spawnShiba(sim: Sim, kind: number, lane: number, y: number): boo
   unit.cd = 0
   unit.bite = BITE_EVERY * 0.5
   unit.bitAt = -9
+  unit.mendAt = -9
   unit.y = y
   unit.x = laneW * (lane + 0.5) + ((lane * 7 + (y | 0) * 3) % 21) - 10
   sim.aliveShibas += 1
@@ -425,6 +440,7 @@ function spawnCat(sim: Sim, lane: number, breed: number): boolean {
   unit.cd = 0
   unit.bite = BITE_EVERY * 0.5
   unit.bitAt = -9
+  unit.mendAt = -9
   unit.y = 22 + (lane % 4) * 16
   unit.x = laneW * (lane + 0.5) + ((sim.aliveCats * 7 + lane * 5) % 17) - 8
   sim.aliveCats += 1
@@ -501,8 +517,10 @@ export function step(sim: Sim, dt: number, input: Input = NO_INPUT): void {
 
   flyCats(sim, tick)
   fight(sim, tick)
-  bark(sim, tick)
-  heal(sim, tick)
+  if (!sim.free) {
+    bark(sim, tick)
+    heal(sim, tick)
+  }
   reap(sim)
   if (sim.rushT > 0) sim.rushT -= tick
   if (sim.fxT > 0) {
@@ -755,6 +773,62 @@ function stepToward(unit: Unit, tx: number, ty: number, dist: number): void {
   unit.y += (dy / len) * go
 }
 
+/** The shiba a dog goes for: the nearest in sight, with 黒 counted as nearer than it is. */
+function nearestTaunt(shibas: Unit[], dog: Unit, sight: number): Unit | undefined {
+  let best: Unit | undefined
+  let bestD = sight
+  for (const u of shibas) {
+    if (!u?.alive || u.hp <= 0) continue
+    const raw = Math.hypot(u.x - dog.x, u.y - dog.y)
+    if (raw > sight) continue
+    const d = u.kind === KIND_BLACK ? raw * TAUNT : raw
+    if (d < bestD) {
+      bestD = d
+      best = u
+    }
+  }
+  return best
+}
+
+/** 胡麻: trail the nearest fighting shiba from just behind, and every HEAL_EVERY mend every shiba inside HEAL_RADIUS. */
+function mendFree(sim: Sim, healer: Unit, dt: number, beat: number): void {
+  let lead: Unit | undefined
+  let leadD = Infinity
+  for (const u of sim.shibas) {
+    if (!u?.alive || u === healer || u.kind === KIND_SESAME) continue
+    const d = Math.hypot(u.x - healer.x, u.y - healer.y)
+    if (d < leadD) {
+      leadD = d
+      lead = u
+    }
+  }
+  if (lead) {
+    const tx = lead.x
+    const ty = lead.y + HEAL_FOLLOW
+    const d = Math.hypot(tx - healer.x, ty - healer.y)
+    if (d > 6) stepToward(healer, tx, ty, Math.min(d, healer.speed * dt))
+  } else if (healer.y > FREE_HOLD_Y + HEAL_FOLLOW) {
+    stepToward(healer, healer.x, FREE_HOLD_Y + HEAL_FOLLOW, healer.speed * dt)
+  }
+  healer.cd -= beat
+  if (healer.cd > 0) return
+  let mended = 0
+  const amount = HEAL_AMOUNT * power(sim, KIND_SESAME)
+  for (const u of sim.shibas) {
+    if (!u?.alive || u.hp <= 0 || u.hp >= u.maxHp) continue
+    if (Math.hypot(u.x - healer.x, u.y - healer.y) > HEAL_RADIUS) continue
+    const gain = Math.min(amount, u.maxHp - u.hp)
+    u.hp += gain
+    u.mendAt = sim.time
+    mended += gain
+  }
+  healer.cd = HEAL_EVERY
+  if (mended > 0) {
+    healer.bitAt = sim.time
+    sim.charge[KIND_SESAME] = (sim.charge[KIND_SESAME] ?? 0) + mended
+  }
+}
+
 /** Push units of one side apart so a crowd spreads instead of stacking on one spot. */
 function spread(units: Unit[], dt: number): void {
   for (let i = 0; i < units.length; i++) {
@@ -793,16 +867,22 @@ function moveFree(sim: Sim, rawDt: number): void {
   const homeY = FIELD_H - 6
   for (const shiba of sim.shibas) {
     if (!shiba?.alive || shiba.hp <= 0) continue
-    const pace = shiba.kind === KIND_TAN && sim.rushT > 0 ? 1.8 : 1
+    if (shiba.kind === KIND_SESAME) {
+      mendFree(sim, shiba, dt, beat)
+      continue
+    }
+    const haste = shiba.kind === KIND_TAN ? TAN_HASTE : 1
+    const pace = (shiba.kind === KIND_TAN && sim.rushT > 0 ? 1.8 : 1) * haste
     const foe = nearest(sim.cats, shiba, FREE_SIGHT_SHIBA, true)
     if (!foe) {
       if (shiba.y > FREE_HOLD_Y) stepToward(shiba, shiba.x, FREE_HOLD_Y, shiba.speed * pace * dt)
       shiba.bite = BITE_EVERY * 0.5
       continue
     }
+    const reach = shiba.kind === KIND_WHITE ? BARK_RANGE : FREE_REACH
     const d = Math.hypot(foe.x - shiba.x, foe.y - shiba.y)
-    if (d > FREE_REACH) {
-      stepToward(shiba, foe.x, foe.y, Math.min(d - FREE_REACH * 0.9, shiba.speed * pace * dt))
+    if (d > reach) {
+      stepToward(shiba, foe.x, foe.y, Math.min(d - reach * 0.9, shiba.speed * pace * dt))
       continue
     }
     if (shiba.kind === KIND_BLACK) {
@@ -810,6 +890,19 @@ function moveFree(sim: Sim, rawDt: number): void {
       if (shiba.cd <= 0) {
         shiba.cd = HEAVY_EVERY
         hurt(sim, foe, HEAVY_HIT * power(sim, KIND_BLACK), KIND_BLACK)
+        shiba.bitAt = sim.time
+      }
+    } else if (shiba.kind === KIND_WHITE) {
+      shiba.cd -= beat
+      if (shiba.cd <= 0) {
+        shiba.cd = BARK_EVERY
+        const hit = BARK_HIT * power(sim, KIND_WHITE)
+        for (const dog of sim.cats) {
+          if (!dog?.alive || dog.fly === 1 || dog.hp <= 0) continue
+          if (Math.hypot(dog.x - foe.x, dog.y - foe.y) <= BARK_SPLASH) hurt(sim, dog, hit, KIND_WHITE)
+        }
+        shiba.aimX = foe.x
+        shiba.aimY = foe.y
         shiba.bitAt = sim.time
       }
     } else {
@@ -823,7 +916,7 @@ function moveFree(sim: Sim, rawDt: number): void {
   }
   for (const dog of sim.cats) {
     if (!dog?.alive || dog.fly === 1 || dog.hp <= 0) continue
-    const foe = nearest(sim.shibas, dog, FREE_SIGHT_DOG, false)
+    const foe = nearestTaunt(sim.shibas, dog, FREE_SIGHT_DOG)
     if (!foe) {
       const d = Math.hypot(homeX - dog.x, homeY - dog.y)
       if (d > FREE_HOME_REACH) {

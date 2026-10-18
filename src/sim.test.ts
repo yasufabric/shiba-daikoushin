@@ -17,6 +17,9 @@ import {
   KIND_SESAME,
   FREE_ZONE_Y,
   FREE_REACH,
+  BARK_RANGE,
+  BARK_SPLASH,
+  HEAL_RADIUS,
   RECHARGE,
   LEVEL_COST_BASE,
   LEVEL_STEP,
@@ -53,6 +56,7 @@ import {
   dogsLeft,
   step,
   type Input,
+  type Unit,
   type Sim,
 } from './sim'
 
@@ -365,6 +369,70 @@ describe('free placement trial', () => {
     const after = Math.hypot(shiba.x - dog.x, shiba.y - dog.y)
     expect(after).toBeLessThan(before)
     expect(after).toBeLessThanOrEqual(FREE_REACH + 4)
+  })
+})
+
+describe('free placement roles', () => {
+  function emptyField(): Sim {
+    const sim = createSim({ tutorial: false, seed: 2, free: true })
+    for (const u of sim.shibas) u.alive = false
+    for (const u of sim.cats) u.alive = false
+    sim.aliveShibas = 0
+    sim.aliveCats = 0
+    sim.toSend = 50
+    sim.nextCat = 999
+    sim.bones = 2000
+    return sim
+  }
+  function drop(sim: Sim, card: number, x: number, y: number): Unit {
+    sim.recharge.fill(0)
+    step(sim, 1 / 30, { card, at: { x, y }, restart: false })
+    const u = sim.shibas.find((v) => v.alive && v.kind === card && Math.abs(v.x - x) < 14 && Math.abs(v.y - y) < 14)
+    if (!u) throw new Error('not placed')
+    return u
+  }
+
+  it('makes a dog go for 黒 over a slightly nearer 赤', () => {
+    const sim = emptyField()
+    const red = drop(sim, KIND_TAN, 150, 400)
+    const black = drop(sim, KIND_BLACK, 230, 400)
+    red.speed = 0
+    black.speed = 0
+    const dog = sim.cats[0]
+    if (!dog) throw new Error('no dog')
+    Object.assign(dog, { alive: true, fly: 0, kind: BREED_CORGI, hp: 999, maxHp: 999, dps: 0, speed: 30, x: 175, y: 330 })
+    sim.aliveCats = 1
+    play(sim, 1.5, () => NO_INPUT)
+    expect(Math.hypot(dog.x - black.x, dog.y - black.y)).toBeLessThan(Math.hypot(dog.x - red.x, dog.y - red.y))
+  })
+
+  it('has 白 bark from range and splash the dogs around its target', () => {
+    const sim = emptyField()
+    const white = drop(sim, KIND_WHITE, 180, 480)
+    const dogs = sim.cats.slice(0, 2)
+    dogs.forEach((dog, k) => Object.assign(dog, { alive: true, fly: 0, kind: BREED_BULLDOG, hp: 999, maxHp: 999, dps: 0, speed: 0, x: 180 + k * (BARK_SPLASH - 10), y: 480 - BARK_RANGE + 10 }))
+    sim.aliveCats = 2
+    play(sim, 2, () => NO_INPUT)
+    expect(Math.hypot((dogs[0]?.x ?? 0) - white.x, (dogs[0]?.y ?? 0) - white.y)).toBeGreaterThan(FREE_REACH)
+    for (const dog of dogs) expect(dog.hp).toBeLessThan(999)
+  })
+
+  it('has 胡麻 mend every hurt shiba inside its ring at once and none outside', () => {
+    const sim = emptyField()
+    const near = drop(sim, KIND_TAN, 150, 450)
+    const near2 = drop(sim, KIND_TAN, 210, 450)
+    const far = drop(sim, KIND_TAN, 40, 600)
+    for (const u of [near, near2, far]) {
+      u.speed = 0
+      u.hp = 10
+    }
+    const healer = drop(sim, KIND_SESAME, 180, 470)
+    healer.speed = 0
+    play(sim, 1.2, () => NO_INPUT)
+    expect(near.hp).toBeGreaterThan(10)
+    expect(near2.hp).toBeGreaterThan(10)
+    expect(far.hp).toBe(10)
+    expect(Math.hypot(far.x - healer.x, far.y - healer.y)).toBeGreaterThan(HEAL_RADIUS)
   })
 })
 
