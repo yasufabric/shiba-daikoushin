@@ -879,7 +879,8 @@ function spread(units: Unit[], dt: number): void {
     }
   }
   for (const u of units) {
-    if (!u?.alive) continue
+    // A beaten dog is flying off the top of the field; clamping it here would pin it by the mansion for good.
+    if (!u?.alive || u.fly === 1) continue
     u.x = Math.max(10, Math.min(FIELD_W - 10, u.x))
     u.y = Math.max(16, Math.min(FIELD_H - 4, u.y))
   }

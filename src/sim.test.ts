@@ -422,6 +422,17 @@ describe('free placement roles', () => {
     expect(dogs[0]?.y).toBeGreaterThan(y)
   })
 
+  it('lets a beaten dog fly off the top instead of pinning it by the mansion', () => {
+    const sim = emptyField()
+    const dog = sim.cats[0]
+    if (!dog) throw new Error('no dog')
+    Object.assign(dog, { alive: true, fly: 0, kind: BREED_BULLDOG, hp: 1, maxHp: 1, dps: 0, speed: 0, x: 180, y: 200 })
+    sim.aliveCats = 1
+    dog.hp = 0
+    play(sim, 2, () => NO_INPUT)
+    expect(dog.alive).toBe(false)
+  })
+
   it('makes a dog go for 黒 over a slightly nearer 赤', () => {
     const sim = emptyField()
     const red = drop(sim, KIND_TAN, 150, 400)
