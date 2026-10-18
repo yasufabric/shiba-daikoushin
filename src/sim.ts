@@ -68,6 +68,17 @@ import {
   HEAL_AMOUNT,
   HEAL_EVERY,
   HEAL_REACH,
+  FREE_HOLD_Y,
+  FREE_HOME_REACH,
+  FREE_REACH,
+  FREE_SIGHT_DOG,
+  FREE_SIGHT_SHIBA,
+  FREE_SPACE,
+  FREE_TURN,
+  FREE_DOG_DPS,
+  FREE_DOG_HP,
+  FREE_WAVE_SLOW,
+  FREE_ZONE_Y,
   BITE_EVERY,
   RECHARGE,
   BONE_PER_KILL,
@@ -116,6 +127,8 @@ export interface Input {
   card: number
   /** Path to deploy into; when left out, the card goes down the next path in turn. */
   lane?: number
+  /** Free placement: field-local point to deploy at. */
+  at?: { x: number; y: number }
   /** Pick this card for the next field tap (-1 or left out for no change). */
   pick?: number
   /** On the level-up screen, buy a level for this coat. */
@@ -151,6 +164,8 @@ export interface Sim {
   floatDmg: number
   outcome: Outcome
   tutorial: boolean
+  /** The ?free trial is on. */
+  free: boolean
   /** The card a field tap will deploy. */
   picked: number
   /** Seconds until each card can send another shiba; 0 when ready. */
@@ -201,6 +216,8 @@ export interface SimOptions {
   levels?: readonly number[]
   /** Saved ホネ for buying levels. */
   purse?: number
+  /** The ?free trial: tap anywhere in the lower field, units chase the nearest foe. */
+  free?: boolean
 }
 
 const OPEN_Y = [430, 470, 510, 550, 400, 500, 540, 580, 620, 470]
@@ -257,6 +274,7 @@ export function createSim(opts?: SimOptions): Sim {
     floatDmg: 0,
     outcome: 'play',
     tutorial: opts?.tutorial !== false,
+    free: opts?.free === true,
     picked: KIND_TAN,
     recharge: Array.from({ length: KINDS }, () => 0),
     levels: Array.from({ length: KINDS }, (_, i) => Math.min(MAX_LEVEL, Math.max(1, Math.floor(opts?.levels?.[i] ?? 1)))),
@@ -395,9 +413,9 @@ function spawnCat(sim: Sim, lane: number, breed: number): boolean {
   unit.alive = true
   unit.lane = lane
   unit.kind = breed
-  unit.hp = BREED_HP[breed] ?? BREED_HP[BREED_CORGI]
+  unit.hp = Math.round((BREED_HP[breed] ?? BREED_HP[BREED_CORGI]) * (sim.free ? FREE_DOG_HP : 1))
   unit.maxHp = unit.hp
-  unit.dps = BREED_DPS[breed] ?? BREED_DPS[BREED_CORGI]
+  unit.dps = (BREED_DPS[breed] ?? BREED_DPS[BREED_CORGI]) * (sim.free ? FREE_DOG_DPS : 1)
   unit.speed = BREED_SPEED[breed] ?? BREED_SPEED[BREED_CORGI]
   unit.fly = 0
   unit.cd = 0
@@ -418,7 +436,7 @@ function spawnBoss(sim: Sim): void {
     if (!unit?.alive || unit.lane !== lane || unit.y > 80 || unit.kind !== BREED_CORGI || unit.hp !== unit.maxHp) continue
     unit.kind = BREED_BOSS
     unit.hp = BOSS_HP
-    unit.maxHp = BOSS_HP
+    unit.maxHp = unit.hp
     unit.dps = BOSS_DPS
     unit.speed = BOSS_SPEED
     unit.x = (FIELD_W / LANE_COUNT) * (lane + 0.5)
@@ -458,7 +476,7 @@ export function step(sim: Sim, dt: number, input: Input = NO_INPUT): void {
   }
 
   if (input.pick !== undefined && input.pick >= 0 && input.pick < KINDS) sim.picked = input.pick
-  if (input.card >= 0 && input.card < KINDS) tryDeploy(sim, input.card, input.lane)
+  if (input.card >= 0 && input.card < KINDS) tryDeploy(sim, input.card, input.lane, input.at)
 
   const income = BONE_RATE + sim.aliveShibas * BONE_PER_SHIBA
   const tick = dt
@@ -467,7 +485,7 @@ export function step(sim: Sim, dt: number, input: Input = NO_INPUT): void {
 
   let waves = 0
   while (sim.time >= sim.nextCat && sim.toSend > 0 && waves < 3) {
-    const every = sim.time >= CLASH_AT ? WAVE_EVERY : TRICKLE_EVERY
+    const every = (sim.time >= CLASH_AT ? WAVE_EVERY : TRICKLE_EVERY) * (sim.free ? FREE_WAVE_SLOW : 1)
     spawnWave(sim)
     sim.nextCat += every
     waves += 1
@@ -563,7 +581,7 @@ export function buyLevel(sim: Sim, kind: number): boolean {
   return true
 }
 
-function tryDeploy(sim: Sim, card: number, chosen?: number): void {
+function tryDeploy(sim: Sim, card: number, chosen?: number, at?: { x: number; y: number }): void {
   const cost = costOf(sim, card)
   const count = COUNT_OF[card] ?? COUNT_TAN
   if ((sim.recharge[card] ?? 0) > 0) {
@@ -578,7 +596,17 @@ function tryDeploy(sim: Sim, card: number, chosen?: number): void {
   const start = pinned ? chosen : sim.seq % LANE_COUNT
   sim.seq += 1
   let spawned = 0
-  for (let i = 0; i < count; i++) {
+  if (sim.free && at) {
+    const x = Math.max(12, Math.min(FIELD_W - 12, at.x))
+    const y = Math.max(FREE_ZONE_Y, Math.min(FIELD_H - 8, at.y))
+    const lane = laneOfX(x)
+    if (spawnShiba(sim, card, lane, y)) {
+      const unit = sim.shibas[(sim.cursorS - 1 + sim.shibas.length) % sim.shibas.length]
+      if (unit) unit.x = x
+      spawned += 1
+    }
+  }
+  for (let i = 0; i < count && !(sim.free && at); i++) {
     const lane = (start + i * (card === KIND_WHITE ? 3 : 1)) % LANE_COUNT
     const y = laneBack(sim, lane)
     if (y > FIELD_H + 240) continue
@@ -684,7 +712,146 @@ function fight(sim: Sim, dt: number): void {
     lane[n] = i
     sim.laneCN[unit.lane] = n + 1
   }
+  if (sim.free) {
+    moveFree(sim, dt)
+    return
+  }
   for (let lane = 0; lane < LANE_COUNT; lane++) moveLane(sim, lane, dt)
+}
+
+export function laneOfX(x: number): number {
+  return Math.max(0, Math.min(LANE_COUNT - 1, Math.floor((x * LANE_COUNT) / FIELD_W)))
+}
+
+/** The nearest live foe within sight, or undefined. */
+function nearest(units: Unit[], from: Unit, sight: number, skipFlying: boolean): Unit | undefined {
+  let best: Unit | undefined
+  let bestD = sight * sight
+  for (let i = 0; i < units.length; i++) {
+    const u = units[i]
+    if (!u?.alive || u.hp <= 0 || (skipFlying && u.fly === 1)) continue
+    const dx = u.x - from.x
+    const dy = u.y - from.y
+    const d = dx * dx + dy * dy
+    if (d < bestD) {
+      bestD = d
+      best = u
+    }
+  }
+  return best
+}
+
+function stepToward(unit: Unit, tx: number, ty: number, dist: number): void {
+  const dx = tx - unit.x
+  const dy = ty - unit.y
+  const len = Math.hypot(dx, dy)
+  if (len <= 1e-3) return
+  const go = Math.min(len, dist)
+  unit.x += (dx / len) * go
+  unit.y += (dy / len) * go
+}
+
+/** Push units of one side apart so a crowd spreads instead of stacking on one spot. */
+function spread(units: Unit[], dt: number): void {
+  for (let i = 0; i < units.length; i++) {
+    const a = units[i]
+    if (!a?.alive || a.fly === 1) continue
+    for (let j = i + 1; j < units.length; j++) {
+      const b = units[j]
+      if (!b?.alive || b.fly === 1) continue
+      const dx = b.x - a.x
+      const dy = b.y - a.y
+      const d2 = dx * dx + dy * dy
+      if (d2 >= FREE_SPACE * FREE_SPACE) continue
+      const d = Math.sqrt(d2) || 0.01
+      const push = ((FREE_SPACE - d) / 2) * Math.min(1, dt * 8)
+      const nx = d2 > 0 ? dx / d : 1
+      const ny = d2 > 0 ? dy / d : 0
+      a.x -= nx * push
+      a.y -= ny * push
+      b.x += nx * push
+      b.y += ny * push
+    }
+  }
+  for (const u of units) {
+    if (!u?.alive) continue
+    u.x = Math.max(10, Math.min(FIELD_W - 10, u.x))
+    u.y = Math.max(16, Math.min(FIELD_H - 4, u.y))
+  }
+}
+
+/** Free placement: every shiba and dog walks to the nearest foe it can see and bites on the beat; dogs with nothing in sight head for the 柴の家. */
+function moveFree(sim: Sim, dt: number): void {
+  const homeX = FIELD_W / 2
+  const homeY = FIELD_H - 6
+  for (const shiba of sim.shibas) {
+    if (!shiba?.alive || shiba.hp <= 0) continue
+    const pace = shiba.kind === KIND_TAN && sim.rushT > 0 ? 1.8 : 1
+    const foe = nearest(sim.cats, shiba, FREE_SIGHT_SHIBA, true)
+    if (!foe) {
+      if (shiba.y > FREE_HOLD_Y) stepToward(shiba, shiba.x, FREE_HOLD_Y, shiba.speed * pace * dt)
+      shiba.bite = BITE_EVERY * 0.5
+      continue
+    }
+    const d = Math.hypot(foe.x - shiba.x, foe.y - shiba.y)
+    if (d > FREE_REACH) {
+      stepToward(shiba, foe.x, foe.y, Math.min(d - FREE_REACH * 0.9, shiba.speed * pace * dt))
+      continue
+    }
+    if (shiba.kind === KIND_BLACK) {
+      shiba.cd -= dt
+      if (shiba.cd <= 0) {
+        shiba.cd = HEAVY_EVERY
+        hurt(sim, foe, HEAVY_HIT * power(sim, KIND_BLACK), KIND_BLACK)
+        shiba.bitAt = sim.time
+      }
+    } else {
+      shiba.bite -= dt * pace
+      if (shiba.bite <= 0) {
+        shiba.bite += BITE_EVERY
+        hurt(sim, foe, shiba.dps * BITE_EVERY, shiba.kind)
+        shiba.bitAt = sim.time
+      }
+    }
+  }
+  for (const dog of sim.cats) {
+    if (!dog?.alive || dog.fly === 1 || dog.hp <= 0) continue
+    const foe = nearest(sim.shibas, dog, FREE_SIGHT_DOG, false)
+    if (!foe) {
+      const d = Math.hypot(homeX - dog.x, homeY - dog.y)
+      if (d > FREE_HOME_REACH) {
+        // Walk straight down the field, and only turn for the door near the bottom, so where shibas stand matters.
+        const turn = dog.y > FIELD_H - FREE_TURN
+        const tx = turn ? homeX : dog.x
+        const ty = turn ? homeY : FIELD_H
+        stepToward(dog, tx, ty, Math.min(d - FREE_HOME_REACH * 0.9, dog.speed * dt))
+        dog.bite = BITE_EVERY * 0.5
+      } else {
+        dog.bite -= dt
+        if (dog.bite <= 0) {
+          dog.bite += BITE_EVERY
+          sim.homeHp -= dog.dps * BITE_EVERY
+          dog.bitAt = sim.time
+        }
+      }
+      continue
+    }
+    const d = Math.hypot(foe.x - dog.x, foe.y - dog.y)
+    if (d > FREE_REACH) {
+      stepToward(dog, foe.x, foe.y, Math.min(d - FREE_REACH * 0.9, dog.speed * dt))
+      continue
+    }
+    dog.bite -= dt
+    if (dog.bite <= 0) {
+      dog.bite += BITE_EVERY
+      foe.hp -= dog.dps * BITE_EVERY
+      dog.bitAt = sim.time
+    }
+  }
+  spread(sim.shibas, dt)
+  spread(sim.cats, dt)
+  for (const u of sim.shibas) if (u?.alive) u.lane = laneOfX(u.x)
+  for (const u of sim.cats) if (u?.alive && u.fly !== 1) u.lane = laneOfX(u.x)
 }
 
 function moveLane(sim: Sim, lane: number, dt: number): void {

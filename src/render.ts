@@ -15,6 +15,7 @@ import {
   FIELD_W,
   FIELD_X,
   FIELD_Y,
+  FREE_ZONE_Y,
   BANNER_HOLD,
   FLOAT_TIME,
   KIND_BLACK,
@@ -390,7 +391,10 @@ export function draw(
   paintHpBars(g, sim)
   paintBossBar(g, sim)
   paintHomeBar(g, renderer, sim)
-  if (sim.outcome === 'play') paintLaneArrows(g, renderer)
+  if (sim.outcome === 'play') {
+    if (sim.free) paintFreeZone(g)
+    else paintLaneArrows(g, renderer)
+  }
   paintGhosts(g, renderer, sim)
   paintBooms(g, renderer, sim)
   g.restore()
@@ -401,7 +405,7 @@ export function draw(
   paintDock(g, renderer, sim)
   if (sim.outcome !== 'play' && sim.rewardT <= 0) paintShop(g, renderer, sim)
   else if (sim.outcome === 'won' || sim.outcome === 'lost') paintBanner(g, sim)
-  else if (sim.tutorial) paintPaw(g, renderer, sim.time)
+  else if (sim.tutorial && !sim.free) paintPaw(g, renderer, sim.time)
 
   const destW = frame.internalW * frame.scale
   const destH = frame.internalH * frame.scale
@@ -1351,6 +1355,17 @@ function frameRect(ctx: CanvasRenderingContext2D, x: number, y: number, w: numbe
 /** Where a field tap sends the picked card: one up-arrow per path, above the 柴の家. Static, like the meadow. */
 function laneArrowY(renderer: Renderer): number {
   return py(at(FIELD_Y + FIELD_H)) - renderer.sheets.home.height - 22
+}
+
+/** Free placement: a dashed gold line marks the top of the zone a tap can drop a shiba into. */
+function paintFreeZone(ctx: CanvasRenderingContext2D): void {
+  const y = py(at(FIELD_Y + FREE_ZONE_Y))
+  const x0 = px(at(FIELD_X))
+  const w = at(FIELD_W)
+  ctx.fillStyle = LINE
+  for (let x = 0; x < w; x += 8) ctx.fillRect(x0 + x, y - 1, 5, 3)
+  ctx.fillStyle = GOLD_LIGHT
+  for (let x = 0; x < w; x += 8) ctx.fillRect(x0 + x + 1, y, 3, 1)
 }
 
 function paintLaneArrows(ctx: CanvasRenderingContext2D, renderer: Renderer): void {

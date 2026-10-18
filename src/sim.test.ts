@@ -15,6 +15,8 @@ import {
   KIND_TAN,
   KIND_WHITE,
   KIND_SESAME,
+  FREE_ZONE_Y,
+  FREE_REACH,
   RECHARGE,
   LEVEL_COST_BASE,
   LEVEL_STEP,
@@ -327,6 +329,42 @@ describe('levels', () => {
     const broke = createSim({ tutorial: false, purse: 0 })
     expect(buyLevel(broke, 0)).toBe(false)
     expect(broke.levels[0]).toBe(1)
+  })
+})
+
+describe('free placement trial', () => {
+  it('drops a shiba where the player taps, pulled down into the deploy zone', () => {
+    const sim = createSim({ tutorial: false, seed: 2, free: true })
+    sim.bones = 500
+    step(sim, 1 / 30, { card: KIND_TAN, at: { x: 60, y: 500 }, restart: false })
+    const placed = sim.shibas.filter((u) => u.alive && Math.abs(u.x - 60) < 12 && Math.abs(u.y - 500) < 12)
+    expect(placed.length).toBe(1)
+    sim.recharge.fill(0)
+    step(sim, 1 / 30, { card: KIND_TAN, at: { x: 300, y: 40 }, restart: false })
+    const pulled = sim.shibas.find((u) => u.alive && Math.abs(u.x - 300) < 12)
+    expect(pulled?.y ?? 0).toBeGreaterThanOrEqual(FREE_ZONE_Y - 2)
+  })
+
+  it('sends a shiba to the nearest dog in sight and has the dog head for the house when none is', () => {
+    const sim = createSim({ tutorial: false, seed: 2, free: true })
+    for (const u of sim.shibas) u.alive = false
+    sim.aliveShibas = 0
+    const dog = sim.cats.find((u) => u.alive)
+    expect(dog).toBeDefined()
+    if (!dog) return
+    dog.x = 80
+    dog.y = 300
+    play(sim, 1, () => NO_INPUT)
+    expect(dog.y).toBeGreaterThan(300)
+    sim.bones = 500
+    step(sim, 1 / 30, { card: KIND_TAN, at: { x: 120, y: 420 }, restart: false })
+    const shiba = sim.shibas.find((u) => u.alive)
+    if (!shiba) throw new Error('no shiba')
+    const before = Math.hypot(shiba.x - dog.x, shiba.y - dog.y)
+    play(sim, 1, () => NO_INPUT)
+    const after = Math.hypot(shiba.x - dog.x, shiba.y - dog.y)
+    expect(after).toBeLessThan(before)
+    expect(after).toBeLessThanOrEqual(FREE_REACH + 4)
   })
 })
 

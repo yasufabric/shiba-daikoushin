@@ -78,7 +78,8 @@ function storeSave(): void {
 }
 
 const saved = loadSave()
-const sim = createSim({ tutorial: !seenTutorial(), levels: saved?.levels, purse: saved?.purse })
+const freeOn = new URLSearchParams(location.search).has('free')
+const sim = createSim({ tutorial: !seenTutorial(), levels: saved?.levels, purse: saved?.purse, free: freeOn })
 let savedSeq = sim.saveSeq
 const renderer = createRenderer()
 const synth = createSynth()
@@ -265,6 +266,12 @@ canvas.addEventListener('pointerdown', (ev) => {
       return
     }
   }
+  if (sim.free) {
+    if (p.y < FIELD_Y || p.y > FIELD_Y + FIELD_H || p.x < FIELD_X || p.x > FIELD_X + FIELD_W) return
+    input.card = input.pick ?? sim.picked
+    input.at = { x: p.x - FIELD_X, y: p.y - FIELD_Y }
+    return
+  }
   const lane = laneAt(p.x, p.y)
   if (lane >= 0) {
     // A pick tapped this same frame has not reached the sim yet, so it wins over sim.picked.
@@ -326,6 +333,7 @@ function advance(dt: number): void {
   }
   input.card = -1
   input.lane = undefined
+  input.at = undefined
   input.pick = undefined
   input.levelUp = undefined
   if (sim.saveSeq !== savedSeq) {
