@@ -25,7 +25,7 @@ export const BREED_BULLDOG = 2
 export const BREEDS = 3
 /** The boss, セントバーナード. Not part of the wave mix; it walks out of the mansion once every regular dog has been sent. */
 export const BREED_BOSS = 3
-export const BOSS_HP = 2400
+export const BOSS_HP = 1500
 export const BOSS_DPS = 40
 export const BOSS_SPEED = 10
 /** チワワ fast and frail, コーギー the baseline, ブルドッグ slow and tough. */
@@ -90,8 +90,8 @@ export const COUNT_WHITE = 1
 export const HP_WHITE = 75
 export const DPS_WHITE = 6
 export const SPEED_WHITE = 50
-export const HEAL_EVERY = 1
-export const HEAL_AMOUNT = 14
+export const HEAL_EVERY = 1.5
+export const HEAL_AMOUNT = 7
 /** How far ahead (and a little behind) the healer reaches, in world px along the path. */
 export const HEAL_REACH = 180
 

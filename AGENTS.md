@@ -150,4 +150,4 @@ Every bite shows where it lands, Clash Royale style: 赤 slashes three claw mark
 
 ## Role split
 
-赤: fragile (HP 48), nipping every `TAN_BITE_EVERY` 0.55s. 黒: tank (HP 400, slow) that slams `HEAVY_HIT` 180 every 2.3s and draws the dogs. 胡麻: glass cannon (HP 40) that lobs a ball every 2s for `BARK_HIT` 42 in a `BARK_SPLASH` 56 radius from `BARK_RANGE` 140. 白: tough (HP 75), never attacks, mends 14 per pulse. More coats and tools (a frisbee, say) can be added later as new kinds.
+赤: fragile (HP 48), nipping every `TAN_BITE_EVERY` 0.55s. 黒: tank (HP 400, slow) that slams `HEAVY_HIT` 180 every 2.3s and draws the dogs. 胡麻: glass cannon (HP 40) that lobs a ball every 2s for `BARK_HIT` 42 in a `BARK_SPLASH` 56 radius from `BARK_RANGE` 140. 白: tough (HP 75), never attacks, mends 7 every 1.5s. More coats and tools (a frisbee, say) can be added later as new kinds.
