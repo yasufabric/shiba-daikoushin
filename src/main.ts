@@ -19,7 +19,7 @@ import {
   RECALL_TAP,
 } from './balance'
 import { createSim, dogsLeft, fillMarch, spawnCat, spawnShiba, NO_INPUT, step, type Input, type Outcome } from './sim'
-import { createRenderer, draw, screenToWorld, shopTarget, type ScreenInsets } from './render'
+import { createRenderer, draw, screenToWorld, shopTarget, titleTarget, type ScreenInsets } from './render'
 
 const canvasEl = document.querySelector<HTMLCanvasElement>('#game')
 if (!canvasEl) throw new Error('canvas unavailable')
@@ -86,14 +86,14 @@ function storeSave(): void {
 }
 
 const saved = loadSave()
+const devOn = new URLSearchParams(location.search).has('dev')
 // Free placement is the game; ?lanes keeps the older five-path game for comparison.
 const freeOn = !new URLSearchParams(location.search).has('lanes')
-const sim = createSim({ tutorial: !seenTutorial(), levels: saved?.levels, purse: saved?.purse, free: freeOn, stage: saved?.stage, best: saved?.best, deck: saved?.deck })
+const sim = createSim({ tutorial: !seenTutorial(), levels: saved?.levels, purse: saved?.purse, free: freeOn, title: freeOn && !devOn, stage: saved?.stage, best: saved?.best, deck: saved?.deck })
 let savedSeq = sim.saveSeq
 const renderer = createRenderer()
 const synth = createSynth()
 const input: Input = { card: -1, restart: false }
-const devOn = new URLSearchParams(location.search).has('dev')
 
 let viewW = 1
 let viewH = 1
@@ -255,7 +255,7 @@ function blockScroll(ev: Event): void {
 function toLogical(ev: PointerEvent): { x: number; y: number } {
   const rect = canvas.getBoundingClientRect()
   // The result screen is drawn from the top without the dock squeeze, so its taps map flat.
-  return screenToWorld(ev.clientX, ev.clientY, rect.left, rect.top, sim.outcome !== 'play')
+  return screenToWorld(ev.clientX, ev.clientY, rect.left, rect.top, sim.title || sim.outcome !== 'play')
 }
 
 function hitCard(x: number, y: number, cardX: number): boolean {
@@ -266,10 +266,16 @@ canvas.addEventListener('pointerdown', (ev) => {
   ev.preventDefault()
   synth.unlock()
   const p = toLogical(ev)
+  if (sim.title) {
+    const stage = titleTarget(p.x, p.y)
+    if (stage >= 0) input.pickStage = stage
+    return
+  }
   if (sim.outcome !== 'play') {
     if (sim.rewardT > 0) return
     const hit = shopTarget(p.x, p.y, sim.free ? KINDS : 4)
     if (hit.type === 'start') input.restart = true
+    else if (hit.type === 'home') input.home = true
     else if (hit.type === 'pick') input.toggleDeck = hit.kind
     else if (hit.type === 'buy') input.levelUp = hit.kind
     return
@@ -369,6 +375,8 @@ function advance(dt: number): void {
   input.pick = undefined
   input.levelUp = undefined
   input.toggleDeck = undefined
+  input.pickStage = undefined
+  input.home = undefined
   if (sim.saveSeq !== savedSeq) {
     savedSeq = sim.saveSeq
     storeSave()

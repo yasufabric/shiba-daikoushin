@@ -203,6 +203,10 @@ export interface Input {
   pick?: number
   /** 波を早く呼ぶ: send the next wave now for bonus ホネ. */
   callWave?: boolean
+  /** On the title screen, play this stage. */
+  pickStage?: number
+  /** On the result screen, go back to the title. */
+  home?: boolean
   /** On the level-up screen, buy a level for this coat. */
   levelUp?: number
   /** On the level-up screen, put this coat in or take it out of the deck. */
@@ -252,6 +256,8 @@ export interface Sim {
   earned: number
   /** Bumps whenever levels or the purse change, so the shell knows to save. */
   saveSeq: number
+  /** The title screen is up: nothing plays until a stage is picked. */
+  title: boolean
   /** The coats brought to a match, in dock order: DECK_SIZE of the roster. */
   deck: number[]
   /** Current stage index (0-based). */
@@ -316,6 +322,8 @@ export interface SimOptions {
   /** Stage to start on and the best stars per stage so far. */
   stage?: number
   best?: readonly number[]
+  /** Open on the title screen. */
+  title?: boolean
   /** Saved deck: coat numbers in dock order. */
   deck?: readonly number[]
 }
@@ -386,6 +394,7 @@ export function createSim(opts?: SimOptions): Sim {
     purse: Math.max(0, Math.floor(opts?.purse ?? 0)),
     earned: 0,
     saveSeq: 0,
+    title: opts?.title === true,
     deck: [...DEFAULT_DECK],
     stage: Math.min(STAGES.length - 1, Math.max(0, Math.floor(opts?.stage ?? 0))),
     best: STAGES.map((_, i) => Math.min(3, Math.max(0, Math.floor(opts?.best?.[i] ?? 0)))),
@@ -436,6 +445,22 @@ function cleanDeck(deck: readonly number[] | undefined): number[] {
     seen.add(k)
   }
   return [...deck]
+}
+
+/** A stage is open once the one before it has been cleared. */
+export function stageOpen(sim: Sim, stage: number): boolean {
+  return stage >= 0 && stage < STAGES.length && (stage === 0 || (sim.best[stage - 1] ?? 0) > 0)
+}
+
+/** Title screen: start this stage fresh. */
+export function selectStage(sim: Sim, stage: number): boolean {
+  if (!sim.title || !stageOpen(sim, stage)) return false
+  sim.title = false
+  sim.stage = stage
+  sim.saveSeq += 1
+  boot(sim)
+  sim.picked = sim.deck[0] ?? KIND_TAN
+  return true
 }
 
 export function deckReady(sim: Sim): boolean {
@@ -655,7 +680,15 @@ function acquire(units: Unit[], sim: Sim, which: 's' | 'c'): Unit | null {
 
 export function step(sim: Sim, dt: number, input: Input = NO_INPUT): void {
   if (!(dt > 0)) return
+  if (sim.title) {
+    if (input.pickStage !== undefined) selectStage(sim, input.pickStage)
+    return
+  }
   if (sim.outcome !== 'play') {
+    if (input.home && sim.rewardT <= 0) {
+      sim.title = true
+      return
+    }
     // The CLEAR!/LOSE! banner holds, then the level-up screen waits for START.
     if (sim.rewardT > 0) {
       sim.rewardT -= dt
