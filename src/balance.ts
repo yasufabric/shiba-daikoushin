@@ -47,9 +47,9 @@ export const WAVE_SWARM = 1
 export const WAVE_WALL = 2
 export const WAVE_PINCER = 3
 /** Dogs per pattern: 8 quick チワワ from one side, 4 ブルドッグ shoulder to shoulder, 6 コーギー split to both edges. */
-export const SWARM_COUNT = 8
-export const WALL_COUNT = 4
-export const PINCER_COUNT = 6
+export const SWARM_COUNT = 10
+export const WALL_COUNT = 5
+export const PINCER_COUNT = 8
 
 export const COST_TAN = 34
 export const COST_BLACK = 90
@@ -167,10 +167,10 @@ export const FREE_HOME_REACH = 60
 /** A dog with nothing in sight walks straight down and turns for the door only this close to the bottom. */
 export const FREE_TURN = 150
 /** Shibas gang up on dogs in free placement, so dogs there get tougher and bite harder. */
-export const FREE_DOG_HP = 1.65
-export const FREE_DOG_DPS = 1.2
+export const FREE_DOG_HP = 2.8
+export const FREE_DOG_DPS = 2.0
 /** Waves come this many times slower in free placement, so fewer dogs crowd the field at once. */
-export const FREE_WAVE_SLOW = 1.8
+export const FREE_WAVE_SLOW = 1.4
 /** Everything walks this much slower in free placement, so each chase and bite reads. */
 export const FREE_PACE = 0.65
 /** Cards recharge this many times slower, and ホネ come in at this share, so shibas can't be spammed. */
