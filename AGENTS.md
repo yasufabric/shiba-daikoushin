@@ -117,3 +117,13 @@ After either banner the level-up screen fills the view: the result word, the ホ
 ## Free placement (the default)
 
 Clash Royale–style placement is the game. `?lanes` in the URL brings back the five-path game described above, kept for comparison. In free placement everything walks `FREE_PACE` slower (bites keep their beat), cards recharge `FREE_RECHARGE` times slower, and ホネ come in at `FREE_INCOME`, so shibas can't be spammed. In the trial a tap anywhere on the field drops the picked shiba there, pulled down into the deploy zone below `FREE_ZONE_Y` (a dashed gold line marks its top; there are no path arrows). Every shiba walks to the nearest dog within `FREE_SIGHT_SHIBA` and bites it on the beat; with none in sight it walks up to `FREE_HOLD_Y` and waits. Shibas never go above `FREE_SHIBA_TOP`, so they can't camp the mansion gate. Every dog walks to the nearest shiba within `FREE_SIGHT_DOG`; with none in sight it walks straight down its column and turns for the 柴の家 door only in the last `FREE_TURN`, biting the house once within `FREE_HOME_REACH`. Units of one side push apart below `FREE_SPACE`. Because shibas gang up on dogs here, regular dogs get `FREE_DOG_HP` and `FREE_DOG_DPS` and waves come `FREE_WAVE_SLOW` times slower; the boss is unchanged. The tutorial paw points into the deploy zone. Paths still exist under the hood (`lane` follows `x`), so barks, heals, and ジャーキー keep working. Everything else (cards, recharge, specials, healer, levels, the boss, win and loss) is shared with the lane game.
+
+### Roles in free placement
+
+Each coat has a job, with a strength and a weakness:
+
+- 赤: cheap and quick (walks `TAN_HASTE` faster), bites on the beat, but has the least HP. Good for swarming and filling gaps.
+- 黒: the tank. Most HP, slow and costly, one heavy bite every `HEAVY_EVERY`. Dogs in sight treat 黒 as `TAUNT` nearer than it is, so it pulls bites off the others.
+- 白: barks from `BARK_RANGE` instead of biting, hitting every dog within `BARK_SPLASH` of its target. Low HP; it needs biters in front. Its bark shows as gold arcs flying to the target.
+- 胡麻: never attacks. It trails the nearest shiba from just behind and every `HEAL_EVERY` mends every shiba inside `HEAL_RADIUS` at once. A dotted pink ring always shows that radius, a white ring pulses when it heals, and a green plus floats over each shiba it mended.
+

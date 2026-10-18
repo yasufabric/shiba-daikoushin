@@ -54,8 +54,8 @@ export const COUNT_TAN = 1
 export const COUNT_BLACK = 1
 /** Front-line fighters trade bites on this beat instead of draining HP every frame, so each attack can be seen. */
 export const BITE_EVERY = 0.7
-export const HP_TAN = 70
-export const HP_BLACK = 180
+export const HP_TAN = 60
+export const HP_BLACK = 260
 export const DPS_TAN = 26
 export const DPS_BLACK = 24
 export const SPEED_TAN = 52
@@ -65,18 +65,18 @@ export const SPEED_BLACK = 42
 export const COST_WHITE = 60
 export const STEP_WHITE = 10
 export const COUNT_WHITE = 1
-export const HP_WHITE = 80
+export const HP_WHITE = 55
 export const DPS_WHITE = 10
 export const SPEED_WHITE = 46
-export const BARK_EVERY = 1.1
-export const BARK_HIT = 13
+export const BARK_EVERY = 1.2
+export const BARK_HIT = 22
 export const BARK_REACH = 90
 
 /** 胡麻柴: the healer. Every HEAL_EVERY it mends the most-hurt shiba near it, in its path or the two beside. */
 export const COST_SESAME = 64
 export const STEP_SESAME = 16
 export const COUNT_SESAME = 1
-export const HP_SESAME = 70
+export const HP_SESAME = 60
 export const DPS_SESAME = 6
 export const SPEED_SESAME = 50
 export const HEAL_EVERY = 1
@@ -130,6 +130,17 @@ export const FREE_SPACE = 30
 export const FREE_HOLD_Y = 250
 /** Shibas never chase above this line, so they can't camp the mansion gate. */
 export const FREE_SHIBA_TOP = 190
+/** Roles in free placement. 赤 is the cheap, quick biter; 黒 the slow tank that dogs prefer to bite; 白 barks from range with a splash; 胡麻 heals everyone around it and never bites. */
+/** 黒 looks this much closer to a dog than it is, so dogs turn to it first. */
+export const TAUNT = 0.55
+/** 白's bark range, centre to centre, and the splash around the dog it barks at. */
+export const BARK_RANGE = 120
+export const BARK_SPLASH = 44
+/** 胡麻 mends every shiba inside this radius at once, every HEAL_EVERY; it stays this far behind the nearest shiba it follows. */
+export const HEAL_RADIUS = 80
+export const HEAL_FOLLOW = 46
+/** 赤 in free placement walks this much faster than the others. */
+export const TAN_HASTE = 1.35
 /** A dog this close to the 柴の家 door bites the house. */
 export const FREE_HOME_REACH = 60
 /** A dog with nothing in sight walks straight down and turns for the door only this close to the bottom. */
