@@ -66,7 +66,7 @@ export const BITE_EVERY = 1
 /** 赤柴 bites twice as fast in small nips. */
 export const TAN_BITE_EVERY = 0.55
 export const HP_TAN = 48
-export const HP_BLACK = 400
+export const HP_BLACK = 240
 export const DPS_TAN = 30
 export const DPS_BLACK = 24
 export const SPEED_TAN = 52
@@ -135,7 +135,7 @@ export const LANE_COUNT = 5
 
 /** Free placement (the ?free trial): shibas drop where you tap, inside the lower part of the field, and every unit walks to the nearest foe it can see. */
 /** Field-local y above which a tap is pulled down: the deploy zone is the lower part of the field. */
-export const FREE_ZONE_Y = 330
+export const FREE_ZONE_Y = 440
 /** How far a shiba / a dog looks for a foe, in world px. */
 export const FREE_SIGHT_SHIBA = 110
 export const FREE_SIGHT_DOG = 100
@@ -169,8 +169,8 @@ export const FREE_HOME_REACH = 60
 /** A dog with nothing in sight walks straight down and turns for the door only this close to the bottom. */
 export const FREE_TURN = 150
 /** Shibas gang up on dogs in free placement, so dogs there get tougher and bite harder. */
-export const FREE_DOG_HP = 3.4
-export const FREE_DOG_DPS = 2.0
+export const FREE_DOG_HP = 2.6
+export const FREE_DOG_DPS = 2.2
 /** Waves come this many times slower in free placement, so fewer dogs crowd the field at once. */
 export const FREE_WAVE_SLOW = 1.4
 /** Everything walks this much slower in free placement, so each chase and bite reads. */
