@@ -63,39 +63,41 @@ export const COUNT_TAN = 1
 export const COUNT_BLACK = 1
 /** Front-line fighters trade bites on this beat instead of draining HP every frame, so each attack can be seen. */
 export const BITE_EVERY = 0.7
-export const HP_TAN = 60
-export const HP_BLACK = 260
-export const DPS_TAN = 26
+/** 赤柴 bites twice as fast in small nips. */
+export const TAN_BITE_EVERY = 0.35
+export const HP_TAN = 48
+export const HP_BLACK = 400
+export const DPS_TAN = 30
 export const DPS_BLACK = 24
 export const SPEED_TAN = 52
-export const SPEED_BLACK = 42
+export const SPEED_BLACK = 34
 
 /** 白柴: barks from the second row. Each bark hits every cat in reach in its lane and both neighbors. */
 export const COST_WHITE = 60
 export const STEP_WHITE = 10
 export const COUNT_WHITE = 1
-export const HP_WHITE = 55
+export const HP_WHITE = 40
 export const DPS_WHITE = 10
 export const SPEED_WHITE = 46
-export const BARK_EVERY = 1.2
-export const BARK_HIT = 22
+export const BARK_EVERY = 1.7
+export const BARK_HIT = 36
 export const BARK_REACH = 90
 
 /** 胡麻柴: the healer. Every HEAL_EVERY it mends the most-hurt shiba near it, in its path or the two beside. */
 export const COST_SESAME = 64
 export const STEP_SESAME = 16
 export const COUNT_SESAME = 1
-export const HP_SESAME = 60
+export const HP_SESAME = 75
 export const DPS_SESAME = 6
 export const SPEED_SESAME = 50
 export const HEAL_EVERY = 1
-export const HEAL_AMOUNT = 10
+export const HEAL_AMOUNT = 14
 /** How far ahead (and a little behind) the healer reaches, in world px along the path. */
 export const HEAL_REACH = 180
 
 /** 黒柴: one heavy bite at a time, enough to drop a cat. */
-export const HEAVY_EVERY = 1.3
-export const HEAVY_HIT = 80
+export const HEAVY_EVERY = 1.9
+export const HEAVY_HIT = 150
 
 /** Specials fire on their own once a coat has dealt this much damage (胡麻: healed this much). Order: 赤, 黒, 白, 胡麻. */
 export const SPECIAL_NEED = [1000, 800, 1400, 900] as const
@@ -149,8 +151,8 @@ export const FREE_SHIBA_TOP = 190
 /** 黒 looks this much closer to a dog than it is, so dogs turn to it first. */
 export const TAUNT = 0.55
 /** 白's bark range, centre to centre, and the splash around the dog it barks at. */
-export const BARK_RANGE = 120
-export const BARK_SPLASH = 44
+export const BARK_RANGE = 140
+export const BARK_SPLASH = 56
 /** 胡麻 mends every shiba inside this radius at once, every HEAL_EVERY; it stays this far behind the nearest shiba it follows. */
 export const HEAL_RADIUS = 80
 export const HEAL_FOLLOW = 46

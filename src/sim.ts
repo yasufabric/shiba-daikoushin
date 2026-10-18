@@ -101,6 +101,7 @@ import {
   HEAL_CLOSE,
   HEAL_SEEK_SPAN,
   TAN_HASTE,
+  TAN_BITE_EVERY,
   JERKY_TARGETS,
   FREE_RECHARGE,
   FREE_ZONE_Y,
@@ -1010,8 +1011,9 @@ function moveFree(sim: Sim, rawDt: number): void {
     } else {
       shiba.bite -= beat * pace
       if (shiba.bite <= 0) {
-        shiba.bite += BITE_EVERY
-        hurt(sim, foe, shiba.dps * BITE_EVERY, shiba.kind)
+        const every = shiba.kind === KIND_TAN ? TAN_BITE_EVERY : BITE_EVERY
+        shiba.bite += every
+        hurt(sim, foe, shiba.dps * every, shiba.kind)
         shiba.aimX = foe.x
         shiba.aimY = foe.y
         shiba.bitAt = sim.time

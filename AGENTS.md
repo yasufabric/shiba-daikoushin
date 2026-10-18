@@ -147,3 +147,7 @@ When the screen is shorter than the 422-row design (a phone with the browser bar
 ## Attack readouts and weaker specials (free placement)
 
 Every bite shows where it lands, Clash Royale style: 赤 slashes three quick claw marks at the dog, 黒 slams a ground ring with a white cross flash, 白 lobs a white ball in an arc that bursts into a `BARK_SPLASH`-sized ring (`paintAttacks` in render.ts; the sim stores `aimX/aimY` on every bite). Specials are weaker and charge slower (`SPECIAL_NEED` 1000/800/1400/900, `RUSH_TIME` 3, `CHEESE_STUN` 1.8, `JERKY_FREE_HIT` 130 on `JERKY_TARGETS` 2) so they are a swing, not a win button.
+
+## Role split
+
+赤: fragile (HP 48) and fast, nipping every `TAN_BITE_EVERY` 0.35s. 黒: tank (HP 400, slow) that slams `HEAVY_HIT` 150 every 1.9s and draws the dogs. 白: glass cannon (HP 40) that lobs a ball every 1.7s for `BARK_HIT` 36 in a `BARK_SPLASH` 56 radius from `BARK_RANGE` 140. 胡麻: tough (HP 75), never attacks, mends 14 per pulse.
