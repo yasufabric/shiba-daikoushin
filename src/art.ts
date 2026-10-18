@@ -573,67 +573,71 @@ const PAW_ROWS = [
   '..............',
   '..............',
 ] as const
+function arch(rows: string[], x: number, y: number, w: number, h: number, ch: string): void {
+  blot(rows, x, y, w, h, ch)
+  const r = w >> 1
+  for (let i = 0; i < r; i++) {
+    const cut = r - Math.floor(Math.sqrt(r * r - (r - i - 0.5) * (r - i - 0.5)))
+    for (let j = 0; j < cut; j++) {
+      put(rows, x + j, y + i, '.')
+      put(rows, x + w - 1 - j, y + i, '.')
+    }
+  }
+}
 
-/** 敵の犬小屋: a purple plank dog house with two pricked ears on its roof and a dark door where a pair of eyes glows (dim when asleep). */
+/** The enemy doghouse: a small purple A-frame kennel with a dark arched door, glowing eyes inside, and a red bone plaque. */
 function castleRows(live: boolean): string[] {
   const g = blank(BOSS_W, BOSS_H)
   const eye = live ? 'e' : 'r'
   // Walls: planks, a lit left edge and a shadowed right edge.
-  blot(g, 6, 26, 60, 38, 'b')
-  blot(g, 7, 27, 3, 37, 'h')
-  blot(g, 61, 27, 4, 37, 'm')
-  for (let y = 33; y < 62; y += 7) blot(g, 7, y, 58, 1, 'm')
-  // Roof, with two pricked dog ears on top.
-  for (const ex of [22, 38]) {
-    tri(g, ex, 0, 12, 18, 'm')
-    tri(g, ex + 3, 4, 6, 10, 'p')
+  blot(g, 5, 20, 46, 28, 'b')
+  blot(g, 6, 21, 2, 27, 'h')
+  blot(g, 47, 21, 3, 27, 'm')
+  for (let y = 27; y < 47; y += 6) blot(g, 6, y, 44, 1, 'm')
+  // Gable roof with overhanging eaves.
+  tri(g, 0, 1, 56, 20, 'm')
+  tri(g, 4, 5, 22, 13, 'b')
+  blot(g, 0, 19, 56, 3, 'd')
+  blot(g, 1, 20, 54, 1, 'm')
+  // Bone plaque on the gable.
+  blot(g, 22, 10, 12, 3, 'r')
+  blot(g, 22, 10, 12, 1, 'e')
+  blot(g, 20, 9, 3, 3, 'e')
+  blot(g, 33, 9, 3, 3, 'e')
+  blot(g, 20, 12, 3, 3, 'r')
+  blot(g, 33, 12, 3, 3, 'r')
+  // The door: a dark round arch with a pair of eyes and fangs.
+  arch(g, 19, 26, 18, 22, 'n')
+  for (const ex of [22, 29]) {
+    blot(g, ex, 34, 5, 4, eye)
+    blot(g, ex + 1, 35, 2, 2, 'h')
   }
-  tri(g, 0, 8, 72, 20, 'm')
-  tri(g, 5, 11, 30, 13, 'b')
-  blot(g, 0, 27, 72, 3, 'd')
-  blot(g, 1, 28, 70, 1, 'm')
-  // A bone plaque over the door, in danger red.
-  blot(g, 26, 31, 20, 5, 'r')
-  blot(g, 26, 31, 20, 1, 'e')
-  blot(g, 24, 30, 3, 3, 'e')
-  blot(g, 45, 30, 3, 3, 'e')
-  blot(g, 24, 33, 3, 3, 'r')
-  blot(g, 45, 33, 3, 3, 'r')
-  // The door: a dark arch, a pair of eyes, a row of fangs.
-  blot(g, 23, 38, 26, 26, 'n')
-  shave(g, 23, 38, 26, 26, 7)
-  for (let x = 27; x < 46; x += 5) blot(g, x, 40, 1, 24, 'N')
-  for (const ex of [28, 39]) {
-    blot(g, ex, 47, 6, 5, eye)
-    blot(g, ex + 1, 48, 2, 2, 'h')
-  }
-  for (let x = 29; x < 44; x += 4) {
-    blot(g, x, 57, 2, 3, 'h')
-    put(g, x, 60, 'h')
+  for (let x = 22; x < 35; x += 4) {
+    blot(g, x, 43, 2, 3, 'h')
+    put(g, x, 46, 'h')
   }
   return g
 }
 
-/** 柴の家: a plank dog house with a deep roof, a bone plaque, and a dark arched door the shibas march out of. */
+/** 柴の家: a small plank dog house with a deep roof, a gold bone plaque, and a dark arched door the shibas march out of. */
 function homeRows(): string[] {
   const g = blank(HOME_W, HOME_H)
-  blot(g, 6, 18, 52, 30, 't')
-  blot(g, 7, 19, 3, 29, 'w')
-  blot(g, 53, 19, 4, 29, 'o')
-  for (let y = 25; y < 48; y += 6) blot(g, 7, y, 50, 1, 'o')
-  tri(g, 0, 0, 64, 20, 'r')
-  tri(g, 4, 3, 26, 15, 'o')
-  blot(g, 0, 19, 64, 3, 'd')
-  blot(g, 1, 20, 62, 1, 'r')
-  blot(g, 22, 28, 20, 20, 'n')
-  shave(g, 22, 28, 20, 20, 5)
-  blot(g, 24, 33, 2, 15, 'N')
-  blot(g, 25, 23, 14, 4, 'G')
-  blot(g, 25, 23, 14, 1, 'g')
-  blot(g, 23, 22, 3, 3, 'G')
-  blot(g, 38, 22, 3, 3, 'G')
-  blot(g, 23, 25, 3, 3, 'y')
-  blot(g, 38, 25, 3, 3, 'y')
+  blot(g, 4, 14, 40, 26, 't')
+  blot(g, 5, 15, 2, 25, 'w')
+  blot(g, 41, 15, 3, 25, 'o')
+  for (let y = 21; y < 40; y += 6) blot(g, 5, y, 38, 1, 'o')
+  tri(g, 0, 0, 48, 16, 'r')
+  tri(g, 3, 3, 20, 11, 'o')
+  blot(g, 0, 14, 48, 3, 'd')
+  blot(g, 1, 15, 46, 1, 'r')
+  arch(g, 17, 22, 14, 18, 'n')
+  blot(g, 19, 33, 1, 7, 'N')
+  blot(g, 19, 7, 10, 3, 'G')
+  blot(g, 19, 7, 10, 1, 'g')
+  blot(g, 17, 6, 3, 3, 'G')
+  blot(g, 28, 6, 3, 3, 'G')
+  blot(g, 17, 9, 3, 3, 'y')
+  blot(g, 28, 9, 3, 3, 'y')
   return g
 }
 
