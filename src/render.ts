@@ -21,6 +21,7 @@ import {
   KINDS,
   CARD_XS,
   CUT_TIME,
+  FX_TIME,
   SPECIAL_NEED,
   LANE_COUNT,
   MAX_CATS,
@@ -42,6 +43,8 @@ import {
   GLYPH_H,
   GLYPH_W,
   FUR_BODY,
+  FUR_DARK,
+  FUR_LIGHT,
   FUR_MID,
   GOLD_LIGHT,
   HERO_PX,
@@ -134,6 +137,8 @@ export interface Renderer {
   hitstop: number
   shakeUntil: number
   boomsLeft: number
+  /** Last special strike whose bursts were spawned. */
+  fxSeen: number
 }
 
 export interface ViewFit {
@@ -310,6 +315,7 @@ export function createRenderer(): Renderer {
     boomBirth: new Float64Array(BOOMS),
     boomOn: new Uint8Array(BOOMS),
     boomCursor: 0,
+    fxSeen: 0,
     partX: new Int16Array(PARTS),
     partY: new Int16Array(PARTS),
     partVx: new Int8Array(PARTS),
@@ -370,7 +376,7 @@ export function draw(
   paintGhosts(g, renderer, sim)
   paintBooms(g, renderer, sim)
   g.restore()
-  paintSpecialField(g, sim)
+  paintSpecialField(g, renderer, sim)
   paintDamage(g, renderer, sim)
   paintCutIn(g, renderer, sim)
   g.restore()
@@ -851,35 +857,165 @@ const COAT_LIT = [FUR_BODY, NIGHT_2, WHITE_MID] as const
 const CUT_H = 44
 const CUT_SLIDE = 0.12
 
-/** Field-wide effect for the first beat of a special: 黒 slashes down every path, 白 sweeps a shockwave up. */
-function paintSpecialField(ctx: CanvasRenderingContext2D, sim: Sim): void {
-  if (sim.cutKind < 0) return
-  const age = CUT_TIME - sim.cutT
-  const fx = px(at(FIELD_X))
-  const fy = py(at(FIELD_Y))
-  const fh = at(FIELD_H)
-  if (sim.cutKind === KIND_BLACK && age < 0.36) {
-    const reach = Math.floor((Math.min(1, age / 0.18) * fh) / 4) * 4
-    let x = fx
-    for (let lane = 0; lane < LANE_PX.length; lane++) {
-      const cx = x + ((LANE_PX[lane] ?? 0) >> 1)
-      ctx.fillStyle = GOLD_CYCLE[(Math.floor(age * 24) + lane) & 3] ?? GOLD
-      ctx.fillRect(cx - 1, fy, 3, reach)
-      ctx.fillStyle = WHITE
-      ctx.fillRect(cx, fy, 1, reach)
-      x += LANE_PX[lane] ?? 0
+/** A special's strike, once the cut-in is gone: 赤 sweet potatoes rain onto every 赤, 黒 jerky spears shoot up every path, 白 a cheese wedge slams the middle and rings out. */
+function paintSpecialField(ctx: CanvasRenderingContext2D, renderer: Renderer, sim: Sim): void {
+  paintRushAura(ctx, sim)
+  if (sim.fxKind < 0 || sim.fxT <= 0) return
+  const age = FX_TIME - sim.fxT
+  const fresh = renderer.fxSeen !== sim.fxId
+  renderer.fxSeen = sim.fxId
+  if (sim.fxKind === KIND_TAN) paintPotatoRain(ctx, renderer, sim, age)
+  else if (sim.fxKind === KIND_BLACK) paintJerky(ctx, renderer, sim, age, fresh)
+  else paintCheese(ctx, renderer, sim, age, fresh)
+}
+
+/** While the rush lasts, gold embers rise off every 赤. */
+function paintRushAura(ctx: CanvasRenderingContext2D, sim: Sim): void {
+  if (sim.rushT <= 0) return
+  const beat = Math.floor(sim.time * 12)
+  for (let i = 0; i < sim.shibas.length; i++) {
+    const unit = sim.shibas[i]
+    if (!unit?.alive || unit.kind !== KIND_TAN) continue
+    const x = px(at(FIELD_X + unit.x))
+    const top = py(at(FIELD_Y + unit.y)) - CROWD_PX
+    for (let k = 0; k < 3; k++) {
+      const rise = (beat + i * 3 + k * 4) % 12
+      const ex = x - 8 + ((i * 7 + k * 6) % 16)
+      ctx.fillStyle = GOLD_CYCLE[(beat + k) & 3] ?? GOLD
+      const size = rise < 6 ? 2 : 1
+      ctx.fillRect(ex, top + 6 - rise, size, size)
     }
   }
-  if (sim.cutKind === KIND_WHITE && age < 0.45) {
-    const y = fy + fh - Math.floor((age / 0.45) * fh)
-    const w = frame.internalW
-    ctx.fillStyle = WHITE_MID
-    ctx.fillRect(0, y + 4, w, 2)
-    ctx.fillStyle = WHITE
-    ctx.fillRect(0, y, w, 4)
-    ctx.fillStyle = GOLD_HOT
-    for (let x = (Math.floor(age * 60) & 7); x < w; x += 8) ctx.fillRect(x, y - 2, 3, 2)
+}
+
+/** Sweet potato, 10×6 at scale k: purple-red skin with a gold cut end, outlined. */
+function drawPotato(ctx: CanvasRenderingContext2D, x: number, y: number, k: number): void {
+  ctx.fillStyle = LINE
+  ctx.fillRect(x + 1 * k, y, 8 * k, 6 * k)
+  ctx.fillRect(x, y + 1 * k, 10 * k, 4 * k)
+  ctx.fillStyle = DANGER_DARK
+  ctx.fillRect(x + 2 * k, y + 1 * k, 6 * k, 4 * k)
+  ctx.fillRect(x + 1 * k, y + 2 * k, 2 * k, 2 * k)
+  ctx.fillStyle = DANGER
+  ctx.fillRect(x + 3 * k, y + 1 * k, 4 * k, 1 * k)
+  ctx.fillStyle = GOLD_LIGHT
+  ctx.fillRect(x + 7 * k, y + 2 * k, 2 * k, 2 * k)
+}
+
+function paintPotatoRain(ctx: CanvasRenderingContext2D, renderer: Renderer, sim: Sim, age: number): void {
+  let n = 0
+  for (let i = 0; i < sim.shibas.length; i++) {
+    const unit = sim.shibas[i]
+    if (!unit?.alive || unit.kind !== KIND_TAN) continue
+    const x = px(at(FIELD_X + unit.x)) - 10
+    const head = py(at(FIELD_Y + unit.y)) - CROWD_PX
+    const land = 0.22 + (n % 5) * 0.05
+    n += 1
+    if (age < land) {
+      const drop = Math.round((1 - age / land) * 96)
+      drawPotato(ctx, x, head - 8 - drop, 2)
+      ctx.fillStyle = GOLD_HOT
+      ctx.fillRect(x + 8, head - 20 - drop, 2, 8)
+      ctx.fillRect(x + 4, head - 16 - drop, 1, 5)
+      ctx.fillRect(x + 15, head - 16 - drop, 1, 5)
+    } else if (age < land + 0.12) {
+      if (Math.abs(age - land) < 0.04) spawnBoom(renderer, sim, x + 10, head)
+      drawPotato(ctx, x, head - 8, 2)
+    }
   }
+}
+
+/** Jerky spear, 6×22 at scale k: dark meat with lighter grain, outlined, tip first. */
+function drawJerky(ctx: CanvasRenderingContext2D, x: number, y: number, k: number): void {
+  ctx.fillStyle = LINE
+  ctx.fillRect(x, y + 1 * k, 6 * k, 21 * k)
+  ctx.fillRect(x + 1 * k, y, 4 * k, 22 * k)
+  ctx.fillStyle = FUR_DARK
+  ctx.fillRect(x + 1 * k, y + 2 * k, 4 * k, 19 * k)
+  ctx.fillStyle = FUR_MID
+  for (let g = 4; g < 20; g += 5) ctx.fillRect(x + 2 * k, y + g * k, 2 * k, 2 * k)
+  ctx.fillStyle = FUR_LIGHT
+  ctx.fillRect(x + 2 * k, y + 1 * k, 2 * k, 1 * k)
+}
+
+function paintJerky(ctx: CanvasRenderingContext2D, renderer: Renderer, sim: Sim, age: number, fresh: boolean): void {
+  const fy = py(at(FIELD_Y))
+  const fh = at(FIELD_H)
+  const rise = 0.4
+  if (fresh) {
+    for (let lane = 0; lane < LANE_COUNT; lane++) {
+      const n = Math.min(3, sim.laneCN[lane] ?? 0)
+      const idx = sim.laneC[lane]
+      if (!idx) continue
+      for (let j = 0; j < n; j++) {
+        const dog = sim.cats[idx[j] ?? -1]
+        if (dog) spawnBoom(renderer, sim, px(at(FIELD_X + dog.x)), py(at(FIELD_Y + dog.y)) - 14)
+      }
+    }
+  }
+  if (age >= rise + 0.15) return
+  const p = Math.min(1, age / rise)
+  const tipY = fy + fh - Math.round(p * (fh + 48))
+  let x = px(at(FIELD_X))
+  for (let lane = 0; lane < LANE_PX.length; lane++) {
+    const cx = x + ((LANE_PX[lane] ?? 0) >> 1) - 6
+    ctx.fillStyle = GOLD_CYCLE[(Math.floor(age * 24) + lane) & 3] ?? GOLD
+    for (let y = tipY + 46; y < fy + fh; y += 6) {
+      ctx.fillRect(cx + 4, y, 4, 3)
+      ctx.fillRect(cx + (y & 4 ? 0 : 10), y + 2, 2, 2)
+    }
+    drawJerky(ctx, cx, tipY, 2)
+    x += LANE_PX[lane] ?? 0
+  }
+}
+
+/** Cheese wedge, 30×18 at scale k, holes and all, outlined. */
+function drawCheese(ctx: CanvasRenderingContext2D, cx: number, y: number, k: number): void {
+  const x = cx - 15 * k
+  ctx.fillStyle = LINE
+  for (let row = 0; row < 18; row++) {
+    const w = 8 + Math.floor((22 * row) / 17)
+    ctx.fillRect(x + (30 - w - 1) * k, y + row * k, (w + 1) * k, 1 * k)
+  }
+  ctx.fillRect(x - 1 * k, y + 17 * k, 31 * k, 2 * k)
+  for (let row = 1; row < 17; row++) {
+    const w = 6 + Math.floor((22 * row) / 17)
+    ctx.fillStyle = row < 3 ? GOLD_LIGHT : GOLD
+    ctx.fillRect(x + (29 - w) * k, y + row * k, w * k, 1 * k)
+  }
+  ctx.fillStyle = GOLD_DARK
+  ctx.fillRect(x + 18 * k, y + 8 * k, 3 * k, 3 * k)
+  ctx.fillRect(x + 10 * k, y + 12 * k, 3 * k, 2 * k)
+  ctx.fillRect(x + 24 * k, y + 13 * k, 2 * k, 2 * k)
+  ctx.fillRect(x + 3 * k, y + 15 * k, 26 * k, 1 * k)
+}
+
+function paintCheese(ctx: CanvasRenderingContext2D, renderer: Renderer, sim: Sim, age: number, fresh: boolean): void {
+  const fy = py(at(FIELD_Y))
+  const fh = at(FIELD_H)
+  const cx = frame.internalW >> 1
+  const mid = fy + Math.round(fh * 0.45)
+  const fall = 0.14
+  if (fresh) spawnBoom(renderer, sim, cx, mid)
+  if (age < fall) {
+    drawCheese(ctx, cx, fy - 36 + Math.round((age / fall) * (mid - fy)), 2)
+    return
+  }
+  const ring = (age - fall) / (FX_TIME - fall - 0.15)
+  if (ring < 1) {
+    const r = Math.round(ring * frame.internalW * 0.75)
+    const t = Math.floor(age * 30)
+    for (let k = 0; k < 3; k++) {
+      const rr = r - k * 14
+      if (rr < 6) continue
+      ctx.fillStyle = k === 0 ? WHITE : (GOLD_CYCLE[(t + k) & 3] ?? GOLD)
+      ctx.fillRect(cx - rr, mid - rr, rr * 2, 3)
+      ctx.fillRect(cx - rr, mid + rr - 3, rr * 2, 3)
+      ctx.fillRect(cx - rr, mid - rr, 3, rr * 2)
+      ctx.fillRect(cx + rr - 3, mid - rr, 3, rr * 2)
+    }
+  }
+  if (age < FX_TIME - 0.2) drawCheese(ctx, cx, mid - 36 + (age < fall + 0.06 ? 2 : 0), 2)
 }
 
 /** Small cut-in: a striped band slides in, the smug face shouts the food, and ゴゴゴ shakes above it. */

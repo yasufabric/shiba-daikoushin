@@ -55,6 +55,7 @@ import {
   COST_WHITE,
   COUNT_WHITE,
   CUT_TIME,
+  FX_TIME,
   DPS_WHITE,
   HEAVY_EVERY,
   HEAVY_HIT,
@@ -125,6 +126,13 @@ export interface Sim {
   /** The coat whose special cut-in is showing, or -1. */
   cutKind: number
   cutT: number
+  /** The special whose field effect is playing, or -1, and its remaining time. Set when the cut-in ends and the special strikes. */
+  fxKind: number
+  fxT: number
+  /** Counts strikes so the renderer can spot a new one. */
+  fxId: number
+  /** Coat whose special struck this step, or -1. */
+  sfxStrike: number
   rushT: number
   /** Coat whose special just fired this step, or -1. */
   sfxSpecial: number
@@ -201,6 +209,10 @@ export function createSim(opts?: SimOptions): Sim {
     charge: [0, 0, 0],
     cutKind: -1,
     cutT: 0,
+    fxKind: -1,
+    fxT: 0,
+    fxId: 0,
+    sfxStrike: -1,
     rushT: 0,
     sfxSpecial: -1,
     seq: 0,
@@ -242,6 +254,9 @@ function boot(sim: Sim): void {
   sim.charge.fill(0)
   sim.cutKind = -1
   sim.cutT = 0
+  sim.fxKind = -1
+  sim.fxT = 0
+  sim.sfxStrike = -1
   sim.rushT = 0
   sim.sfxSpecial = -1
   sim.seq = 0
@@ -378,15 +393,23 @@ export function step(sim: Sim, dt: number, input: Input = NO_INPUT): void {
   bark(sim, tick)
   reap(sim)
   if (sim.rushT > 0) sim.rushT -= tick
+  if (sim.fxT > 0) {
+    sim.fxT -= tick
+    if (sim.fxT <= 0) sim.fxKind = -1
+  }
   if (sim.cutT > 0) {
     sim.cutT -= tick
-    if (sim.cutT <= 0) sim.cutKind = -1
+    if (sim.cutT <= 0) {
+      const kind = sim.cutKind
+      sim.cutKind = -1
+      strikeSpecial(sim, kind)
+      reap(sim)
+    }
   }
-  if (sim.cutT <= 0) {
+  if (sim.cutT <= 0 && sim.fxT <= 0) {
     for (let kind = 0; kind < KINDS; kind++) {
       if ((sim.charge[kind] ?? 0) < (SPECIAL_NEED[kind] ?? Infinity)) continue
       fireSpecial(sim, kind)
-      reap(sim)
       break
     }
   }
@@ -615,12 +638,21 @@ function bark(sim: Sim, dt: number): void {
   }
 }
 
-/** Specials: 赤「サツマイモ!!」rush, 黒「ジャーキー!!」pierce, 白「チーズ!!」shockwave. */
+/** Specials: 赤「サツマイモ!!」rush, 黒「ジャーキー!!」pierce, 白「チーズ!!」shockwave. Firing starts the cut-in; strikeSpecial lands it. */
 export function fireSpecial(sim: Sim, kind: number): void {
   sim.charge[kind] = 0
   sim.cutKind = kind
   sim.cutT = CUT_TIME
   sim.sfxSpecial = kind
+}
+
+/** The cut-in is over: the special lands now, with its field effect. */
+export function strikeSpecial(sim: Sim, kind: number): void {
+  if (kind < 0) return
+  sim.fxKind = kind
+  sim.fxT = FX_TIME
+  sim.fxId += 1
+  sim.sfxStrike = kind
   let dealt = 0
   const cats = sim.cats
   if (kind === KIND_TAN) {

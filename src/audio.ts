@@ -3,6 +3,7 @@ export interface Synth {
   deploy(): void
   fanfare(win: boolean): void
   special(kind: number): void
+  strike(kind: number): void
 }
 
 export function createSynth(): Synth {
@@ -64,6 +65,20 @@ export function createSynth(): Synth {
       const root = [392, 330, 523][kind] ?? 392
       const notes = [root, root * 1.25, root * 1.5, root * 2]
       for (let i = 0; i < notes.length; i++) tone(notes[i] ?? root, 0.1, 'square', 0.04, t + 0.28 + i * 0.06)
+    },
+    strike(kind: number) {
+      const ac = context()
+      if (!ac) return
+      const t = ac.currentTime
+      // The hit itself: 赤 a run of pops, 黒 a sharp rising zip, 白 a heavy thud.
+      if (kind === 0) {
+        for (let i = 0; i < 5; i++) tone(700 + i * 90, 0.05, 'square', 0.04, t + i * 0.05, 300)
+      } else if (kind === 1) {
+        tone(180, 0.22, 'sawtooth', 0.06, t, 1400)
+      } else {
+        tone(110, 0.3, 'sawtooth', 0.07, t, 40)
+        tone(440, 0.08, 'square', 0.04, t + 0.02, 220)
+      }
     },
     fanfare(win: boolean) {
       const ac = context()

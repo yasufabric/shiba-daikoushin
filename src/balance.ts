@@ -31,7 +31,7 @@ export const BREED_DPS = [7, 9, 12] as const
 export const BREED_SPEED = [72, 50, 30] as const
 /** In a clash wave, every Nth dog is a ブルドッグ; N shrinks as the match runs on. */
 export const BULLDOG_EVERY = 8
-export const CASTLE_HP = 6000
+export const CASTLE_HP = 5600
 /** 柴の家 at the bottom of the field. Cats that reach it bite it; at 0 the match is lost. */
 export const HOME_HP = 1500
 /** How far above the field floor a cat must be to bite the home. */
@@ -73,6 +73,8 @@ export const HEAVY_HIT = 80
 /** Specials fire on their own once a coat has dealt this much damage. Order: 赤, 黒, 白. */
 export const SPECIAL_NEED = [700, 480, 1000] as const
 export const CUT_TIME = 1.1
+/** After the cut-in the special strikes; its field effect plays for this long. */
+export const FX_TIME = 0.9
 /** 赤「サツマイモ!!」: every 赤 charges at double pace and double bite. */
 export const RUSH_TIME = 4
 /** 黒「ジャーキー!!」: the front three cats of every lane, and the castle once it can be hit. */
