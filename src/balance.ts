@@ -17,7 +17,9 @@ export const CANNON_NEED = 50
 export const CANNON_COOLDOWN = 12
 export const BEAM_TIME = 0.5
 export const FLOAT_TIME = 1.15
-export const LOSE_HOLD = 0.85
+/** Clear and defeat banners. Short enough that the next match starts fast. */
+export const BANNER_HOLD = 2.4
+export const LOSE_HOLD = BANNER_HOLD
 export const CANNON_CASTLE = 18
 
 export const CAT_HP = 32

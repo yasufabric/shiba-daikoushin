@@ -30,6 +30,7 @@ import {
   KIND_BLACK,
   KIND_TAN,
   LANE_COUNT,
+  BANNER_HOLD,
   LOSE_HOLD,
   MATCH_SECONDS,
   MAX_CATS,
@@ -289,7 +290,11 @@ export function step(sim: Sim, dt: number, input: Input = NO_INPUT): void {
     return
   }
   if (sim.outcome === 'won') {
-    if (input.restart) reset(sim)
+    if (sim.rewardT > 0) {
+      sim.rewardT -= dt
+      if (sim.rewardT < 0) sim.rewardT = 0
+    }
+    if (input.restart && sim.rewardT <= 0) reset(sim)
     return
   }
 
@@ -331,7 +336,7 @@ export function step(sim: Sim, dt: number, input: Input = NO_INPUT): void {
   if (sim.castleHp <= 0) {
     sim.castleHp = 0
     sim.outcome = 'won'
-    sim.rewardT = 1
+    sim.rewardT = BANNER_HOLD
     return
   }
   if (sim.time >= MATCH_SECONDS) {

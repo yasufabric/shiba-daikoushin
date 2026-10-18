@@ -82,11 +82,11 @@ export function createSynth(): Synth {
       const ac = context()
       if (!ac) return
       const t = ac.currentTime
-      const notes = win ? [523, 659, 784, 1046] : [392, 330, 262]
+      const notes = win ? [523, 659, 784, 1046, 784, 1046] : [494, 392, 330, 262]
       for (let i = 0; i < notes.length; i++) {
         const freq = notes[i]
         if (freq === undefined) continue
-        tone(freq, 0.16, 'square', 0.05, t + i * 0.11)
+        tone(freq, 0.18, 'square', 0.05, t + i * 0.12)
       }
     },
   }
