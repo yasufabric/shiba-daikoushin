@@ -7,14 +7,14 @@ import {
   BONE_PER_SHIBA,
   BONE_RATE,
   COUNT_BLACK,
-  COUNT_WHITE,
+  COUNT_SESAME,
   CUT_TIME,
   FX_TIME,
   HEAVY_HIT,
   KIND_BLACK,
   KIND_TAN,
-  KIND_WHITE,
   KIND_SESAME,
+  KIND_WHITE,
   FREE_ZONE_Y,
   FREE_REACH,
   BARK_RANGE,
@@ -287,8 +287,8 @@ describe('胡麻柴', () => {
   it('mends the most-hurt shiba nearby and fills its own gauge with the healing', () => {
     const sim = createSim({ tutorial: false, seed: 6 })
     sim.bones = 500
-    step(sim, 1 / 30, { card: KIND_SESAME, restart: false })
-    const healer = sim.shibas.find((u) => u.alive && u.kind === KIND_SESAME)
+    step(sim, 1 / 30, { card: KIND_WHITE, restart: false })
+    const healer = sim.shibas.find((u) => u.alive && u.kind === KIND_WHITE)
     expect(healer).toBeDefined()
     const hurt = sim.shibas.find((u) => u.alive && u.kind === KIND_TAN && u.lane === healer?.lane)
     expect(hurt).toBeDefined()
@@ -297,7 +297,7 @@ describe('胡麻柴', () => {
     hurt.y = (healer?.y ?? 0) - 60
     play(sim, 1.2, () => NO_INPUT)
     expect(hurt.hp).toBeGreaterThanOrEqual(10 + HEAL_AMOUNT - 1)
-    expect(sim.charge[KIND_SESAME] ?? 0).toBeGreaterThan(0)
+    expect(sim.charge[KIND_WHITE] ?? 0).toBeGreaterThan(0)
     expect(sim.charge[KIND_TAN]).toBe(0)
   })
 
@@ -305,7 +305,7 @@ describe('胡麻柴', () => {
     const sim = createSim({ tutorial: false, seed: 6 })
     for (const unit of sim.shibas) if (unit.alive) unit.hp = 1
     sim.homeHp = 100
-    strikeSpecial(sim, KIND_SESAME)
+    strikeSpecial(sim, KIND_WHITE)
     for (const unit of sim.shibas) if (unit.alive) expect(unit.hp).toBe(unit.maxHp)
     expect(sim.homeHp).toBe(100 + SASAMI_HOME)
   })
@@ -420,7 +420,7 @@ describe('free placement roles', () => {
     const dogs = sim.cats.slice(0, 2)
     dogs.forEach((dog, k) => Object.assign(dog, { alive: true, fly: 0, kind: k === 0 ? BREED_BULLDOG : BREED_BOSS, hp: 999, maxHp: 999, dps: 0, speed: 40, x: 100 + k * 100, y: 300 }))
     sim.aliveCats = 2
-    strikeSpecial(sim, KIND_WHITE)
+    strikeSpecial(sim, KIND_SESAME)
     expect(dogs[0]?.stun).toBe(CHEESE_STUN)
     expect(dogs[1]?.stun).toBe(0)
     const y = dogs[0]?.y ?? 0
@@ -457,7 +457,7 @@ describe('free placement roles', () => {
 
   it('has 白 bark from range and splash the dogs around its target', () => {
     const sim = emptyField()
-    const white = drop(sim, KIND_WHITE, 180, 480)
+    const white = drop(sim, KIND_SESAME, 180, 480)
     const dogs = sim.cats.slice(0, 2)
     dogs.forEach((dog, k) => Object.assign(dog, { alive: true, fly: 0, kind: BREED_BULLDOG, hp: 999, maxHp: 999, dps: 0, speed: 0, x: 180 + k * (BARK_SPLASH - 10), y: 480 - BARK_RANGE + 10 }))
     sim.aliveCats = 2
@@ -475,7 +475,7 @@ describe('free placement roles', () => {
       u.speed = 0
       u.hp = 10
     }
-    const healer = drop(sim, KIND_SESAME, 180, 470)
+    const healer = drop(sim, KIND_WHITE, 180, 470)
     healer.speed = 0
     play(sim, 1.2, () => NO_INPUT)
     expect(near.hp).toBeGreaterThan(10)
@@ -490,7 +490,7 @@ describe('free placement roles', () => {
     const hurt = drop(sim, KIND_TAN, 300, 600)
     for (const u of [fine, hurt]) u.speed = 0
     hurt.hp = 10
-    const healer = drop(sim, KIND_SESAME, 120, 480)
+    const healer = drop(sim, KIND_WHITE, 120, 480)
     expect(Math.hypot(hurt.x - healer.x, hurt.y - healer.y)).toBeGreaterThan(HEAL_RADIUS)
     play(sim, 8, () => NO_INPUT)
     expect(Math.hypot(hurt.x - healer.x, hurt.y - healer.y)).toBeLessThan(HEAL_RADIUS)
@@ -583,18 +583,18 @@ describe('soldiers', () => {
   it('deploys the 白柴 card as barkers spread across paths', () => {
     const sim = createSim({ tutorial: false })
     sim.bones = 500
-    const cost = costOf(sim, KIND_WHITE)
+    const cost = costOf(sim, KIND_SESAME)
     step(sim, 1 / 30, { card: 2, restart: false })
     let whites = 0
     const lanes = new Set<number>()
     for (const unit of sim.shibas) {
-      if (!unit.alive || unit.kind !== KIND_WHITE) continue
+      if (!unit.alive || unit.kind !== KIND_SESAME) continue
       whites += 1
       lanes.add(unit.lane)
     }
-    expect(whites).toBe(COUNT_WHITE)
-    expect(lanes.size).toBe(COUNT_WHITE)
-    expect(costOf(sim, KIND_WHITE)).toBeGreaterThan(cost)
+    expect(whites).toBe(COUNT_SESAME)
+    expect(lanes.size).toBe(COUNT_SESAME)
+    expect(costOf(sim, KIND_SESAME)).toBeGreaterThan(cost)
   })
 
   it('lands 黒柴 bites as single heavy hits and fills only that coat', () => {
@@ -610,7 +610,7 @@ describe('soldiers', () => {
     expect(HEAVY_HIT).toBeGreaterThanOrEqual(BREED_HP[BREED_CORGI])
     expect(sim.charge[KIND_BLACK] ?? 0).toBeGreaterThanOrEqual(BREED_HP[BREED_CHIHUAHUA] * 2)
     expect(sim.charge[KIND_TAN]).toBe(0)
-    expect(sim.charge[KIND_WHITE]).toBe(0)
+    expect(sim.charge[KIND_SESAME]).toBe(0)
   })
 
   it('fires a special on its own once the gauge fills, with a cut-in beat', () => {
@@ -644,7 +644,7 @@ describe('soldiers', () => {
     play(sim, 70, () => NO_INPUT)
     const ys = sim.cats.filter((c) => c.alive && c.fly === 0).map((c) => c.y)
     expect(ys.length).toBeGreaterThan(0)
-    strikeSpecial(sim, KIND_WHITE)
+    strikeSpecial(sim, KIND_SESAME)
     const after = sim.cats.filter((c) => c.alive && c.fly === 0)
     expect(after.every((c) => c.hp < (BREED_HP[c.kind] ?? 0))).toBe(true)
     expect(sim.floatDmg).toBeGreaterThan(0)

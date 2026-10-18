@@ -58,24 +58,24 @@ import {
   CHEESE_FREE_PUSH,
   CHEESE_STUN,
   JERKY_FREE_HIT,
-  COST_WHITE,
-  COUNT_WHITE,
-  CUT_TIME,
-  FX_TIME,
-  DPS_WHITE,
-  HEAVY_EVERY,
-  HEAVY_HIT,
-  HP_WHITE,
-  JERKY_DEPTH,
-  JERKY_HIT,
-  KIND_WHITE,
-  KIND_SESAME,
   COST_SESAME,
   COUNT_SESAME,
+  CUT_TIME,
+  FX_TIME,
   DPS_SESAME,
+  HEAVY_EVERY,
+  HEAVY_HIT,
   HP_SESAME,
-  SPEED_SESAME,
-  STEP_SESAME,
+  JERKY_DEPTH,
+  JERKY_HIT,
+  KIND_SESAME,
+  KIND_WHITE,
+  COST_WHITE,
+  COUNT_WHITE,
+  DPS_WHITE,
+  HP_WHITE,
+  SPEED_WHITE,
+  STEP_WHITE,
   HEAL_AMOUNT,
   HEAL_EVERY,
   HEAL_REACH,
@@ -121,8 +121,8 @@ import {
   KINDS,
   RUSH_TIME,
   SPECIAL_NEED,
-  SPEED_WHITE,
-  STEP_WHITE,
+  SPEED_SESAME,
+  STEP_SESAME,
 } from './balance'
 
 export type Phase = 'grow' | 'clash'
@@ -146,10 +146,10 @@ export interface Unit {
   bite: number
   /** Match time of the last bite this unit landed, for the lunge and spark. */
   bitAt: number
-  /** Where 白's last bark landed, for its sound wave. */
+  /** Where 胡麻's last bark landed, for its sound wave. */
   aimX: number
   aimY: number
-  /** Match time 胡麻 last mended this unit, for the plus over its head. */
+  /** Match time 白 last mended this unit, for the plus over its head. */
   mendAt: number
   /** Seconds a dog stays frozen in place (チーズ!!). */
   stun: number
@@ -306,8 +306,8 @@ export function createSim(opts?: SimOptions): Sim {
     cats: makePool(MAX_CATS),
     costTan: COST_TAN,
     costBlack: COST_BLACK,
-    costWhite: COST_WHITE,
-    costSesame: COST_SESAME,
+    costWhite: COST_SESAME,
+    costSesame: COST_WHITE,
     bossIndex: -1,
     kills: 0,
     toSend: DOG_COUNT,
@@ -366,8 +366,8 @@ function boot(sim: Sim): void {
   sim.aliveCats = 0
   sim.costTan = COST_TAN
   sim.costBlack = COST_BLACK
-  sim.costWhite = COST_WHITE
-  sim.costSesame = COST_SESAME
+  sim.costWhite = COST_SESAME
+  sim.costSesame = COST_WHITE
   sim.bossIndex = -1
   sim.kills = 0
   sim.toSend = DOG_COUNT
@@ -419,7 +419,7 @@ export function spawnShiba(sim: Sim, kind: number, lane: number, y: number): boo
   const unit = acquire(sim.shibas, sim, 's')
   if (!unit) return false
   const laneW = FIELD_W / LANE_COUNT
-  const k = kind === KIND_BLACK || kind === KIND_WHITE || kind === KIND_SESAME ? kind : KIND_TAN
+  const k = kind === KIND_BLACK || kind === KIND_SESAME || kind === KIND_WHITE ? kind : KIND_TAN
   unit.alive = true
   unit.lane = lane
   unit.kind = k
@@ -439,11 +439,11 @@ export function spawnShiba(sim: Sim, kind: number, lane: number, y: number): boo
   return true
 }
 
-const HP_OF = [HP_TAN, HP_BLACK, HP_WHITE, HP_SESAME] as const
-const DPS_OF = [DPS_TAN, DPS_BLACK, DPS_WHITE, DPS_SESAME] as const
-const SPEED_OF = [SPEED_TAN, SPEED_BLACK, SPEED_WHITE, SPEED_SESAME] as const
-const COUNT_OF = [COUNT_TAN, COUNT_BLACK, COUNT_WHITE, COUNT_SESAME] as const
-const STEP_OF = [STEP_TAN, STEP_BLACK, STEP_WHITE, STEP_SESAME] as const
+const HP_OF = [HP_TAN, HP_BLACK, HP_SESAME, HP_WHITE] as const
+const DPS_OF = [DPS_TAN, DPS_BLACK, DPS_SESAME, DPS_WHITE] as const
+const SPEED_OF = [SPEED_TAN, SPEED_BLACK, SPEED_SESAME, SPEED_WHITE] as const
+const COUNT_OF = [COUNT_TAN, COUNT_BLACK, COUNT_SESAME, COUNT_WHITE] as const
+const STEP_OF = [STEP_TAN, STEP_BLACK, STEP_SESAME, STEP_WHITE] as const
 
 export function fillMarch(sim: Sim, count: number): number {
   let spawned = 0
@@ -673,7 +673,7 @@ function tryDeploy(sim: Sim, card: number, chosen?: number, at?: { x: number; y:
     }
   }
   for (let i = 0; i < count && !(sim.free && at); i++) {
-    const lane = (start + i * (card === KIND_WHITE ? 3 : 1)) % LANE_COUNT
+    const lane = (start + i * (card === KIND_SESAME ? 3 : 1)) % LANE_COUNT
     const y = laneBack(sim, lane)
     if (y > FIELD_H + 240) continue
     if (spawnShiba(sim, card, lane, y)) spawned += 1
@@ -690,7 +690,7 @@ function tryDeploy(sim: Sim, card: number, chosen?: number, at?: { x: number; y:
     sim.costTan += step
   } else if (card === KIND_BLACK) {
     sim.costBlack += step
-  } else if (card === KIND_WHITE) {
+  } else if (card === KIND_SESAME) {
     sim.costWhite += step
   } else {
     sim.costSesame += step
@@ -700,15 +700,15 @@ function tryDeploy(sim: Sim, card: number, chosen?: number, at?: { x: number; y:
 
 export function costOf(sim: Sim, card: number): number {
   if (card === KIND_BLACK) return sim.costBlack
-  if (card === KIND_WHITE) return sim.costWhite
-  if (card === KIND_SESAME) return sim.costSesame
+  if (card === KIND_SESAME) return sim.costWhite
+  if (card === KIND_WHITE) return sim.costSesame
   return sim.costTan
 }
 
 function deny(sim: Sim, card: number): void {
   if (card === KIND_BLACK) sim.deny1 = 0.18
-  else if (card === KIND_WHITE) sim.deny2 = 0.18
-  else if (card === KIND_SESAME) sim.deny3 = 0.18
+  else if (card === KIND_SESAME) sim.deny2 = 0.18
+  else if (card === KIND_WHITE) sim.deny3 = 0.18
   else sim.deny0 = 0.18
 }
 
@@ -878,7 +878,7 @@ function nearestTaunt(shibas: Unit[], dog: Unit, sight: number): Unit | undefine
   return best
 }
 
-/** 胡麻: walk to the most-hurt shiba (else trail the nearest one from just behind), and every HEAL_EVERY mend every shiba inside HEAL_RADIUS. */
+/** 白: walk to the most-hurt shiba (else trail the nearest one from just behind), and every HEAL_EVERY mend every shiba inside HEAL_RADIUS. */
 function mendFree(sim: Sim, healer: Unit, dt: number, beat: number): void {
   // Head for the shiba that needs it most (low HP share, nearer wins ties); with nobody hurt, trail the nearest shiba.
   let hurt: Unit | undefined
@@ -886,7 +886,7 @@ function mendFree(sim: Sim, healer: Unit, dt: number, beat: number): void {
   let lead: Unit | undefined
   let leadD = Infinity
   for (const u of sim.shibas) {
-    if (!u?.alive || u === healer || u.kind === KIND_SESAME) continue
+    if (!u?.alive || u === healer || u.kind === KIND_WHITE) continue
     const d = Math.hypot(u.x - healer.x, u.y - healer.y)
     if (d < leadD) {
       leadD = d
@@ -913,7 +913,7 @@ function mendFree(sim: Sim, healer: Unit, dt: number, beat: number): void {
   healer.cd -= beat
   if (healer.cd > 0) return
   let mended = 0
-  const amount = HEAL_AMOUNT * power(sim, KIND_SESAME)
+  const amount = HEAL_AMOUNT * power(sim, KIND_WHITE)
   for (const u of sim.shibas) {
     if (!u?.alive || u.hp <= 0 || u.hp >= u.maxHp) continue
     if (Math.hypot(u.x - healer.x, u.y - healer.y) > HEAL_RADIUS) continue
@@ -925,7 +925,7 @@ function mendFree(sim: Sim, healer: Unit, dt: number, beat: number): void {
   healer.cd = HEAL_EVERY
   if (mended > 0) {
     healer.bitAt = sim.time
-    sim.charge[KIND_SESAME] = (sim.charge[KIND_SESAME] ?? 0) + mended
+    sim.charge[KIND_WHITE] = (sim.charge[KIND_WHITE] ?? 0) + mended
   }
 }
 
@@ -968,7 +968,7 @@ function moveFree(sim: Sim, rawDt: number): void {
   const homeY = FIELD_H - 6
   for (const shiba of sim.shibas) {
     if (!shiba?.alive || shiba.hp <= 0) continue
-    if (shiba.kind === KIND_SESAME) {
+    if (shiba.kind === KIND_WHITE) {
       mendFree(sim, shiba, dt, beat)
       continue
     }
@@ -980,7 +980,7 @@ function moveFree(sim: Sim, rawDt: number): void {
       shiba.bite = BITE_EVERY * 0.5
       continue
     }
-    const reach = shiba.kind === KIND_WHITE ? BARK_RANGE : FREE_REACH
+    const reach = shiba.kind === KIND_SESAME ? BARK_RANGE : FREE_REACH
     const d = Math.hypot(foe.x - shiba.x, foe.y - shiba.y)
     if (d > reach + 4) {
       stepToward(shiba, foe.x, foe.y, Math.min(d - reach * 0.9, shiba.speed * pace * dt))
@@ -995,14 +995,14 @@ function moveFree(sim: Sim, rawDt: number): void {
         shiba.aimY = foe.y
         shiba.bitAt = sim.time
       }
-    } else if (shiba.kind === KIND_WHITE) {
+    } else if (shiba.kind === KIND_SESAME) {
       shiba.cd -= beat
       if (shiba.cd <= 0) {
         shiba.cd = BARK_EVERY
-        const hit = BARK_HIT * power(sim, KIND_WHITE)
+        const hit = BARK_HIT * power(sim, KIND_SESAME)
         for (const dog of sim.cats) {
           if (!dog?.alive || dog.fly === 1 || dog.hp <= 0) continue
-          if (Math.hypot(dog.x - foe.x, dog.y - foe.y) <= BARK_SPLASH) hurt(sim, dog, hit, KIND_WHITE)
+          if (Math.hypot(dog.x - foe.x, dog.y - foe.y) <= BARK_SPLASH) hurt(sim, dog, hit, KIND_SESAME)
         }
         shiba.aimX = foe.x
         shiba.aimY = foe.y
@@ -1139,12 +1139,12 @@ function hurt(sim: Sim, cat: Unit, amount: number, kind: number): number {
   return landed
 }
 
-/** 白柴 bark: a short-range blast into its own lane and both neighbors. */
+/** 胡麻柴 bark: a short-range blast into its own lane and both neighbors. */
 function bark(sim: Sim, dt: number): void {
   const shibas = sim.shibas
   for (let i = 0; i < shibas.length; i++) {
     const unit = shibas[i]
-    if (!unit?.alive || unit.kind !== KIND_WHITE) continue
+    if (!unit?.alive || unit.kind !== KIND_SESAME) continue
     if (unit.cd > 0) unit.cd -= dt
     if (unit.cd > 0) continue
     let hit = false
@@ -1157,7 +1157,7 @@ function bark(sim: Sim, dt: number): void {
         const cat = sim.cats[idx[j] ?? -1]
         if (!cat?.alive || cat.fly === 1 || cat.hp <= 0) continue
         if (cat.y > unit.y || unit.y - cat.y > BARK_REACH) continue
-        hurt(sim, cat, BARK_HIT * power(sim, KIND_WHITE), KIND_WHITE)
+        hurt(sim, cat, BARK_HIT * power(sim, KIND_SESAME), KIND_SESAME)
         hit = true
       }
     }
@@ -1165,12 +1165,12 @@ function bark(sim: Sim, dt: number): void {
   }
 }
 
-/** 胡麻柴 heal: mend the most-hurt shiba near it, in its own path or a neighbor. Healing fills the 胡麻 gauge. */
+/** 白柴 heal: mend the most-hurt shiba near it, in its own path or a neighbor. Healing fills the 白 gauge. */
 function heal(sim: Sim, dt: number): void {
   const shibas = sim.shibas
   for (let i = 0; i < shibas.length; i++) {
     const healer = shibas[i]
-    if (!healer?.alive || healer.kind !== KIND_SESAME) continue
+    if (!healer?.alive || healer.kind !== KIND_WHITE) continue
     if (healer.cd > 0) healer.cd -= dt
     if (healer.cd > 0) continue
     let best: Unit | undefined
@@ -1187,14 +1187,14 @@ function heal(sim: Sim, dt: number): void {
       }
     }
     if (!best) continue
-    const mended = Math.min(HEAL_AMOUNT * power(sim, KIND_SESAME), best.maxHp - best.hp)
+    const mended = Math.min(HEAL_AMOUNT * power(sim, KIND_WHITE), best.maxHp - best.hp)
     best.hp += mended
-    sim.charge[KIND_SESAME] = (sim.charge[KIND_SESAME] ?? 0) + mended
+    sim.charge[KIND_WHITE] = (sim.charge[KIND_WHITE] ?? 0) + mended
     healer.cd = HEAL_EVERY
   }
 }
 
-/** Specials: 赤「サツマイモ!!」rush, 黒「ジャーキー!!」pierce, 白「チーズ!!」shockwave, 胡麻「ササミ!!」full heal. Firing starts the cut-in; strikeSpecial lands it. */
+/** Specials: 赤「サツマイモ!!」rush, 黒「ジャーキー!!」pierce, 胡麻「チーズ!!」shockwave, 白「ササミ!!」full heal. Firing starts the cut-in; strikeSpecial lands it. */
 export function fireSpecial(sim: Sim, kind: number): void {
   sim.charge[kind] = 0
   sim.cutKind = kind
@@ -1242,7 +1242,7 @@ export function strikeSpecial(sim: Sim, kind: number): void {
         note(cat, hit, false)
       }
     }
-  } else if (kind === KIND_SESAME) {
+  } else if (kind === KIND_WHITE) {
     for (let i = 0; i < sim.shibas.length; i++) {
       const unit = sim.shibas[i]
       if (!unit?.alive || unit.hp <= 0) continue

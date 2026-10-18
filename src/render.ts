@@ -31,8 +31,8 @@ import {
   FLOAT_TIME,
   KIND_BLACK,
   KIND_TAN,
-  KIND_WHITE,
   KIND_SESAME,
+  KIND_WHITE,
   KINDS,
   CARD_XS,
   RECHARGE,
@@ -614,13 +614,13 @@ function paintHomeBar(ctx: CanvasRenderingContext2D, renderer: Renderer, sim: Si
   ctx.fillRect(barX, barY, fill, 1)
 }
 
-/** Free placement role cues: a dotted pink ring around every 胡麻 shows who its heal reaches, a ring pulses out when it heals, a green plus floats over each shiba it mended, and 白's bark travels to the dog it hit as gold arcs. */
+/** Free placement role cues: a dotted pink ring around every 白 shows who its heal reaches, a ring pulses out when it heals, a green plus floats over each shiba it mended, and 胡麻's bark travels to the dog it hit as gold arcs. */
 function paintRoles(ctx: CanvasRenderingContext2D, sim: Sim): void {
   for (const unit of sim.shibas) {
     if (!unit?.alive) continue
     const cx = px(at(FIELD_X + unit.x))
     const cy = fpy(unit.y) - (CROWD_PX >> 1)
-    if (unit.kind === KIND_SESAME) {
+    if (unit.kind === KIND_WHITE) {
       const r = at(HEAL_RADIUS)
       const age = sim.time - unit.bitAt
       ctx.fillStyle = DANGER_LIGHT
@@ -650,31 +650,31 @@ function paintRoles(ctx: CanvasRenderingContext2D, sim: Sim): void {
   }
 }
 
-/** Clash Royale–style attack readouts at the dog that was hit: 赤 slashes three quick claw marks, 黒 slams a ground ring, 白 lobs a ball that bursts in a splash ring. */
+/** Clash Royale–style attack readouts at the dog that was hit: 赤 slashes three quick claw marks, 黒 slams a ground ring, 胡麻 lobs a ball that bursts in a splash ring. */
 function paintAttacks(ctx: CanvasRenderingContext2D, sim: Sim): void {
   for (const unit of sim.shibas) {
-    if (!unit?.alive || unit.kind === KIND_SESAME) continue
+    if (!unit?.alive || unit.kind === KIND_WHITE) continue
     const age = sim.time - unit.bitAt
-    if (age < 0 || age >= 0.45) continue
+    if (age < 0 || age >= 1) continue
     const tx = px(at(FIELD_X + unit.aimX))
     const ty = fpy(unit.aimY) - (CAT_PX >> 1)
     if (unit.kind === KIND_BLACK) {
       // A heavy slam: a flat ring racing out along the ground, plus a dust puff.
-      const t = Math.min(1, age / 0.35)
-      const r = 4 + Math.round(t * 18)
+      const t = Math.min(1, age / 0.8)
+      const r = 4 + Math.round(t * 20)
       const gy = ty + 6
       ctx.fillStyle = t < 0.5 ? WHITE : GOLD
       for (let k = 0; k < 22; k++) {
         const a = (k / 22) * Math.PI * 2
         ctx.fillRect(tx + Math.round(Math.cos(a) * r), gy + Math.round(Math.sin(a) * r * 0.4), 3, 2)
       }
-      if (age < 0.12) {
+      if (age < 0.3) {
         ctx.fillStyle = WHITE
         ctx.fillRect(tx - 8, ty - 1, 17, 3)
         ctx.fillRect(tx - 1, ty - 8, 3, 17)
       }
-    } else if (unit.kind === KIND_WHITE) {
-      const fly = 0.16
+    } else if (unit.kind === KIND_SESAME) {
+      const fly = 0.4
       const sx = px(at(FIELD_X + unit.x))
       const sy = fpy(unit.y) - CROWD_PX
       if (age < fly) {
@@ -688,7 +688,7 @@ function paintAttacks(ctx: CanvasRenderingContext2D, sim: Sim): void {
         ctx.fillStyle = GOLD
         ctx.fillRect(bx - 1, by, 3, 2)
       } else {
-        const t = Math.min(1, (age - fly) / 0.28)
+        const t = Math.min(1, (age - fly) / 0.5)
         const r = Math.round(at(BARK_SPLASH) * (0.4 + t * 0.6))
         ctx.fillStyle = t < 0.5 ? WHITE : GOLD_LIGHT
         for (let k = 0; k < 24; k++) {
@@ -696,9 +696,9 @@ function paintAttacks(ctx: CanvasRenderingContext2D, sim: Sim): void {
           ctx.fillRect(tx + Math.round(Math.cos(a) * r), ty + Math.round(Math.sin(a) * r * 0.75), 2, 2)
         }
       }
-    } else if (age < 0.16) {
-      // Three quick slash marks, one after another.
-      const shown = Math.min(3, 1 + Math.floor(age / 0.05))
+    } else if (age < 0.55) {
+      // Three slash marks, one after another.
+      const shown = Math.min(3, 1 + Math.floor(age / 0.14))
       for (let k = 0; k < shown; k++) {
         const ox = (k - 1) * 6
         ctx.fillStyle = LINE
@@ -710,10 +710,11 @@ function paintAttacks(ctx: CanvasRenderingContext2D, sim: Sim): void {
   }
 }
 
-/** A bite lunges the biter 3px toward its foe for a tenth of a second. */
+/** A bite lunges the biter forward 5px, then eases back over a third of a second. */
 function lunge(sim: Sim, bitAt: number): number {
   const age = sim.time - bitAt
-  return age >= 0 && age < 0.1 ? 3 : 0
+  if (age < 0 || age >= 0.3) return 0
+  return age < 0.12 ? 5 : 2
 }
 
 /** Where a bite lands, a white-and-gold star flashes for a tenth of a second. */
@@ -722,7 +723,7 @@ function paintBiteSparks(ctx: CanvasRenderingContext2D, sim: Sim): void {
     const unit = sim.shibas[i]
     if (!unit?.alive) continue
     const age = sim.time - unit.bitAt
-    if (age < 0 || age >= 0.1) continue
+    if (age < 0 || age >= 0.3) continue
     if (sim.free) continue
     drawSpark(ctx, px(at(FIELD_X + unit.x)), fpy(unit.y) - CROWD_PX - 4, age)
   }
@@ -730,13 +731,13 @@ function paintBiteSparks(ctx: CanvasRenderingContext2D, sim: Sim): void {
     const dog = sim.cats[i]
     if (!dog?.alive || dog.fly === 1) continue
     const age = sim.time - dog.bitAt
-    if (age < 0 || age >= 0.1) continue
+    if (age < 0 || age >= 0.3) continue
     drawSpark(ctx, px(at(FIELD_X + dog.x)), fpy(dog.y) + 2, age)
   }
 }
 
 function drawSpark(ctx: CanvasRenderingContext2D, x: number, y: number, age: number): void {
-  const r = age < 0.05 ? 4 : 3
+  const r = age < 0.15 ? 4 : 3
   ctx.fillStyle = GOLD
   ctx.fillRect(x - r, y - 1, r * 2 + 1, 3)
   ctx.fillRect(x - 1, y - r, 3, r * 2 + 1)
@@ -834,15 +835,15 @@ function drawShiba(ctx: CanvasRenderingContext2D, renderer: Renderer, sim: Sim, 
     ctx.fillRect(dx + CROWD_PX - 5, dy + CROWD_PX + 1, 1, 4)
   }
   blitCrowd(ctx, renderer, furOf(unit.kind), pose, fighting ? beat : sim.time, unit.lane, 0, flash, dx, dy)
-  if (unit.kind === KIND_WHITE) paintBark(ctx, sim.time - (renderer.shibaAct[index] ?? -9), dx + (CROWD_PX >> 1), dy)
-  if (unit.kind === KIND_SESAME) {
+  if (unit.kind === KIND_SESAME) paintBark(ctx, sim.time - (renderer.shibaAct[index] ?? -9), dx + (CROWD_PX >> 1), dy)
+  if (unit.kind === KIND_WHITE) {
     drawHeart(ctx, dx + CROWD_PX - 7, dy - 2)
     paintMend(ctx, sim.time - (renderer.shibaAct[index] ?? -9), dx + (CROWD_PX >> 1), dy)
   }
 }
 
-/** 白柴's bark: three widening bars rising off the helmet, ")))" turned upward. */
-/** 胡麻 heal: a pink heart floats up off the healer. */
+/** 胡麻柴's bark: three widening bars rising off the helmet, ")))" turned upward. */
+/** 白 heal: a pink heart floats up off the healer. */
 function paintMend(ctx: CanvasRenderingContext2D, age: number, cx: number, top: number): void {
   if (age < 0 || age > 0.5) return
   drawHeart(ctx, cx - 3, top - 4 - Math.floor(age * 24))
@@ -948,11 +949,11 @@ function noteDeaths(renderer: Renderer, sim: Sim): void {
   }
 }
 
-/** Each card is one coat: 赤, 黒, 白, and the 胡麻 healer. Every crowd sprite matches its card. */
+/** Each card is one coat: 赤, 黒, the 胡麻 ball thrower, and the 白 healer. Every crowd sprite matches its card. */
 function furOf(kind: number): number {
   if (kind === KIND_BLACK) return FUR_BLACK
-  if (kind === KIND_WHITE) return FUR_CREAM
   if (kind === KIND_SESAME) return FUR_SESAME
+  if (kind === KIND_WHITE) return FUR_CREAM
   return FUR_RED
 }
 
@@ -1182,7 +1183,7 @@ const COAT_LIT = [FUR_BODY, NIGHT_2, WHITE_MID, FUR_MID] as const
 const CUT_H = 44
 const CUT_SLIDE = 0.12
 
-/** A special's strike, once the cut-in is gone: 赤 sweet potatoes rain onto every 赤, 黒 jerky spears hit their dogs, 白 a cheese wedge slams the middle and rings out, 胡麻 hearts. Then each touched unit shows its share. */
+/** A special's strike, once the cut-in is gone: 赤 sweet potatoes rain onto every 赤, 黒 jerky spears hit their dogs, 胡麻 a cheese wedge slams the middle and rings out, 白 hearts. Then each touched unit shows its share. */
 function paintSpecialField(ctx: CanvasRenderingContext2D, renderer: Renderer, sim: Sim): void {
   paintRushAura(ctx, sim)
   if (sim.fxKind < 0 || sim.fxT <= 0) return
@@ -1193,7 +1194,7 @@ function paintSpecialField(ctx: CanvasRenderingContext2D, renderer: Renderer, si
   else if (sim.fxKind === KIND_BLACK) {
     if (sim.free) paintJerkyRain(ctx, renderer, sim, age)
     else paintJerky(ctx, renderer, sim, age, fresh)
-  } else if (sim.fxKind === KIND_SESAME) paintSasami(ctx, renderer, sim, age)
+  } else if (sim.fxKind === KIND_WHITE) paintSasami(ctx, renderer, sim, age)
   else paintCheese(ctx, renderer, sim, age, fresh)
   paintFxHits(ctx, renderer, sim, age)
 }
@@ -1348,7 +1349,7 @@ function paintJerky(ctx: CanvasRenderingContext2D, renderer: Renderer, sim: Sim,
   }
 }
 
-/** 胡麻「ササミ!!」: hearts burst up off every shiba and gold pluses ring the 柴の家. */
+/** 白「ササミ!!」: hearts burst up off every shiba and gold pluses ring the 柴の家. */
 function paintSasami(ctx: CanvasRenderingContext2D, renderer: Renderer, sim: Sim, age: number): void {
   for (let i = 0; i < sim.shibas.length; i++) {
     const unit = sim.shibas[i]
@@ -1552,7 +1553,7 @@ function paintCard(
     ctx.fillStyle = NIGHT_3
     ctx.fillRect(x + 2, top + cover - 1, w - 4, 1)
   }
-  if (kind === KIND_SESAME) drawHeart(ctx, x + w - 10, y + 3)
+  if (kind === KIND_WHITE) drawHeart(ctx, x + w - 10, y + 3)
   if (cost >= 0) {
     ctx.drawImage(renderer.sheets.bone, x + 1, y + h - 17)
     drawNumber(ctx, renderer, cost | 0, x + 13, y + h - 15, false)
@@ -1772,7 +1773,7 @@ function paintShop(ctx: CanvasRenderingContext2D, renderer: Renderer, sim: Sim):
     frameRect(ctx, x + 1, y + 1, w - 2, h - 2, can ? GOLD_DARK : NIGHT_2)
     const blink = can && (Math.floor(sim.time * 2 + kind) & 1) === 1
     ctx.drawImage(renderer.sheets.hero, heroCell(kind, blink ? 'blink' : 'open') * HERO_PX, 0, HERO_PX, HERO_PX, x + 6, y + ((h - HERO_PX) >> 1), HERO_PX, HERO_PX)
-    if (kind === KIND_SESAME) drawHeart(ctx, x + 32, y + 6)
+    if (kind === KIND_WHITE) drawHeart(ctx, x + 32, y + 6)
     const lx = x + 46
     const ly = y + ((h - 10) >> 1)
     drawLetter(ctx, LEVEL_WORD[0] ?? '', lx, ly, 1, WHITE)

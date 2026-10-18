@@ -56,15 +56,15 @@ export const COST_BLACK = 90
 export const STEP_TAN = 8
 export const STEP_BLACK = 16
 /** One shiba per tap, for every card. */
-/** Seconds a card needs before it can send another shiba. Order: 赤, 黒, 白, 胡麻. */
+/** Seconds a card needs before it can send another shiba. Order: 赤, 黒, 胡麻, 白. */
 export const RECHARGE = [2.5, 6, 4, 7] as const
 /** One shiba per tap, for every card. */
 export const COUNT_TAN = 1
 export const COUNT_BLACK = 1
 /** Front-line fighters trade bites on this beat instead of draining HP every frame, so each attack can be seen. */
-export const BITE_EVERY = 0.7
+export const BITE_EVERY = 1
 /** 赤柴 bites twice as fast in small nips. */
-export const TAN_BITE_EVERY = 0.35
+export const TAN_BITE_EVERY = 0.55
 export const HP_TAN = 48
 export const HP_BLACK = 400
 export const DPS_TAN = 30
@@ -72,34 +72,34 @@ export const DPS_BLACK = 24
 export const SPEED_TAN = 52
 export const SPEED_BLACK = 34
 
-/** 白柴: barks from the second row. Each bark hits every cat in reach in its lane and both neighbors. */
-export const COST_WHITE = 60
-export const STEP_WHITE = 10
-export const COUNT_WHITE = 1
-export const HP_WHITE = 40
-export const DPS_WHITE = 10
-export const SPEED_WHITE = 46
-export const BARK_EVERY = 1.7
-export const BARK_HIT = 36
+/** 胡麻柴: throws a ball from the second row. Each bark hits every cat in reach in its lane and both neighbors. */
+export const COST_SESAME = 60
+export const STEP_SESAME = 10
+export const COUNT_SESAME = 1
+export const HP_SESAME = 40
+export const DPS_SESAME = 10
+export const SPEED_SESAME = 46
+export const BARK_EVERY = 2
+export const BARK_HIT = 42
 export const BARK_REACH = 90
 
-/** 胡麻柴: the healer. Every HEAL_EVERY it mends the most-hurt shiba near it, in its path or the two beside. */
-export const COST_SESAME = 64
-export const STEP_SESAME = 16
-export const COUNT_SESAME = 1
-export const HP_SESAME = 75
-export const DPS_SESAME = 6
-export const SPEED_SESAME = 50
+/** 白柴: the healer. Every HEAL_EVERY it mends the most-hurt shiba near it, in its path or the two beside. */
+export const COST_WHITE = 64
+export const STEP_WHITE = 16
+export const COUNT_WHITE = 1
+export const HP_WHITE = 75
+export const DPS_WHITE = 6
+export const SPEED_WHITE = 50
 export const HEAL_EVERY = 1
 export const HEAL_AMOUNT = 14
 /** How far ahead (and a little behind) the healer reaches, in world px along the path. */
 export const HEAL_REACH = 180
 
 /** 黒柴: one heavy bite at a time, enough to drop a cat. */
-export const HEAVY_EVERY = 1.9
-export const HEAVY_HIT = 150
+export const HEAVY_EVERY = 2.3
+export const HEAVY_HIT = 180
 
-/** Specials fire on their own once a coat has dealt this much damage (胡麻: healed this much). Order: 赤, 黒, 白, 胡麻. */
+/** Specials fire on their own once a coat has dealt this much damage (白: healed this much). Order: 赤, 黒, 胡麻, 白. */
 export const SPECIAL_NEED = [1000, 800, 1400, 900] as const
 export const CUT_TIME = 1.1
 /** After the cut-in the special strikes; its field effect plays for this long. */
@@ -109,12 +109,12 @@ export const RUSH_TIME = 3
 /** 黒「ジャーキー!!」: the front three dogs of every lane, the boss included. */
 export const JERKY_HIT = 80
 export const JERKY_DEPTH = 3
-/** 胡麻「ササミ!!」: every shiba back to full, and the 柴の家 mended by this much. */
+/** 白「ササミ!!」: every shiba back to full, and the 柴の家 mended by this much. */
 export const SASAMI_HOME = 300
-/** 白「チーズ!!」: a field-wide shockwave that also shoves cats back. */
+/** 胡麻「チーズ!!」: a field-wide shockwave that also shoves cats back. */
 export const CHEESE_HIT = 26
 export const CHEESE_PUSH = 60
-/** Free placement 白「チーズ!!」is crowd control: light damage, a big shove, and every dog but the boss freezes. */
+/** Free placement 胡麻「チーズ!!」is crowd control: light damage, a big shove, and every dog but the boss freezes. */
 export const CHEESE_FREE_HIT = 10
 export const CHEESE_FREE_PUSH = 90
 export const CHEESE_STUN = 1.8
@@ -147,13 +147,13 @@ export const FREE_SPACE = 25
 export const FREE_HOLD_Y = 250
 /** Shibas never chase above this line, so they can't camp the mansion gate. */
 export const FREE_SHIBA_TOP = 190
-/** Roles in free placement. 赤 is the cheap, quick biter; 黒 the slow tank that dogs prefer to bite; 白 barks from range with a splash; 胡麻 heals everyone around it and never bites. */
+/** Roles in free placement. 赤 is the cheap, quick biter; 黒 the slow tank that dogs prefer to bite; 胡麻 throws balls from range with a splash; 白 heals everyone around it and never bites. */
 /** 黒 looks this much closer to a dog than it is, so dogs turn to it first. */
 export const TAUNT = 0.55
-/** 白's bark range, centre to centre, and the splash around the dog it barks at. */
+/** 胡麻's bark range, centre to centre, and the splash around the dog it barks at. */
 export const BARK_RANGE = 140
 export const BARK_SPLASH = 56
-/** 胡麻 mends every shiba inside this radius at once, every HEAL_EVERY; it stays this far behind the nearest shiba it follows. */
+/** 白 mends every shiba inside this radius at once, every HEAL_EVERY; it stays this far behind the nearest shiba it follows. */
 export const HEAL_RADIUS = 80
 export const HEAL_FOLLOW = 46
 /** The healer walks to a hurt shiba until it is within this share of HEAL_RADIUS. */
@@ -185,8 +185,8 @@ export const MARCH_COUNT = 240
 
 export const KIND_TAN = 0
 export const KIND_BLACK = 1
-export const KIND_WHITE = 2
-export const KIND_SESAME = 3
+export const KIND_SESAME = 2
+export const KIND_WHITE = 3
 export const KINDS = 4
 
 export const BONE_X = 16

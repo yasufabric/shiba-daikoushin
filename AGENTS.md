@@ -6,8 +6,8 @@ Four cards, four soldiers, each with its own role. The cards sit in one row of f
 
 - 赤 (tan card): a steady bite. Special 「サツマイモ!!」 sends every 赤 into a double-pace, double-bite rush.
 - 黒 (black card): one heavy bite at a time that drops a small dog. Special 「ジャーキー!!」 pierces the front three dogs on every path, the boss included.
-- 白 (white card): barks from the second row into its own path and both neighbors. Special 「チーズ!!」 is a field-wide shockwave that shoves every dog back.
-- 胡麻 (sesame card): the healer. Every second it mends the most-hurt shiba near it, in its own path or the two beside, and a pink heart floats up. Its gauge fills with healing done. Special 「ササミ!!」 brings every shiba back to full and mends the 柴の家. A small pink heart badge marks the 胡麻 card and every 胡麻 on the field, since the coat alone is hard to tell from 赤 at a glance.
+- 胡麻 (sesame card, third): throws a ball from the second row; it bursts in a splash on the dogs. Special 「チーズ!!」 is a field-wide shockwave that shoves every dog back.
+- 白 (white card, fourth): the healer. Every second it mends the most-hurt shiba near it, in its own path or the two beside, and a pink heart floats up. Its gauge fills with healing done. Special 「ササミ!!」 brings every shiba back to full and mends the 柴の家. A small pink heart badge marks the 白 card and every 白 on the field.
 
 Specials fire on their own when a coat's gauge (damage it has landed) fills. A small cut-in slides in: the smug portrait, the food shouted in pixel katakana, and ゴゴゴ. When the cut-in leaves, the special strikes: that is when its damage lands, with hitstop, shake, a strike sound, and a field effect that runs for `FX_TIME`. 赤: sweet potatoes drop onto every 赤 and pop, then gold embers rise off them while the rush lasts. 黒: a jerky spear shoots up every path with a gold trail and bursts on the dogs it pierces. 白: a big cheese wedge slams the middle of the field and square shockwave rings spread out. Props are drawn at an integer scale with a `#120b10` outline. The next special waits until the strike's effect ends. Shout foods only, never a product name.
 
@@ -90,8 +90,8 @@ The face smiles: a happy squint and a pink tongue (`#ffb3cf`), the シバスマ�
 Four coats share one set of rows and differ only by color map:
 
 - 赤 (red): the tan card and most of its crowd.
-- 胡麻 (sesame): red with `#6b2e12` tips on the crown and back. The 胡麻 card. The 赤 crowd is all 赤, so a 胡麻 on the field is always a healer.
-- 白 (cream): `#f6c27a` body with `#e08a3c` ear and curl shade. The white card.
+- 胡麻 (sesame): a darker brown coat (`FUR_MID` body) with a few dark patches from `speckle()`. The third card, the ball thrower.
+- 白 (cream): pure white fur with grey shade. The fourth card, the healer.
 - 黒 (black and tan): the black card. Night shades for fur (`#2c3a63` body, `#4a5d8f` lit, `#18213d` shade), tan まろ眉 brows, tan curl underside, white urajiro.
 
 Every unit animates: any step, up, down, or sideways, plays the walk; standing plays the idle; a unit that bit in the last second plays the attack. Gestures: idle wags the curl, the attack windup shuts the mouth and the hit frame barks.
@@ -124,8 +124,8 @@ Each coat has a job, with a strength and a weakness:
 
 - 赤: cheap and quick (walks `TAN_HASTE` faster), bites on the beat, but has the least HP. Good for swarming and filling gaps.
 - 黒: the tank. Most HP, slow and costly, one heavy bite every `HEAVY_EVERY`. Dogs in sight treat 黒 as `TAUNT` nearer than it is, so it pulls bites off the others.
-- 白: barks from `BARK_RANGE` instead of biting, hitting every dog within `BARK_SPLASH` of its target. Low HP; it needs biters in front. Its bark shows as gold arcs flying to the target.
-- 胡麻: never attacks. It walks to the most-hurt shiba (lowest HP share, nearer wins ties, `HEAL_SEEK_SPAN`) until it is within `HEAL_CLOSE` of the ring radius, and trails the nearest shiba from just behind when nobody is hurt. Every `HEAL_EVERY` mends every shiba inside `HEAL_RADIUS` at once. A dotted pink ring always shows that radius, a white ring pulses when it heals, and a green plus floats over each shiba it mended.
+- 胡麻: throws from `BARK_RANGE` instead of biting, hitting every dog within `BARK_SPLASH` of its target. Low HP; it needs biters in front. Its ball arcs to the target and bursts.
+- 白: never attacks. It walks to the most-hurt shiba (lowest HP share, nearer wins ties, `HEAL_SEEK_SPAN`) until it is within `HEAL_CLOSE` of the ring radius, and trails the nearest shiba from just behind when nobody is hurt. Every `HEAL_EVERY` mends every shiba inside `HEAL_RADIUS` at once. A dotted pink ring always shows that radius, a white ring pulses when it heals, and a green plus floats over each shiba it mended.
 
 ### Specials in free placement
 
@@ -136,7 +136,7 @@ Every strike shows what it did to each unit it touched: gold digits float up ove
 
 Once the clash starts, each wave is one of three named patterns (or the old mixed trickle, one time in four), picked a wave ahead and announced beside the mansion: the breed's head, the dog count, a three-slot strip lit where it comes from, and a gold bar that runs down to its arrival. No pattern repeats back to back, and nothing is announced during the opening trickle.
 
-- チワワの群れ (`WAVE_SWARM`): `SWARM_COUNT` fast, frail チワワ from the left, right, or middle. Wants 白 splash or a 黒 wall.
+- チワワの群れ (`WAVE_SWARM`): `SWARM_COUNT` fast, frail チワワ from the left, right, or middle. Wants 胡麻 splash or a 黒 wall.
 - ブルドッグの壁 (`WAVE_WALL`): `WALL_COUNT` slow, tough ブルドッグ shoulder to shoulder across the field. Wants focused 赤 and specials.
 - コーギーの挟み撃ち (`WAVE_PINCER`): `PINCER_COUNT` コーギー split onto both edges. Wants shibas spread, not clumped.
 
@@ -146,8 +146,8 @@ When the screen is shorter than the 422-row design (a phone with the browser bar
 
 ## Attack readouts and weaker specials (free placement)
 
-Every bite shows where it lands, Clash Royale style: 赤 slashes three quick claw marks at the dog, 黒 slams a ground ring with a white cross flash, 白 lobs a white ball in an arc that bursts into a `BARK_SPLASH`-sized ring (`paintAttacks` in render.ts; the sim stores `aimX/aimY` on every bite). Specials are weaker and charge slower (`SPECIAL_NEED` 1000/800/1400/900, `RUSH_TIME` 3, `CHEESE_STUN` 1.8, `JERKY_FREE_HIT` 130 on `JERKY_TARGETS` 2) so they are a swing, not a win button.
+Every bite shows where it lands, Clash Royale style: 赤 slashes three claw marks at the dog, 黒 slams a ground ring with a white cross flash, 胡麻 lobs a white ball in an arc that bursts into a `BARK_SPLASH`-sized ring (`paintAttacks` in render.ts; the sim stores `aimX/aimY` on every bite). Specials are weaker and charge slower (`SPECIAL_NEED` 1000/800/1400/900, `RUSH_TIME` 3, `CHEESE_STUN` 1.8, `JERKY_FREE_HIT` 130 on `JERKY_TARGETS` 2) so they are a swing, not a win button. Beats are slow enough to read: `BITE_EVERY` 1s, 赤 `TAN_BITE_EVERY` 0.55s, 黒 `HEAVY_EVERY` 2.3s, ball `BARK_EVERY` 2s; the claw marks last 0.55s, the slam ring 0.8s, the ball flies 0.4s then bursts for 0.5s.
 
 ## Role split
 
-赤: fragile (HP 48) and fast, nipping every `TAN_BITE_EVERY` 0.35s. 黒: tank (HP 400, slow) that slams `HEAVY_HIT` 150 every 1.9s and draws the dogs. 白: glass cannon (HP 40) that lobs a ball every 1.7s for `BARK_HIT` 36 in a `BARK_SPLASH` 56 radius from `BARK_RANGE` 140. 胡麻: tough (HP 75), never attacks, mends 14 per pulse.
+赤: fragile (HP 48), nipping every `TAN_BITE_EVERY` 0.55s. 黒: tank (HP 400, slow) that slams `HEAVY_HIT` 180 every 2.3s and draws the dogs. 胡麻: glass cannon (HP 40) that lobs a ball every 2s for `BARK_HIT` 42 in a `BARK_SPLASH` 56 radius from `BARK_RANGE` 140. 白: tough (HP 75), never attacks, mends 14 per pulse. More coats and tools (a frisbee, say) can be added later as new kinds.
