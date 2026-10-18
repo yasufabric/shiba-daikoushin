@@ -402,6 +402,19 @@ describe('free placement roles', () => {
     return u
   }
 
+  it('sends a shiba after a dog far out of sight instead of waiting', () => {
+    const sim = emptyField()
+    const shiba = drop(sim, KIND_TAN, 300, 450)
+    const dog = sim.cats[0]
+    if (!dog) throw new Error('no dog')
+    Object.assign(dog, { alive: true, fly: 0, kind: BREED_BULLDOG, hp: 9999, maxHp: 9999, dps: 0, speed: 0, x: 40, y: 200, stun: 0 })
+    sim.aliveCats = 1
+    const before = Math.hypot(shiba.x - dog.x, shiba.y - dog.y)
+    expect(before).toBeGreaterThan(130)
+    play(sim, 3, () => NO_INPUT)
+    expect(Math.hypot(shiba.x - dog.x, shiba.y - dog.y)).toBeLessThan(before - 30)
+  })
+
   it('drops 「ジャーキー!!」 on the dogs nearest the house and notes each hit', () => {
     const sim = emptyField()
     const dogs = sim.cats.slice(0, JERKY_TARGETS + 3)

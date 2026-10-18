@@ -974,7 +974,8 @@ function moveFree(sim: Sim, rawDt: number): void {
     }
     const haste = shiba.kind === KIND_TAN ? TAN_HASTE : 1
     const pace = (shiba.kind === KIND_TAN && sim.rushT > 0 ? 1.8 : 1) * haste
-    const foe = nearest(sim.cats, shiba, FREE_SIGHT_SHIBA, true)
+    // A dog out of sight is still hunted: no shiba stands idle far from the fight.
+    const foe = nearest(sim.cats, shiba, FREE_SIGHT_SHIBA, true) ?? nearest(sim.cats, shiba, Infinity, true)
     if (!foe) {
       if (shiba.y > FREE_HOLD_Y) stepToward(shiba, shiba.x, FREE_HOLD_Y, shiba.speed * pace * dt)
       shiba.bite = BITE_EVERY * 0.5
