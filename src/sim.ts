@@ -380,9 +380,11 @@ export function createSim(opts?: SimOptions): Sim {
   return sim
 }
 
-/** The stage in play. ?lanes keeps the plain old numbers (stage 3). */
+const OLD_STAGE: (typeof STAGES)[number] = { count: DOG_COUNT, hp: 1, dps: 1, dachsEvery: 5, goldenEvery: 9, bulldogEvery: 7 }
+
+/** The stage in play. ?lanes keeps the plain old numbers. */
 export function spec(sim: Sim): (typeof STAGES)[number] {
-  return STAGES[sim.free ? sim.stage : 2] ?? STAGES[2]!
+  return sim.free ? (STAGES[sim.stage] ?? OLD_STAGE) : OLD_STAGE
 }
 
 export function reset(sim: Sim): void {
