@@ -54,7 +54,7 @@ import {
   MAX_SHIBAS,
   PANEL_Y,
 } from './balance'
-import { BANNER_POP, BANNER_REST, CLEAR_WORD, glyphBit, LEVEL_WORD, letterBit, LOSE_WORD, START_WORD, POP_COL, POP_ROW, RUMBLE_WORD, SPECIAL_WORDS } from './font'
+import { BANNER_POP, BANNER_REST, CLEAR_WORD, glyphBit, LEVEL_WORD, letterBit, LOSE_WORD, START_WORD, POP_COL, POP_ROW, RUMBLE_WORD, SPECIAL_WORDS, STAGE_WORD } from './font'
 import {
   BOSS_H,
   BOSS_W,
@@ -1749,6 +1749,12 @@ function paintShop(ctx: CanvasRenderingContext2D, renderer: Renderer, sim: Sim):
   const word = won ? CLEAR_WORD : LOSE_WORD
   const wx = (frame.internalW - word.length * 18) >> 1
   for (let i = 0; i < word.length; i++) drawLetter(ctx, word[i] ?? '', wx + i * 18, py(28), 2, won ? GOLD_LIGHT : DANGER)
+  // STAGE n and the stars won (empty outlines on a loss).
+  const stw = STAGE_WORD.length * 10 + 14
+  const stx = (frame.internalW - stw) >> 1
+  for (let i = 0; i < STAGE_WORD.length; i++) drawLetter(ctx, STAGE_WORD[i] ?? '', stx + i * 10, py(8), 1, WHITE)
+  drawNumber(ctx, renderer, sim.stage + 1, stx + STAGE_WORD.length * 10 + 4, py(8), false)
+  for (let i = 0; i < 3; i++) drawStar(ctx, ((frame.internalW - 66) >> 1) + i * 24, py(99), i < sim.stars)
   const earnedDigits = digitCount(sim.earned)
   const ex = (frame.internalW - (22 + earnedDigits * 10)) >> 1
   ctx.drawImage(renderer.sheets.bone, ex, py(62) + 1)
@@ -1809,6 +1815,25 @@ function paintShop(ctx: CanvasRenderingContext2D, renderer: Renderer, sim: Sim):
   const sx = bx + ((bw - sw) >> 1)
   const sy = by - (bob >> 1) + ((bh - 20) >> 1)
   for (let i = 0; i < START_WORD.length; i++) drawLetter(ctx, START_WORD[i] ?? '', sx + i * 18, sy, 2, WHITE)
+}
+
+/** A 17px sealed star: gold when won, a dim outline when not. */
+function drawStar(ctx: CanvasRenderingContext2D, x: number, y: number, on: boolean): void {
+  const rows = [
+    '........#........', '.......###.......', '.......###.......', '......#####......',
+    '#################', '.###############.', '..#############..', '...###########...',
+    '....#########....', '...###########...', '...####...####...', '..####.....####..',
+    '..###.......###..',
+  ]
+  for (let r = 0; r < rows.length; r++) {
+    const row = rows[r] ?? ''
+    for (let c = 0; c < row.length; c++) {
+      if (row[c] !== '#') continue
+      const edge = row[c - 1] !== '#' || row[c + 1] !== '#' || rows[r - 1]?.[c] !== '#' || rows[r + 1]?.[c] !== '#'
+      ctx.fillStyle = edge ? LINE : on ? (r < 6 ? GOLD_LIGHT : GOLD) : NIGHT_2
+      ctx.fillRect(x + c, y + r, 1, 1)
+    }
+  }
 }
 
 function digitCount(value: number): number {

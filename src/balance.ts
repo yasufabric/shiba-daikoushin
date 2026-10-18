@@ -231,3 +231,27 @@ export const CARD_XS = [CARD_X0, CARD_X1, CARD_X2, CARD_X3] as const
 export const RECALL_TAP = 18
 export const RECALL_LIFT = 10
 export const RECALL_PACE = 2.2
+
+/**
+ * ステージ: the same yard, but each walk gets harder. Counts, dog toughness and the breed mix change.
+ * Stage 2 matches the old default toughness. `*Every` is how often the horde sends that breed (0 = never).
+ */
+export interface StageSpec {
+  /** Dogs before the boss. */
+  count: number
+  hp: number
+  dps: number
+  dachsEvery: number
+  goldenEvery: number
+  bulldogEvery: number
+}
+export const STAGES: readonly StageSpec[] = [
+  { count: 70, hp: 0.85, dps: 0.85, dachsEvery: 0, goldenEvery: 0, bulldogEvery: 9 },
+  { count: 90, hp: 1, dps: 1, dachsEvery: 7, goldenEvery: 14, bulldogEvery: 8 },
+  { count: 110, hp: 1.2, dps: 1.15, dachsEvery: 5, goldenEvery: 9, bulldogEvery: 7 },
+  { count: 130, hp: 1.5, dps: 1.35, dachsEvery: 4, goldenEvery: 8, bulldogEvery: 6 },
+  { count: 150, hp: 1.9, dps: 1.6, dachsEvery: 4, goldenEvery: 6, bulldogEvery: 5 },
+]
+/** Home HP left (share of full) for 3 and 2 stars at a win; any win is at least 1. */
+export const STAR3_AT = 0.7
+export const STAR2_AT = 0.35

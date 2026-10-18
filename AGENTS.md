@@ -161,3 +161,6 @@ Tapping one of your own shibas (within `RECALL_TAP` px of its middle) sends it h
 - ダックスフント (`BREED_DACHS`): long, low, floppy-eared sprinter (HP 14, speed 64). Every `DACHS_EVERY`th dog of a clash wave.
 - ゴールデン (`BREED_GOLDEN`): slow retriever (HP 46, speed 22) holding a gold bone shield, which takes `GOLDEN_ARMOR` 8 off every single hit (never below a third of it). 赤's quick nips bounce off; 黒's slam and 胡麻's ball get through. Every `GOLDEN_EVERY`th dog.
 - The boss moved to `BREED_BOSS` 5. `DOG_HALVES` in art.ts holds five breeds; the sprite sheet grows with `dogArt`.
+
+## Stages and stars
+`STAGES` in `balance.ts` has five stages: dog count, dog HP/DPS multipliers (the boss HP too) and how often the horde sends ダックス/ゴールデン/ブルドッグ (`*Every`, 0 = never). `?lanes` always uses the old plain numbers via `spec(sim)`. A win rates by 柴の家 HP left (`STAR3_AT` 0.7 → 3 stars, `STAR2_AT` 0.35 → 2, else 1) and keeps the best per stage in `sim.best`. START after a win opens the next stage (the last one replays); after a loss it replays the same stage. `stage` and `best` are saved with levels and the purse. The result screen shows `STAGE n` and the stars. Fast dogs stay fast on purpose: speed is part of the fun, so tune counts and HP before slowing a breed.
