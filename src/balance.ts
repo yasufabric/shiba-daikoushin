@@ -139,6 +139,10 @@ export const BARK_SPLASH = 44
 /** 胡麻 mends every shiba inside this radius at once, every HEAL_EVERY; it stays this far behind the nearest shiba it follows. */
 export const HEAL_RADIUS = 80
 export const HEAL_FOLLOW = 46
+/** The healer walks to a hurt shiba until it is within this share of HEAL_RADIUS. */
+export const HEAL_CLOSE = 0.5
+/** Distance (field px) that weighs as much as a whole HP bar when the healer picks whom to help. */
+export const HEAL_SEEK_SPAN = 300
 /** 赤 in free placement walks this much faster than the others. */
 export const TAN_HASTE = 1.35
 /** 黒「ジャーキー!!」in free placement: a spear drops on each of the dogs nearest the 柴の家, this many. */

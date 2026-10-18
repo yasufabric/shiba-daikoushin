@@ -125,7 +125,7 @@ Each coat has a job, with a strength and a weakness:
 - 赤: cheap and quick (walks `TAN_HASTE` faster), bites on the beat, but has the least HP. Good for swarming and filling gaps.
 - 黒: the tank. Most HP, slow and costly, one heavy bite every `HEAVY_EVERY`. Dogs in sight treat 黒 as `TAUNT` nearer than it is, so it pulls bites off the others.
 - 白: barks from `BARK_RANGE` instead of biting, hitting every dog within `BARK_SPLASH` of its target. Low HP; it needs biters in front. Its bark shows as gold arcs flying to the target.
-- 胡麻: never attacks. It trails the nearest shiba from just behind and every `HEAL_EVERY` mends every shiba inside `HEAL_RADIUS` at once. A dotted pink ring always shows that radius, a white ring pulses when it heals, and a green plus floats over each shiba it mended.
+- 胡麻: never attacks. It walks to the most-hurt shiba (lowest HP share, nearer wins ties, `HEAL_SEEK_SPAN`) until it is within `HEAL_CLOSE` of the ring radius, and trails the nearest shiba from just behind when nobody is hurt. Every `HEAL_EVERY` mends every shiba inside `HEAL_RADIUS` at once. A dotted pink ring always shows that radius, a white ring pulses when it heals, and a green plus floats over each shiba it mended.
 
 ### Specials in free placement
 

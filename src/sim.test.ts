@@ -448,6 +448,19 @@ describe('free placement roles', () => {
     expect(far.hp).toBe(10)
     expect(Math.hypot(far.x - healer.x, far.y - healer.y)).toBeGreaterThan(HEAL_RADIUS)
   })
+
+  it('has 胡麻 walk to a hurt shiba outside its ring, passing a healthy one, and mend it', () => {
+    const sim = emptyField()
+    const fine = drop(sim, KIND_TAN, 120, 460)
+    const hurt = drop(sim, KIND_TAN, 300, 600)
+    for (const u of [fine, hurt]) u.speed = 0
+    hurt.hp = 10
+    const healer = drop(sim, KIND_SESAME, 120, 480)
+    expect(Math.hypot(hurt.x - healer.x, hurt.y - healer.y)).toBeGreaterThan(HEAL_RADIUS)
+    play(sim, 8, () => NO_INPUT)
+    expect(Math.hypot(hurt.x - healer.x, hurt.y - healer.y)).toBeLessThan(HEAL_RADIUS)
+    expect(hurt.hp).toBeGreaterThan(10)
+  })
 })
 
 describe('home', () => {
