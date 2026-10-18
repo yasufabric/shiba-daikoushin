@@ -12,6 +12,7 @@ import {
   KIND_TAN,
   KIND_WHITE,
   KIND_SESAME,
+  RECHARGE,
   LEVEL_COST_BASE,
   LEVEL_STEP,
   LOSS_PAY,
@@ -106,9 +107,30 @@ describe('deploy', () => {
     expect(sim.picked).toBe(KIND_TAN)
     step(sim, 1 / 30, { card: -1, pick: KIND_BLACK, restart: false })
     expect(sim.picked).toBe(KIND_BLACK)
-    for (const lane of [4, 4, 0]) step(sim, 1 / 30, { card: sim.picked, lane, restart: false })
+    for (const lane of [4, 4, 0]) {
+      step(sim, 1 / 30, { card: sim.picked, lane, restart: false })
+      sim.recharge.fill(0)
+    }
     const blacks = sim.shibas.filter((u) => u.alive && u.kind === KIND_BLACK).map((u) => u.lane)
     expect(blacks.sort()).toEqual([0, 4, 4])
+  })
+
+  it('makes each card wait out its recharge before it sends another shiba', () => {
+    const sim = createSim({ tutorial: false, seed: 3 })
+    sim.bones = 1000
+    step(sim, 1 / 30, { card: KIND_TAN, lane: 1, restart: false })
+    const after = sim.aliveShibas
+    expect(sim.recharge[KIND_TAN]).toBeCloseTo(RECHARGE[KIND_TAN] - 1 / 30, 3)
+    step(sim, 1 / 30, { card: KIND_TAN, lane: 1, restart: false })
+    expect(sim.aliveShibas).toBe(after)
+    expect(sim.deny0).toBeGreaterThan(0)
+    step(sim, 1 / 30, { card: KIND_BLACK, lane: 1, restart: false })
+    expect(sim.aliveShibas).toBe(after + 1)
+    play(sim, RECHARGE[KIND_TAN], () => NO_INPUT)
+    expect(sim.recharge[KIND_TAN]).toBe(0)
+    const ready = sim.aliveShibas
+    step(sim, 1 / 30, { card: KIND_TAN, lane: 1, restart: false })
+    expect(sim.aliveShibas).toBe(ready + 1)
   })
 
   it('refuses a card the purse cannot afford', () => {
@@ -343,6 +365,7 @@ describe('soldiers', () => {
     for (const unit of sim.shibas) if (unit.alive) unit.hp = 0
     sim.bones = 1000
     step(sim, 1 / 30, { card: 1, restart: false })
+    sim.recharge.fill(0)
     step(sim, 1 / 30, { card: 1, restart: false })
     expect(sim.aliveShibas).toBe(COUNT_BLACK * 2)
     play(sim, 20, () => NO_INPUT)

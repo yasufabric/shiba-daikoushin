@@ -74,6 +74,7 @@ import {
   HEAL_AMOUNT,
   HEAL_EVERY,
   HEAL_REACH,
+  RECHARGE,
   DAMAGE_PER_BONE,
   LEVEL_COST_BASE,
   LEVEL_STEP,
@@ -144,6 +145,8 @@ export interface Sim {
   tutorial: boolean
   /** The card a field tap will deploy. */
   picked: number
+  /** Seconds until each card can send another shiba; 0 when ready. */
+  recharge: number[]
   /** Coat levels, in card order. Kept across matches. */
   levels: number[]
   /** ホネ saved for levels. Kept across matches. */
@@ -245,6 +248,7 @@ export function createSim(opts?: SimOptions): Sim {
     outcome: 'play',
     tutorial: opts?.tutorial !== false,
     picked: KIND_TAN,
+    recharge: Array.from({ length: KINDS }, () => 0),
     levels: Array.from({ length: KINDS }, (_, i) => Math.min(MAX_LEVEL, Math.max(1, Math.floor(opts?.levels?.[i] ?? 1)))),
     purse: Math.max(0, Math.floor(opts?.purse ?? 0)),
     earned: 0,
@@ -303,6 +307,7 @@ function boot(sim: Sim): void {
   sim.deny1 = 0
   sim.deny2 = 0
   sim.deny3 = 0
+  sim.recharge.fill(0)
   sim.charge.fill(0)
   sim.cutKind = -1
   sim.cutT = 0
@@ -473,6 +478,10 @@ export function step(sim: Sim, dt: number, input: Input = NO_INPUT): void {
   if (sim.deny1 > 0) sim.deny1 -= tick
   if (sim.deny2 > 0) sim.deny2 -= tick
   if (sim.deny3 > 0) sim.deny3 -= tick
+  for (let k = 0; k < KINDS; k++) {
+    const left = sim.recharge[k] ?? 0
+    if (left > 0) sim.recharge[k] = Math.max(0, left - tick)
+  }
 
   if (sim.castleHp <= 0) {
     sim.castleHp = 0
@@ -522,6 +531,10 @@ export function buyLevel(sim: Sim, kind: number): boolean {
 function tryDeploy(sim: Sim, card: number, chosen?: number): void {
   const cost = costOf(sim, card)
   const count = COUNT_OF[card] ?? COUNT_TAN
+  if ((sim.recharge[card] ?? 0) > 0) {
+    deny(sim, card)
+    return
+  }
   if (sim.bones < cost) {
     deny(sim, card)
     return
@@ -541,6 +554,7 @@ function tryDeploy(sim: Sim, card: number, chosen?: number): void {
     return
   }
   sim.bones -= cost
+  sim.recharge[card] = RECHARGE[card] ?? 0
   const step = STEP_OF[card] ?? STEP_TAN
   sim.tutorial = false
   if (card === KIND_TAN) {

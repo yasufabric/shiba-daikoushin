@@ -21,6 +21,7 @@ import {
   KIND_SESAME,
   KINDS,
   CARD_XS,
+  RECHARGE,
   MAX_LEVEL,
   SHOP_ROW_GAP,
   SHOP_ROW_H,
@@ -1179,7 +1180,8 @@ function paintDock(ctx: CanvasRenderingContext2D, renderer: Renderer, sim: Sim):
     const deny = [sim.deny0, sim.deny1, sim.deny2, sim.deny3][kind] ?? 0
     const cost = costOf(sim, kind)
     const x = px(at(CARD_XS[kind] ?? CARD_X0) + denyShift(deny))
-    paintCard(ctx, renderer, x, kind, cost, sim.bones >= cost, false, sim.time, kind === sim.picked)
+    const wait = (sim.recharge[kind] ?? 0) / (RECHARGE[kind] ?? 1)
+    paintCard(ctx, renderer, x, kind, cost, sim.bones >= cost && wait <= 0, false, sim.time, kind === sim.picked, wait)
     paintGauge(ctx, x, kind, sim)
   }
 }
@@ -1199,6 +1201,7 @@ function paintCard(
   hint: boolean,
   time: number,
   picked: boolean,
+  wait: number,
 ): void {
   const y = pyDock(at(CARD_Y)) - (picked ? 3 : 0)
   const w = at(CARD_W)
@@ -1217,7 +1220,6 @@ function paintCard(
   const inner = hint ? (GOLD_CYCLE[(phase + 2) & 3] ?? GOLD) : affordable ? GOLD_DARK : NIGHT_1
   frameRect(ctx, x, y, w, h, picked ? GOLD_HOT : border)
   frameRect(ctx, x + 1, y + 1, w - 2, h - 2, picked ? GOLD_LIGHT : inner)
-  if (picked) frameRect(ctx, x + 2, y + 2, w - 4, h - 4, GOLD)
   ctx.fillStyle = LINE
   ctx.fillRect(x, y, 1, 1)
   ctx.fillRect(x + w - 1, y, 1, 1)
@@ -1227,9 +1229,19 @@ function paintCard(
   const col = heroCell(kind, blink ? 'blink' : 'open')
   const hop = affordable ? (HOP[Math.floor(time * 8) & 7] ?? 0) >> 1 : 0
   ctx.drawImage(renderer.sheets.hero, col * HERO_PX, 0, HERO_PX, HERO_PX, hx, y + 3 - hop, HERO_PX, HERO_PX)
+  if (wait > 0) {
+    // Recharge shutter: night drops over the portrait and slides away as the card gets ready.
+    const top = y + 3
+    const tall = HERO_PX + 2
+    const cover = Math.ceil(tall * Math.min(1, wait))
+    ctx.fillStyle = NIGHT
+    ctx.fillRect(x + 2, top, w - 4, cover)
+    ctx.fillStyle = NIGHT_3
+    ctx.fillRect(x + 2, top + cover - 1, w - 4, 1)
+  }
   if (kind === KIND_SESAME) drawHeart(ctx, x + w - 10, y + 3)
-  ctx.drawImage(renderer.sheets.bone, x + 1, y + h - 14)
-  drawNumber(ctx, renderer, cost | 0, x + 13, y + h - 12, false)
+  ctx.drawImage(renderer.sheets.bone, x + 1, y + h - 15)
+  drawNumber(ctx, renderer, cost | 0, x + 13, y + h - 13, false)
 }
 
 /** Special gauge under the portrait. Full gauges flash through the golds until the cut-in plays. */

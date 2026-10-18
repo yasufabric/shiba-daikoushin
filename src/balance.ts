@@ -46,6 +46,9 @@ export const COST_BLACK = 90
 export const STEP_TAN = 8
 export const STEP_BLACK = 16
 /** One shiba per tap, for every card. */
+/** Seconds a card needs before it can send another shiba. Order: 赤, 黒, 白, 胡麻. */
+export const RECHARGE = [2.5, 6, 4, 7] as const
+/** One shiba per tap, for every card. */
 export const COUNT_TAN = 1
 export const COUNT_BLACK = 1
 export const HP_TAN = 70
