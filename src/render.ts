@@ -1129,7 +1129,66 @@ function paintUnits(ctx: CanvasRenderingContext2D, renderer: Renderer, sim: Sim)
     if ((renderer.side[i] ?? 0) === 0) drawShiba(ctx, renderer, sim, index)
     else drawCat(ctx, renderer, sim, index)
   }
+  paintHero(ctx, renderer, sim)
   noteDeaths(renderer, sim)
+}
+
+let heroSeenX = -1
+let heroSeenY = -1
+
+/** ヒーロー柴: a red shiba with a gold crown and a gold ring under it, a spin ring when it swings, a marker where it is headed, and a bar of its own health. While it is down, a countdown tile where it fell. */
+function paintHero(ctx: CanvasRenderingContext2D, renderer: Renderer, sim: Sim): void {
+  if (!sim.free) return
+  const h = sim.hero
+  if (!h.alive) return
+  const go = sim.heroGo
+  if (go) {
+    const gx = px(at(FIELD_X + go.x))
+    const gy = fpy(go.y)
+    const blink = (Math.floor(sim.time * 6) & 1) === 0
+    ctx.fillStyle = blink ? GOLD_LIGHT : GOLD
+    ctx.fillRect(gx - 4, gy - 1, 3, 1)
+    ctx.fillRect(gx + 2, gy - 1, 3, 1)
+    ctx.fillRect(gx, gy - 4, 1, 3)
+    ctx.fillRect(gx, gy + 1, 1, 3)
+  }
+  const moved = Math.abs(h.x - heroSeenX) > 0.2 || Math.abs(h.y - heroSeenY) > 0.2
+  heroSeenX = h.x
+  heroSeenY = h.y
+  const fighting = sim.time - sim.heroSpinAt < 0.5
+  const dx = px(at(FIELD_X + h.x)) - (CROWD_PX >> 1)
+  const dy = fpy(h.y) - CROWD_PX
+  const cx = dx + (CROWD_PX >> 1)
+  ctx.fillStyle = GOLD_DARK
+  ctx.fillRect(dx + 1, dy + CROWD_PX - 3, CROWD_PX - 2, 1)
+  ctx.fillStyle = (Math.floor(sim.time * 4) & 1) === 0 ? GOLD : GOLD_LIGHT
+  ctx.fillRect(dx + 2, dy + CROWD_PX - 2, CROWD_PX - 4, 1)
+  ctx.fillStyle = NIGHT
+  ctx.fillRect(dx + 3, dy + CROWD_PX - 1, CROWD_PX - 6, 2)
+  blitCrowd(ctx, renderer, FUR_RED, poseOf(moved, fighting), sim.time, 0, 0, false, dx, dy)
+  // Crown, 7×4, outlined.
+  ctx.fillStyle = LINE
+  ctx.fillRect(cx - 4, dy - 5, 9, 1)
+  ctx.fillRect(cx - 4, dy - 4, 1, 4)
+  ctx.fillRect(cx + 4, dy - 4, 1, 4)
+  ctx.fillRect(cx - 4, dy - 1, 9, 1)
+  ctx.fillStyle = GOLD
+  ctx.fillRect(cx - 3, dy - 4, 7, 3)
+  ctx.fillStyle = GOLD_LIGHT
+  ctx.fillRect(cx - 3, dy - 4, 1, 1)
+  ctx.fillRect(cx, dy - 4, 1, 1)
+  ctx.fillRect(cx + 3, dy - 4, 1, 1)
+  if (fighting) {
+    const age = sim.time - sim.heroSpinAt
+    const r = 10 + Math.floor(age * 36)
+    const my = dy + (CROWD_PX >> 1)
+    ctx.fillStyle = age < 0.15 ? WHITE : GOLD_LIGHT
+    for (let a = 0; a < 8; a++) {
+      const ang = (a / 8) * Math.PI * 2 + sim.time * 8
+      ctx.fillRect(Math.round(cx + Math.cos(ang) * r), Math.round(my + Math.sin(ang) * r * 0.7), 2, 2)
+    }
+  }
+  if (h.hp < h.maxHp) drawHpBar(ctx, cx - 8, dy - 9, h.hp / h.maxHp, GOLD_DARK, GOLD, GOLD_LIGHT)
 }
 
 function drawShiba(ctx: CanvasRenderingContext2D, renderer: Renderer, sim: Sim, index: number): void {

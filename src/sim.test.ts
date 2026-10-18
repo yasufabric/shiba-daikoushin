@@ -37,6 +37,9 @@ import {
   SPECIAL_NEED,
   BREED_BULLDOG,
   BREED_POODLE,
+  HERO_REVIVE,
+  HERO_HIT,
+  HERO_RADIUS,
   POODLE_RANGE,
   BREED_GOLDEN,
   BREED_CHIHUAHUA,
@@ -938,5 +941,30 @@ describe('soldiers', () => {
   it('later stages mix poodles into the clash waves; stage 1 and ?lanes have none', () => {
     expect(STAGES[0]?.poodleEvery).toBe(0)
     expect((STAGES[4]?.poodleEvery ?? 0) > 0).toBe(true)
+  })
+
+  it('the hero walks to a tap, spins at dogs in reach, and returns after falling', () => {
+    const sim = createSim({ tutorial: false, seed: 6, free: true, hero: true, stage: 0 })
+    for (const c of sim.cats) c.alive = false
+    sim.aliveCats = 0
+    sim.nextCat = 1e9
+    expect(sim.hero.alive).toBe(true)
+    step(sim, 1 / 30, { ...NO_INPUT, hero: { x: 40, y: 300 } })
+    expect(sim.heroGo?.x).toBe(40)
+    for (let i = 0; i < 400 && sim.heroGo; i++) step(sim, 1 / 30, NO_INPUT)
+    expect(sim.heroGo).toBe(null)
+    expect(Math.abs(sim.hero.x - 40)).toBeLessThan(4)
+    spawnCat(sim, 0, BREED_BULLDOG, { x: sim.hero.x + HERO_RADIUS - 6, y: sim.hero.y })
+    const dog = sim.cats.find((c) => c.alive)
+    const hp0 = dog?.hp ?? 0
+    Object.assign(dog ?? {}, { dps: 0, speed: 0 })
+    for (let i = 0; i < 12; i++) step(sim, 1 / 30, NO_INPUT)
+    expect((dog?.hp ?? 0) <= hp0 - HERO_HIT).toBe(true)
+    sim.hero.hp = 0
+    step(sim, 1 / 30, NO_INPUT)
+    expect(sim.hero.alive).toBe(false)
+    for (let i = 0; i < HERO_REVIVE * 30 + 60; i++) step(sim, 1 / 30, NO_INPUT)
+    expect(sim.hero.alive).toBe(true)
+    expect(sim.hero.hp).toBeGreaterThan(0)
   })
 })

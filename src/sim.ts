@@ -8,6 +8,13 @@ import {
   STAR2_AT,
   STAR3_AT,
   HOME_HP,
+  HERO_HP,
+  HERO_SPEED,
+  HERO_EVERY,
+  HERO_HIT,
+  HERO_RADIUS,
+  HERO_REVIVE,
+  HERO_TAP_Y,
   HOME_REACH,
   BREED_BULLDOG,
   BREED_DACHS,
@@ -202,6 +209,8 @@ export interface Input {
   at?: { x: number; y: number }
   /** Free placement: field-local point of a tap; the shiba standing there is sent home to the 柴の家. */
   recall?: { x: number; y: number }
+  /** Free placement: send the ヒーロー柴 to this field-local point. */
+  hero?: { x: number; y: number }
   /** Pick this card for the next field tap (-1 or left out for no change). */
   pick?: number
   /** 波を早く呼ぶ: send the next wave now for bonus ホネ. */
@@ -297,6 +306,14 @@ export interface Sim {
   /** Coat whose special struck this step, or -1. */
   sfxStrike: number
   rushT: number
+  /** ヒーロー柴: a steered shiba kept outside the pools. alive=false while it waits to come back (heroT seconds). */
+  hero: Unit
+  heroT: number
+  heroOn: boolean
+  /** Where the last tap sent it; null when it holds. */
+  heroGo: { x: number; y: number } | null
+  /** Match time of its last spin, for the renderer. */
+  heroSpinAt: number
   /** Coat whose special just fired this step, or -1. */
   sfxSpecial: number
   seq: number
@@ -322,6 +339,8 @@ export interface SimOptions {
   purse?: number
   /** The ?free trial: tap anywhere in the lower field, units chase the nearest foe. */
   free?: boolean
+  /** Include the steered ヒーロー柴 (free placement only). Off by default so unit tests stay about the cards. */
+  hero?: boolean
   /** Stage to start on and the best stars per stage so far. */
   stage?: number
   best?: readonly number[]
@@ -424,6 +443,11 @@ export function createSim(opts?: SimOptions): Sim {
     fxHits: [],
     sfxStrike: -1,
     rushT: 0,
+    hero: makePool(1)[0] as Unit,
+    heroT: 0,
+    heroOn: opts?.hero === true,
+    heroGo: null,
+    heroSpinAt: -9,
     sfxSpecial: -1,
     seq: 0,
     horde: 0,
@@ -517,6 +541,64 @@ export function reset(sim: Sim): void {
   sim.picked = sim.deck[0] ?? KIND_TAN
 }
 
+function spawnHero(sim: Sim): void {
+  const h = sim.hero
+  h.alive = sim.free && sim.heroOn
+  h.x = FIELD_W / 2
+  h.y = FREE_ZONE_Y - 24
+  h.hp = HERO_HP
+  h.maxHp = HERO_HP
+  h.speed = HERO_SPEED
+  h.cd = 0
+  h.bitAt = -9
+  h.fly = 0
+  h.kind = KIND_TAN
+  h.stun = 0
+  sim.heroT = 0
+  sim.heroGo = null
+  sim.heroSpinAt = -9
+}
+
+/** The hero walks to its tap (or the nearest dog it can see), and spins at everything within HERO_RADIUS. */
+function stepHero(sim: Sim, dt: number, beat: number): void {
+  const h = sim.hero
+  if (!sim.free || !sim.heroOn) return
+  if (!h.alive) {
+    sim.heroT -= beat
+    if (sim.heroT <= 0) {
+      spawnHero(sim)
+      h.alive = true
+    }
+    return
+  }
+  const go = sim.heroGo
+  let target: { x: number; y: number } | null = go
+  if (go && Math.hypot(go.x - h.x, go.y - h.y) < 3) {
+    sim.heroGo = null
+    target = null
+  }
+  if (!target) {
+    const foe = nearest(sim.cats, h, FREE_SIGHT_SHIBA, true)
+    if (foe && Math.hypot(foe.x - h.x, foe.y - h.y) > HERO_RADIUS * 0.7) target = foe
+  }
+  if (target) stepToward(h, target.x, target.y, Math.min(Math.hypot(target.x - h.x, target.y - h.y), h.speed * dt))
+  h.cd -= beat
+  if (h.cd <= 0) {
+    let any = false
+    for (const dog of sim.cats) {
+      if (!dog?.alive || dog.fly === 1 || dog.hp <= 0) continue
+      if (Math.hypot(dog.x - h.x, dog.y - h.y) <= HERO_RADIUS) {
+        dog.hp -= HERO_HIT
+        any = true
+      }
+    }
+    if (any) {
+      h.cd = HERO_EVERY
+      sim.heroSpinAt = sim.time
+    } else h.cd = 0.1
+  }
+}
+
 function boot(sim: Sim): void {
   sim.time = 0
   sim.bones = START_BONES
@@ -553,6 +635,7 @@ function boot(sim: Sim): void {
   sim.fxT = 0
   sim.sfxStrike = -1
   sim.rushT = 0
+  spawnHero(sim)
   sim.sfxSpecial = -1
   sim.seq = 0
   sim.horde = 0
@@ -705,6 +788,7 @@ export function step(sim: Sim, dt: number, input: Input = NO_INPUT): void {
   }
 
   if (input.pick !== undefined && input.pick >= 0 && input.pick < KINDS && (!sim.free || sim.deck.includes(input.pick))) sim.picked = input.pick
+  if (input.hero && sim.free && sim.hero.alive) sim.heroGo = { x: Math.max(10, Math.min(FIELD_W - 10, input.hero.x)), y: Math.max(20, Math.min(HERO_TAP_Y, input.hero.y)) }
   if (input.recall && sim.free) recallAt(sim, input.recall.x, input.recall.y)
   if (input.callWave) callWave(sim)
   if (input.card >= 0 && input.card < KINDS && (!sim.free || sim.deck.includes(input.card))) tryDeploy(sim, input.card, input.lane, input.at)
@@ -1208,6 +1292,7 @@ function moveFree(sim: Sim, rawDt: number): void {
   const beat = rawDt
   const homeX = FIELD_W / 2
   const homeY = FIELD_H - 6
+  stepHero(sim, dt, beat)
   for (const shiba of sim.shibas) {
     if (!shiba?.alive || shiba.hp <= 0) continue
     if (shiba.recall) {
@@ -1298,7 +1383,11 @@ function moveFree(sim: Sim, rawDt: number): void {
       dog.stun -= rawDt
       continue
     }
-    const foe = nearestTaunt(sim.shibas, dog, FREE_SIGHT_DOG)
+    let foe = nearestTaunt(sim.shibas, dog, FREE_SIGHT_DOG)
+    if (sim.hero.alive) {
+      const dh = Math.hypot(sim.hero.x - dog.x, sim.hero.y - dog.y)
+      if (dh <= FREE_SIGHT_DOG && (!foe || dh < Math.hypot(foe.x - dog.x, foe.y - dog.y))) foe = sim.hero
+    }
     if (!foe) {
       const d = Math.hypot(homeX - dog.x, homeY - dog.y)
       if (d > FREE_HOME_REACH) {
@@ -1334,6 +1423,11 @@ function moveFree(sim: Sim, rawDt: number): void {
       dog.aimX = foe.x
       dog.aimY = foe.y
     }
+  }
+  if (sim.hero.alive && sim.hero.hp <= 0) {
+    sim.hero.alive = false
+    sim.heroT = HERO_REVIVE
+    sim.heroGo = null
   }
   spread(sim.shibas, rawDt)
   spread(sim.cats, rawDt)
