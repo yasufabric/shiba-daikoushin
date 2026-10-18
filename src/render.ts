@@ -16,6 +16,7 @@ import {
   FIELD_W,
   FIELD_X,
   FIELD_Y,
+  BANNER_HOLD,
   FLOAT_TIME,
   KIND_BLACK,
   LANE_COUNT,
@@ -23,7 +24,7 @@ import {
   MAX_SHIBAS,
   PANEL_Y,
 } from './balance'
-import { glyphBit, POP_COL, POP_ROW } from './font'
+import { BANNER_POP, BANNER_REST, CLEAR_WORD, glyphBit, letterBit, LOSE_WORD, POP_COL, POP_ROW } from './font'
 import {
   BOSS_H,
   BOSS_W,
@@ -37,6 +38,7 @@ import {
   GOLD_HOT,
   GLYPH_H,
   GLYPH_W,
+  FUR_BODY,
   GOLD_LIGHT,
   HERO_PX,
   INTERNAL_H,
@@ -48,7 +50,7 @@ import {
   NIGHT_3,
   WHITE,
 } from './palette'
-import { cannonReady, type Sim } from './sim'
+import { cannonReady, type Outcome, type Sim } from './sim'
 import { createSheets, type Sheets } from './sprites'
 
 const BUCKETS = 96
@@ -64,6 +66,12 @@ const BOOM_COLOR = [WHITE, GOLD_LIGHT, GOLD, GOLD_HOT] as const
 const PART_COLOR = [WHITE, GOLD_LIGHT, GOLD, DANGER] as const
 const SHIFT = [0, 2, -2, 3, -3, 1, -1, 0] as const
 const BOB = [0, 1, 2, 1, 0, -1, -2, -1] as const
+const HOP = [0, 2, 4, 6, 4, 2, 0, 0] as const
+const BLAST_N = 16
+const BLAST_VX = [2, -2, 3, -3, 1, -1, 2, -2, 0, 3, -3, 1, 2, -1, 0, 1] as const
+const BLAST_VY = [-3, -2, -1, -3, -2, 1, 2, -1, -3, 1, 2, -2, 1, 2, -2, 0] as const
+const BLAST_SIZE = [2, 3, 1, 2, 3, 1, 2, 3, 1, 2, 3, 1, 2, 1, 3, 2] as const
+const BLAST_COLOR = [WHITE, GOLD_LIGHT, FUR_BODY, GOLD] as const
 const SHAKE_X = [2, -1, 3, -2, 1, -3, 2, 0] as const
 const SHAKE_Y = [0, 2, -1, 3, -2, 1, -3, 0] as const
 const PART_VX = [2, -2, 1, -1, 2, -2, 0, 1] as const
@@ -213,7 +221,8 @@ export function draw(
   paintDamage(g, renderer, sim)
   g.restore()
   paintDock(g, renderer, sim)
-  if (sim.outcome !== 'play') paintReward(g, renderer, sim)
+  if (sim.outcome === 'won' && sim.rewardT <= 0) paintReward(g, renderer, sim)
+  else if (sim.outcome === 'won' || sim.outcome === 'lost') paintBanner(g, sim)
   else if (sim.tutorial) paintPaw(g, renderer, sim.time)
 
   const scale = pixelScale(cssW, cssH)
@@ -265,6 +274,10 @@ function paintBackdrop(ctx: CanvasRenderingContext2D, time: number): void {
 }
 
 function paintCastle(ctx: CanvasRenderingContext2D, renderer: Renderer, sim: Sim): void {
+  if (sim.outcome === 'won') {
+    paintCastleBlast(ctx, sim)
+    return
+  }
   const sprite = sim.boss ? renderer.sheets.castle : renderer.sheets.castleDim
   const x = (INTERNAL_W - BOSS_W) >> 1
   const y = 0
@@ -304,7 +317,7 @@ function drawShiba(ctx: CanvasRenderingContext2D, renderer: Renderer, sim: Sim, 
   const pose = poseOf(moved, fighting)
   const flash = fighting && hitFrame(sim.time)
   const dx = at(FIELD_X + unit.x) - (CROWD_PX >> 1)
-  const dy = at(FIELD_Y + unit.y) - CROWD_PX
+  const dy = at(FIELD_Y + unit.y) - CROWD_PX - celebrateHop(sim, index)
   blitCrowd(ctx, renderer, unit.kind === KIND_BLACK ? 1 : 0, pose, sim.time, unit.lane, 0, flash, dx, dy)
 }
 
@@ -664,6 +677,97 @@ function paintPaw(ctx: CanvasRenderingContext2D, renderer: Renderer, time: numbe
   const x = at(CARD_X0) + ((at(CARD_W) - pawArt.w) >> 1)
   const y = at(CARD_Y) - pawArt.h - 2 + bob
   ctx.drawImage(renderer.sheets.paw, x, y)
+}
+
+function celebrateHop(sim: Sim, index: number): number {
+  if (sim.outcome !== 'won' || sim.rewardT <= 0) return 0
+  const age = BANNER_HOLD - sim.rewardT
+  const phase = (Math.floor(age * 8) + index) & 7
+  return HOP[phase] ?? 0
+}
+
+function paintCastleBlast(ctx: CanvasRenderingContext2D, sim: Sim): void {
+  if (sim.rewardT <= 0) return
+  const age = BANNER_HOLD - sim.rewardT
+  const frame = Math.floor(age * 12)
+  const cx = INTERNAL_W >> 1
+  const cy = BOSS_H >> 1
+  if (frame < 3) {
+    const size = 48 + frame * 16
+    ctx.fillStyle = frame === 0 ? WHITE : frame === 1 ? GOLD_LIGHT : FUR_BODY
+    ctx.fillRect(cx - (size >> 1), cy - (size >> 1), size, size)
+    return
+  }
+  const particleAge = age - 0.25
+  if (particleAge < 0 || particleAge > 0.5) return
+  const steps = Math.floor(particleAge * 24)
+  for (let i = 0; i < BLAST_N; i++) {
+    const size = BLAST_SIZE[i] ?? 1
+    const x = cx + (BLAST_VX[i] ?? 0) * steps - (size >> 1)
+    const y = cy + (BLAST_VY[i] ?? 0) * steps - (size >> 1)
+    ctx.fillStyle = BLAST_COLOR[i & 3] ?? WHITE
+    ctx.fillRect(x, y, size, size)
+  }
+}
+
+function bannerStyle(outcome: Outcome): { word: string; fill: string } {
+  switch (outcome) {
+    case 'won':
+      return { word: CLEAR_WORD, fill: GOLD_LIGHT }
+    case 'lost':
+      return { word: LOSE_WORD, fill: DANGER }
+    case 'play':
+      return { word: '', fill: GOLD_LIGHT }
+    default: {
+      const never: never = outcome
+      return never
+    }
+  }
+}
+
+function paintBanner(ctx: CanvasRenderingContext2D, sim: Sim): void {
+  const age = BANNER_HOLD - sim.rewardT
+  const pop = age < 0.16
+  const scale = pop ? BANNER_POP : BANNER_REST
+  const style = bannerStyle(sim.outcome)
+  const word = style.word
+  const fill = style.fill
+  const gw = GLYPH_W * scale
+  const gh = GLYPH_H * scale
+  const gap = scale
+  const width = word.length * gw + (word.length - 1) * gap
+  const x = (INTERNAL_W - width) >> 1
+  const y = at(FIELD_Y) + ((at(FIELD_H) - gh) >> 1)
+  const pad = 6
+  ctx.fillStyle = NIGHT
+  ctx.fillRect(x - pad, y - pad, width + pad * 2, gh + pad * 2)
+  for (let i = 0; i < word.length; i++) {
+    drawLetter(ctx, word[i] ?? '', x + i * (gw + gap), y, scale, fill)
+  }
+}
+
+function drawLetter(
+  ctx: CanvasRenderingContext2D,
+  ch: string,
+  x: number,
+  y: number,
+  scale: number,
+  fill: string,
+): void {
+  ctx.fillStyle = LINE
+  for (let sy = 0; sy < GLYPH_H; sy++) {
+    for (let sx = 0; sx < GLYPH_W; sx++) {
+      if (!letterBit(ch, sx, sy)) continue
+      ctx.fillRect(x + sx * scale - 1, y + sy * scale - 1, scale + 2, scale + 2)
+    }
+  }
+  ctx.fillStyle = fill
+  for (let sy = 0; sy < GLYPH_H; sy++) {
+    for (let sx = 0; sx < GLYPH_W; sx++) {
+      if (!letterBit(ch, sx, sy)) continue
+      ctx.fillRect(x + sx * scale, y + sy * scale, scale, scale)
+    }
+  }
 }
 
 function paintReward(ctx: CanvasRenderingContext2D, renderer: Renderer, sim: Sim): void {

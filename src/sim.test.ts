@@ -7,6 +7,7 @@ import {
   COST_TAN,
   COUNT_TAN,
   FIELD_H,
+  BANNER_HOLD,
   LOSE_HOLD,
   MATCH_SECONDS,
   START_BONES,
@@ -142,6 +143,15 @@ describe('battle', () => {
     expect(sim.time).toBeGreaterThan(BOSS_AT)
     expect(sim.time).toBeLessThan(MATCH_SECONDS)
     expect(sim.castleHp).toBe(0)
+    expect(sim.rewardT).toBe(BANNER_HOLD)
+    expect(BANNER_HOLD).toBeGreaterThanOrEqual(2)
+    expect(BANNER_HOLD).toBeLessThanOrEqual(3)
+    step(sim, 0.2, { card: -1, cannon: false, restart: true })
+    expect(sim.outcome).toBe('won')
+    expect(sim.rewardT).toBeGreaterThan(2)
+    step(sim, BANNER_HOLD, NO_INPUT)
+    expect(sim.outcome).toBe('won')
+    expect(sim.rewardT).toBe(0)
     step(sim, 1 / 30, { card: -1, cannon: false, restart: true })
     expect(sim.outcome).toBe('play')
     expect(sim.time).toBe(0)
@@ -155,6 +165,10 @@ describe('battle', () => {
     expect(sim.boss).toBe(true)
     expect(sim.castleHp).toBeGreaterThan(1000)
     expect(sim.tutorial).toBe(true)
+    expect(sim.rewardT).toBe(LOSE_HOLD)
+    expect(LOSE_HOLD).toBe(BANNER_HOLD)
+    step(sim, 1, NO_INPUT)
+    expect(sim.outcome).toBe('lost')
     step(sim, LOSE_HOLD, NO_INPUT)
     expect(sim.outcome).toBe('play')
     expect(sim.time).toBe(0)

@@ -13,7 +13,7 @@ import {
   pawArt,
   type Seal,
 } from './art'
-import { GLYPHS, POP_COL, POP_ROW } from './font'
+import { BANNER_POP, BANNER_REST, CLEAR_WORD, GLYPHS, letterBit, LOSE_WORD, POP_COL, POP_ROW } from './font'
 import {
   BOSS_H,
   BOSS_W,
@@ -144,5 +144,23 @@ describe('sprites', () => {
     expect(POP_ROW.reduce((sum, n) => sum + n, 0)).toBe(15)
     expect(GLYPH_W * 1.5).toBe(12)
     expect(GLYPH_H * 1.5).toBe(15)
+  })
+
+  it('pops the clear and lose banners from an integer 16×20 to 24×30', () => {
+    expect(BANNER_POP).toBe(BANNER_REST * 1.5)
+    expect(GLYPH_W * BANNER_REST).toBe(16)
+    expect(GLYPH_H * BANNER_REST).toBe(20)
+    expect(GLYPH_W * BANNER_POP).toBe(24)
+    expect(GLYPH_H * BANNER_POP).toBe(30)
+    for (const word of [CLEAR_WORD, LOSE_WORD]) {
+      expect(word.length).toBeGreaterThan(3)
+      for (const ch of word) {
+        let on = 0
+        for (let y = 0; y < GLYPH_H; y++) {
+          for (let x = 0; x < GLYPH_W; x++) if (letterBit(ch, x, y)) on += 1
+        }
+        expect(on, ch).toBeGreaterThan(8)
+      }
+    }
   })
 })

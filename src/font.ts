@@ -25,3 +25,27 @@ export function glyphBit(digit: number, x: number, y: number): boolean {
   if (x < 0 || x >= GLYPH_W || y < 0 || y >= GLYPH_H) return false
   return (row & (1 << (GLYPH_W - 1 - x))) !== 0
 }
+
+/** Resting banner glyphs are 2× the 8×10 font. The pop is 3×, which is 1.5× that rest size. */
+export const BANNER_REST = 2
+export const BANNER_POP = 3
+export const CLEAR_WORD = 'CLEAR!'
+export const LOSE_WORD = 'LOSE!'
+
+const LETTERS: Record<string, readonly number[]> = {
+  A: [0b00111100, 0b01100110, 0b11000011, 0b11000011, 0b11000011, 0b11111111, 0b11000011, 0b11000011, 0b11000011, 0b11000011],
+  C: [0b01111110, 0b11000011, 0b11000000, 0b11000000, 0b11000000, 0b11000000, 0b11000000, 0b11000011, 0b11000011, 0b01111110],
+  E: [0b11111111, 0b11000000, 0b11000000, 0b11000000, 0b11111110, 0b11000000, 0b11000000, 0b11000000, 0b11000000, 0b11111111],
+  L: [0b11000000, 0b11000000, 0b11000000, 0b11000000, 0b11000000, 0b11000000, 0b11000000, 0b11000000, 0b11000000, 0b11111111],
+  O: [0b01111110, 0b11000011, 0b11000011, 0b11000011, 0b11000011, 0b11000011, 0b11000011, 0b11000011, 0b11000011, 0b01111110],
+  R: [0b11111100, 0b11000011, 0b11000011, 0b11000011, 0b11111100, 0b11001100, 0b11000110, 0b11000011, 0b11000011, 0b11000011],
+  S: [0b01111110, 0b11000011, 0b11000000, 0b11000000, 0b01111110, 0b00000011, 0b00000011, 0b11000011, 0b11000011, 0b01111110],
+  '!': [0b00011000, 0b00011000, 0b00011000, 0b00011000, 0b00011000, 0b00011000, 0b00000000, 0b00011000, 0b00011000, 0b00011000],
+}
+
+export function letterBit(ch: string, x: number, y: number): boolean {
+  const row = LETTERS[ch]?.[y]
+  if (row === undefined) return false
+  if (x < 0 || x >= GLYPH_W || y < 0 || y >= GLYPH_H) return false
+  return (row & (1 << (GLYPH_W - 1 - x))) !== 0
+}
