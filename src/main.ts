@@ -3,6 +3,10 @@ import {
   CARD_H,
   CARD_W,
   CARD_XS,
+  CALL_H,
+  CALL_W,
+  CALL_X,
+  CALL_Y,
   CARD_Y,
   FIELD_H,
   FIELD_W,
@@ -278,6 +282,12 @@ canvas.addEventListener('pointerdown', (ev) => {
     }
   }
   if (sim.free) {
+    const wx = p.x
+    const wy = p.y
+    if (wx >= CALL_X - 4 && wx <= CALL_X + CALL_W + 4 && wy >= CALL_Y - 4 && wy <= CALL_Y + CALL_H + 4) {
+      input.callWave = true
+      return
+    }
     if (p.y < FIELD_Y || p.y > FIELD_Y + FIELD_H || p.x < FIELD_X || p.x > FIELD_X + FIELD_W) return
     const local = { x: p.x - FIELD_X, y: p.y - FIELD_Y }
     if (shibaAt(local.x, local.y)) {
@@ -356,6 +366,7 @@ function advance(dt: number): void {
   input.lane = undefined
   input.at = undefined
   input.recall = undefined
+  input.callWave = undefined
   input.pick = undefined
   input.levelUp = undefined
   if (sim.saveSeq !== savedSeq) {

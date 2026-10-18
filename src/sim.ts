@@ -24,6 +24,7 @@ import {
   SWARM_COUNT,
   WALL_COUNT,
   PINCER_COUNT,
+  CALL_BONE,
   CLASH_AT,
   COST_BLACK,
   COST_TAN,
@@ -176,6 +177,8 @@ export interface Input {
   recall?: { x: number; y: number }
   /** Pick this card for the next field tap (-1 or left out for no change). */
   pick?: number
+  /** 波を早く呼ぶ: send the next wave now for bonus ホネ. */
+  callWave?: boolean
   /** On the level-up screen, buy a level for this coat. */
   levelUp?: number
   restart: boolean
@@ -229,6 +232,10 @@ export interface Sim {
   best: number[]
   /** Stars won by the last match (0 after a loss). */
   stars: number
+  /** ホネ banked this match by calling waves early. */
+  callBonus: number
+  /** Pulse timer for the call button after a call. */
+  callT: number
   rewardT: number
   nextCat: number
   deny0: number
@@ -349,6 +356,8 @@ export function createSim(opts?: SimOptions): Sim {
     stage: Math.min(STAGES.length - 1, Math.max(0, Math.floor(opts?.stage ?? 0))),
     best: STAGES.map((_, i) => Math.min(3, Math.max(0, Math.floor(opts?.best?.[i] ?? 0)))),
     stars: 0,
+    callBonus: 0,
+    callT: 0,
     rewardT: 0,
     nextCat: CLASH_AT,
     planKind: WAVE_MIXED,
@@ -382,6 +391,21 @@ export function createSim(opts?: SimOptions): Sim {
 
 const OLD_STAGE: (typeof STAGES)[number] = { count: DOG_COUNT, hp: 1, dps: 1, dachsEvery: 5, goldenEvery: 9, bulldogEvery: 7 }
 
+/** Can the next wave be called now? Free play, before the boss, with dogs left and a wait to skip. */
+export function canCall(sim: Sim): boolean {
+  return sim.free && sim.outcome === 'play' && !sim.boss && sim.toSend > 0 && sim.nextCat - sim.time > 0.6
+}
+
+/** 波を早く呼ぶ: bring the next wave in now and bank ホネ for the seconds skipped. */
+export function callWave(sim: Sim): boolean {
+  if (!canCall(sim)) return false
+  const skipped = sim.nextCat - sim.time
+  sim.callBonus += Math.round(skipped * CALL_BONE)
+  sim.callT = 0.5
+  sim.nextCat = sim.time
+  return true
+}
+
 /** The stage in play. ?lanes keeps the plain old numbers. */
 export function spec(sim: Sim): (typeof STAGES)[number] {
   return sim.free ? (STAGES[sim.stage] ?? OLD_STAGE) : OLD_STAGE
@@ -410,6 +434,7 @@ function boot(sim: Sim): void {
   sim.toSend = spec(sim).count
   sim.homeHp = HOME_HP
   sim.stars = 0
+  sim.callBonus = 0
   sim.boss = false
   sim.floatT = 0
   sim.floatDmg = 0
@@ -575,6 +600,7 @@ export function step(sim: Sim, dt: number, input: Input = NO_INPUT): void {
 
   if (input.pick !== undefined && input.pick >= 0 && input.pick < KINDS) sim.picked = input.pick
   if (input.recall && sim.free) recallAt(sim, input.recall.x, input.recall.y)
+  if (input.callWave) callWave(sim)
   if (input.card >= 0 && input.card < KINDS) tryDeploy(sim, input.card, input.lane, input.at)
 
   const income = (BONE_RATE + sim.aliveShibas * BONE_PER_SHIBA) * (sim.free ? FREE_INCOME : 1)
@@ -623,6 +649,7 @@ export function step(sim: Sim, dt: number, input: Input = NO_INPUT): void {
     }
   }
 
+  if (sim.callT > 0) sim.callT -= tick
   if (sim.floatT > 0) sim.floatT -= tick
   if (sim.deny0 > 0) sim.deny0 -= tick
   if (sim.deny1 > 0) sim.deny1 -= tick
@@ -657,7 +684,7 @@ function pay(sim: Sim): void {
   } else {
     sim.stars = 0
   }
-  sim.earned = base + sim.kills * BONE_PER_KILL
+  sim.earned = base + sim.kills * BONE_PER_KILL + sim.callBonus
   sim.purse += sim.earned
   sim.saveSeq += 1
 }

@@ -164,3 +164,9 @@ Tapping one of your own shibas (within `RECALL_TAP` px of its middle) sends it h
 
 ## Stages and stars
 `STAGES` in `balance.ts` has five stages: dog count, dog HP/DPS multipliers (the boss HP too) and how often the horde sends ダックス/ゴールデン/ブルドッグ (`*Every`, 0 = never). `?lanes` always uses the old plain numbers via `spec(sim)`. A win rates by 柴の家 HP left (`STAR3_AT` 0.7 → 3 stars, `STAR2_AT` 0.35 → 2, else 1) and keeps the best per stage in `sim.best`. START after a win opens the next stage (the last one replays); after a loss it replays the same stage. `stage` and `best` are saved with levels and the purse. The result screen shows `STAGE n` and the stars. Fast dogs stay fast on purpose: speed is part of the fun, so tune counts and HP before slowing a breed.
+
+## Call the wave early
+`callWave` (Input) sends the next wave now when `canCall` (free play, before the boss, more than 0.6s to wait). Each second skipped banks `CALL_BONE` ホネ in `sim.callBonus`, paid into `earned` at the end. The gold button sits under the 柴の家 on the left (`CALL_*` in `balance.ts`) and is drawn over the dogs.
+
+## Renderer effects and the clock
+Ghosts, booms and sparks are stamped with `sim.time`. START resets the clock to 0, so `draw` calls `forgetEffects` when time drops, and every age check ignores negative ages. A negative boom age once painted a screen-sized white rectangle on stage 2.

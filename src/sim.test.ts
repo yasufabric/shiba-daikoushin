@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import {
   BOSS_HP,
   STAGES,
+  CALL_BONE,
   BONE_PER_KILL,
   BREED_BOSS,
   DOG_COUNT,
@@ -61,6 +62,7 @@ import {
   costOf,
   createSim,
   spawnCat,
+  canCall,
   strikeSpecial,
   buyLevel,
   levelCost,
@@ -749,5 +751,19 @@ describe('soldiers', () => {
     }
     expect(hp(0)).toBeLessThan(hp(2))
     expect(hp(2)).toBeLessThan(hp(4))
+  })
+
+  it('calls the next wave early for bonus ホネ that pay out at the end', () => {
+    const sim = createSim({ tutorial: false, seed: 4, free: true })
+    play(sim, 5, () => NO_INPUT)
+    const before = sim.toSend
+    const wait = sim.nextCat - sim.time
+    expect(wait).toBeGreaterThan(0.6)
+    step(sim, 1 / 30, { ...NO_INPUT, callWave: true })
+    expect(sim.toSend).toBeLessThan(before)
+    expect(sim.callBonus).toBeGreaterThan(0)
+    expect(sim.callBonus).toBeLessThanOrEqual(Math.round(wait * CALL_BONE))
+    const lanes = createSim({ tutorial: false, seed: 4 })
+    expect(canCall(lanes)).toBe(false)
   })
 })
