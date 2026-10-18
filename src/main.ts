@@ -8,11 +8,10 @@ import {
   CARD_X0,
   CARD_X1,
   CARD_Y,
-  VIEW_H,
-  VIEW_W,
 } from './balance'
 import { cannonReady, createSim, fillMarch, NO_INPUT, step, type Input, type Outcome } from './sim'
-import { createRenderer, draw } from './render'
+import { INTERNAL_H, INTERNAL_W } from './palette'
+import { createRenderer, draw, pixelScale } from './render'
 
 const canvasEl = document.querySelector<HTMLCanvasElement>('#game')
 if (!canvasEl) throw new Error('canvas unavailable')
@@ -120,7 +119,8 @@ if (devOn) {
 }
 
 function resize(): void {
-  dpr = Math.min(window.devicePixelRatio || 1, 2)
+  const raw = window.devicePixelRatio || 1
+  dpr = raw >= 1.5 ? 2 : 1
   viewW = window.innerWidth
   viewH = window.innerHeight
   canvas.width = Math.max(1, Math.floor(viewW * dpr))
@@ -129,13 +129,12 @@ function resize(): void {
 
 function toLogical(ev: PointerEvent): { x: number; y: number } {
   const rect = canvas.getBoundingClientRect()
-  const scale = Math.min(rect.width / VIEW_W, rect.height / VIEW_H)
-  const ox = (rect.width - VIEW_W * scale) / 2
-  const oy = (rect.height - VIEW_H * scale) / 2
-  return {
-    x: (ev.clientX - rect.left - ox) / scale,
-    y: (ev.clientY - rect.top - oy) / scale,
-  }
+  const scale = pixelScale(rect.width, rect.height)
+  const ox = (rect.width - INTERNAL_W * scale) / 2
+  const oy = (rect.height - INTERNAL_H * scale) / 2
+  const ix = Math.round((ev.clientX - rect.left - ox) / scale)
+  const iy = Math.round((ev.clientY - rect.top - oy) / scale)
+  return { x: ix * 2, y: iy * 2 }
 }
 
 function hitCard(x: number, y: number, cardX: number): boolean {
@@ -163,10 +162,20 @@ canvas.addEventListener('pointerdown', (ev) => {
 
 function playSounds(before: Outcome): void {
   if (sim.sfxDeploy === 1) synth.deploy()
-  if (sim.sfxCannon === 1) synth.cannon()
+  if (sim.sfxCannon === 1) {
+    synth.cannon()
+    renderer.hitstop = 0.05
+    renderer.shakeUntil = sim.time + 0.3
+  }
   sim.sfxDeploy = 0
   sim.sfxCannon = 0
-  if (sim.outcome !== before && sim.outcome !== 'play') synth.fanfare(sim.outcome === 'won')
+  if (sim.outcome !== before && sim.outcome !== 'play') {
+    synth.fanfare(sim.outcome === 'won')
+    if (sim.outcome === 'won') {
+      renderer.hitstop = 0.05
+      renderer.shakeUntil = sim.time + 0.2
+    }
+  }
 }
 
 function advance(dt: number): void {
@@ -205,7 +214,12 @@ function frame(now: number): void {
   fps = sum > 0 ? frameDts.length / sum : 60
   const hook = window.__shiba
   if (hook) hook.fps = fps
-  advance(dt)
+  if (renderer.hitstop > 0) {
+    renderer.hitstop -= dt
+    if (renderer.hitstop < 0) renderer.hitstop = 0
+  } else {
+    advance(dt)
+  }
   draw(ctx, renderer, sim, viewW, viewH, dpr)
   requestAnimationFrame(frame)
 }
