@@ -2,9 +2,9 @@ export const MATCH_SECONDS = 180
 export const CLASH_AT = 60
 export const BOSS_AT = 150
 export const BONE_RATE = 12
-export const BONE_PER_SHIBA = 0.12
+export const BONE_PER_SHIBA = 0.3
 export const START_BONES = 40
-export const START_SHIBAS = 10
+export const START_SHIBAS = 5
 
 export const HOLD_Y = 118
 export const CASTLE_REACH = 100
@@ -41,33 +41,34 @@ export const TRICKLE_EVERY = 3.2
 export const TRICKLE_COUNT = 2
 export const GUARD_CATS = 10
 
-export const COST_TAN = 26
-export const COST_BLACK = 68
-export const STEP_TAN = 7
-export const STEP_BLACK = 15
-export const COUNT_TAN = 5
-export const COUNT_BLACK = 2
-export const HP_TAN = 32
-export const HP_BLACK = 90
-export const DPS_TAN = 12
+export const COST_TAN = 34
+export const COST_BLACK = 90
+export const STEP_TAN = 8
+export const STEP_BLACK = 16
+/** One shiba per tap, for every card. */
+export const COUNT_TAN = 1
+export const COUNT_BLACK = 1
+export const HP_TAN = 70
+export const HP_BLACK = 180
+export const DPS_TAN = 26
 export const DPS_BLACK = 24
 export const SPEED_TAN = 88
 export const SPEED_BLACK = 70
 
 /** 白柴: barks from the second row. Each bark hits every cat in reach in its lane and both neighbors. */
-export const COST_WHITE = 44
-export const STEP_WHITE = 11
-export const COUNT_WHITE = 3
-export const HP_WHITE = 40
+export const COST_WHITE = 60
+export const STEP_WHITE = 10
+export const COUNT_WHITE = 1
+export const HP_WHITE = 80
 export const DPS_WHITE = 10
 export const SPEED_WHITE = 76
 export const BARK_EVERY = 1.1
-export const BARK_HIT = 8
+export const BARK_HIT = 13
 export const BARK_REACH = 90
 
 /** 黒柴: one heavy bite at a time, enough to drop a cat. */
 export const HEAVY_EVERY = 1.3
-export const HEAVY_HIT = 40
+export const HEAVY_HIT = 80
 
 /** Specials fire on their own once a coat has dealt this much damage. Order: 赤, 黒, 白. */
 export const SPECIAL_NEED = [700, 480, 1000] as const
