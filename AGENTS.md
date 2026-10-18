@@ -53,7 +53,7 @@ Design grid 195×422. CSS-pixel scale is an integer of at least 2, chosen so the
 - 犬の屋敷: 72×64, dim until the boss comes out.
 - Boss dog: 32×32 front view, two walk frames, white hit flash.
 - 柴の家: 64×48, a plank dog house with a bone plaque and a dark arched door, centered on the field floor. Its HP bar is gold, drawn over the units.
-- Marching soldier: 16×16, with a steel helmet between the ears and a coat-colored band. Up to four fur colors plus the outline.
+- Marching soldier: 20×20, with a steel helmet between the ears and a coat-colored band. Up to four fur colors plus the outline.
 - Damage numbers: a dedicated pixel font, 8×10 per glyph.
 
 ### Palette
@@ -76,7 +76,7 @@ Characters get a 1px outline. The outer edge is `#120b10`. Inner lines use the d
 
 ### Shiba read
 
-The crowd sprite and the 32×32 card portrait are the same front-facing shiba. A later PR keeps this read. At 16×16, in this order:
+The crowd sprite and the 32×32 card portrait are the same front-facing shiba. A later PR keeps this read. At 20×20, in this order:
 
 - Two pointed upright triangular ears. The left ear is lit `#e08a3c`, the right ear is in shadow `#a8521e`.
 - Orange and tan fur with cream and white cheeks, muzzle, and chest (`#fffaf0`, `#f6c27a`).
