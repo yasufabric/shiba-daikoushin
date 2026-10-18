@@ -17,6 +17,7 @@ import {
   SPECIAL_NEED,
   RECALL_LIFT,
   RECALL_TAP,
+  HERO_TAP_Y,
 } from './balance'
 import { createSim, dogsLeft, fillMarch, spawnCat, spawnShiba, NO_INPUT, step, type Input, type Outcome } from './sim'
 import { createRenderer, draw, muteTarget, screenToWorld, shopTarget, titleTarget, type ScreenInsets } from './render'
@@ -89,7 +90,7 @@ const saved = loadSave()
 const devOn = new URLSearchParams(location.search).has('dev')
 // Free placement is the game; ?lanes keeps the older five-path game for comparison.
 const freeOn = !new URLSearchParams(location.search).has('lanes')
-const sim = createSim({ tutorial: !seenTutorial(), levels: saved?.levels, purse: saved?.purse, free: freeOn, title: freeOn && !devOn, stage: saved?.stage, best: saved?.best, deck: saved?.deck })
+const sim = createSim({ tutorial: !seenTutorial(), levels: saved?.levels, purse: saved?.purse, free: freeOn, hero: true, title: freeOn && !devOn, stage: saved?.stage, best: saved?.best, deck: saved?.deck })
 let savedSeq = sim.saveSeq
 const renderer = createRenderer()
 const synth = createSynth()
@@ -304,6 +305,10 @@ canvas.addEventListener('pointerdown', (ev) => {
       input.recall = local
       return
     }
+    if (sim.hero.alive && local.y < HERO_TAP_Y) {
+      input.hero = local
+      return
+    }
     input.card = input.pick ?? sim.picked
     input.at = local
     return
@@ -404,6 +409,7 @@ function advance(dt: number): void {
   input.lane = undefined
   input.at = undefined
   input.recall = undefined
+  input.hero = undefined
   input.callWave = undefined
   input.pick = undefined
   input.levelUp = undefined

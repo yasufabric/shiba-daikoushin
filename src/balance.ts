@@ -334,3 +334,13 @@ export const BIG_RADIUS = 44
 export const MILK_HIT = 150
 export const MILK_RADIUS = 72
 export const MILK_STUN = 2.5
+
+/** ヒーロー柴: one extra shiba the player steers. Tap the field above the deploy strip and it walks there, spinning at every dog in reach; when it falls it comes back at the 柴の家 after HERO_REVIVE seconds. */
+export const HERO_HP = 320
+export const HERO_SPEED = 62
+export const HERO_EVERY = 0.9
+export const HERO_HIT = 26
+export const HERO_RADIUS = 30
+export const HERO_REVIVE = 16
+/** Field taps above this y (below FREE_ZONE_Y) steer the hero instead of deploying. */
+export const HERO_TAP_Y = 420
