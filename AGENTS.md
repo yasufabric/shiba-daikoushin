@@ -39,7 +39,7 @@ Fixed internal resolution 195×422, upscaled by an integer factor of at least 2.
 - Hero shiba: 32×32, big head, head and body the same height.
 - Regular cats: 24×24.
 - Boss: 64×64 or larger.
-- Marching crowd: 12×12, bodies in three tones. This replaces the old 8×8 sprites.
+- Marching crowd: 12×12. Up to four fur colors plus the outline. This replaces the old 8×8 sprites.
 - Damage numbers: a dedicated pixel font, 8×10 per glyph.
 
 ### Palette
@@ -57,6 +57,17 @@ Only these colors:
 ### Drawing
 
 Characters get a 1px outline. The outer edge is `#120b10`. Inner lines use the darker shade of that color. Backgrounds have no outline. No jaggies and no isolated single pixels. Light comes from the top-left, in two shade steps.
+
+### Shiba read
+
+The crowd sprite and the 32×32 card portrait are the same front-facing shiba. A later PR keeps this read. At 12×12, in this order:
+
+- Two pointed upright triangular ears. The left ear is lit `#e08a3c`, the right ear is in shadow `#a8521e`.
+- Orange and tan fur with cream and white cheeks, muzzle, and chest (`#fffaf0`, `#f6c27a`).
+- A dark nose, `#6b2e12`.
+- A curled tail over the hip with a cream center.
+
+The portrait is that same view with a larger head, eye highlights, and a thicker curl. The cream card keeps orange ears and an orange tail.
 
 ### Animation
 
