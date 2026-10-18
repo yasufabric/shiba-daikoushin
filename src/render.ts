@@ -1064,7 +1064,7 @@ const COAT_LIT = [FUR_BODY, NIGHT_2, WHITE_MID, FUR_MID] as const
 const CUT_H = 44
 const CUT_SLIDE = 0.12
 
-/** A special's strike, once the cut-in is gone: 赤 sweet potatoes rain onto every 赤, 黒 jerky spears shoot up every path, 白 a cheese wedge slams the middle and rings out. */
+/** A special's strike, once the cut-in is gone: 赤 sweet potatoes rain onto every 赤, 黒 jerky spears hit their dogs, 白 a cheese wedge slams the middle and rings out, 胡麻 hearts. Then each touched unit shows its share. */
 function paintSpecialField(ctx: CanvasRenderingContext2D, renderer: Renderer, sim: Sim): void {
   paintRushAura(ctx, sim)
   if (sim.fxKind < 0 || sim.fxT <= 0) return
@@ -1072,9 +1072,58 @@ function paintSpecialField(ctx: CanvasRenderingContext2D, renderer: Renderer, si
   const fresh = renderer.fxSeen !== sim.fxId
   renderer.fxSeen = sim.fxId
   if (sim.fxKind === KIND_TAN) paintPotatoRain(ctx, renderer, sim, age)
-  else if (sim.fxKind === KIND_BLACK) paintJerky(ctx, renderer, sim, age, fresh)
-  else if (sim.fxKind === KIND_SESAME) paintSasami(ctx, renderer, sim, age)
+  else if (sim.fxKind === KIND_BLACK) {
+    if (sim.free) paintJerkyRain(ctx, renderer, sim, age)
+    else paintJerky(ctx, renderer, sim, age, fresh)
+  } else if (sim.fxKind === KIND_SESAME) paintSasami(ctx, renderer, sim, age)
   else paintCheese(ctx, renderer, sim, age, fresh)
+  paintFxHits(ctx, renderer, sim, age)
+}
+
+/** Over every unit a strike touched, its share floats up: gold digits for damage, a green plus and digits for a heal. 赤's rush gets no number; its trails say it. */
+function paintFxHits(ctx: CanvasRenderingContext2D, renderer: Renderer, sim: Sim, age: number): void {
+  if (sim.fxKind === KIND_TAN) return
+  const delay = sim.fxKind === KIND_BLACK && sim.free ? 0.3 : 0.12
+  if (age < delay) return
+  const rise = Math.floor((age - delay) * 30)
+  for (const hit of sim.fxHits) {
+    const v = Math.round(hit.v)
+    if (v <= 0) continue
+    const digits = digitCount(v)
+    const w = digits * 10 + (hit.heal ? 9 : 0)
+    const x = px(at(FIELD_X + hit.x)) - (w >> 1)
+    const y = py(at(FIELD_Y + hit.y)) - CAT_PX - 14 - rise
+    if (hit.heal) {
+      ctx.fillStyle = LINE
+      ctx.fillRect(x, y + 3, 7, 3)
+      ctx.fillRect(x + 2, y + 1, 3, 7)
+      ctx.fillStyle = MEADOW_HOT
+      ctx.fillRect(x + 1, y + 4, 5, 1)
+      ctx.fillRect(x + 3, y + 2, 1, 5)
+    }
+    drawNumber(ctx, renderer, v, x + (hit.heal ? 9 : 0), y, false)
+  }
+}
+
+/** 黒「ジャーキー!!」in free placement: a jerky spear drops straight onto each dog it targets and bursts there. */
+function paintJerkyRain(ctx: CanvasRenderingContext2D, renderer: Renderer, sim: Sim, age: number): void {
+  const fy = py(at(FIELD_Y))
+  for (let i = 0; i < sim.fxHits.length; i++) {
+    const hit = sim.fxHits[i]
+    if (!hit) continue
+    const land = 0.18 + (i % 4) * 0.03
+    const x = px(at(FIELD_X + hit.x)) - 6
+    const ground = py(at(FIELD_Y + hit.y)) - 30
+    if (age < land) {
+      const y = Math.round(fy - 44 + ((ground - (fy - 44)) * age) / land)
+      ctx.fillStyle = GOLD_LIGHT
+      for (let t = y - 18; t > fy - 40; t -= 7) ctx.fillRect(x + 5, t, 2, 3)
+      drawJerky(ctx, x, y, 2)
+    } else if (age < land + 0.15) {
+      if (age - land < 0.04) spawnBoom(renderer, sim, x + 6, ground + 30)
+      drawJerky(ctx, x, ground + 6, 2)
+    }
+  }
 }
 
 /** While the rush lasts, gold embers rise off every 赤. */
@@ -1093,6 +1142,10 @@ function paintRushAura(ctx: CanvasRenderingContext2D, sim: Sim): void {
       const size = rise < 6 ? 2 : 1
       ctx.fillRect(ex, top + 6 - rise, size, size)
     }
+    // Speed trails behind each rushing 赤.
+    const feet = top + CROWD_PX
+    ctx.fillStyle = (beat & 1) === 0 ? GOLD_LIGHT : GOLD
+    for (let k = 0; k < 3; k++) ctx.fillRect(x - 7 + k * 6, feet + 2 + ((beat + k) & 1) * 2, 2, 5)
   }
 }
 
@@ -1297,7 +1350,7 @@ function paintCutIn(ctx: CanvasRenderingContext2D, renderer: Renderer, sim: Sim)
 }
 
 function paintDamage(ctx: CanvasRenderingContext2D, renderer: Renderer, sim: Sim): void {
-  if (sim.floatT <= 0 || sim.floatDmg <= 0) return
+  if (sim.free || sim.floatT <= 0 || sim.floatDmg <= 0) return
   const pop = sim.floatT > FLOAT_TIME - 0.12
   const digits = digitCount(sim.floatDmg)
   const step = pop ? 14 : 10

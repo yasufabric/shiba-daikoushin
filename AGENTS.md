@@ -127,3 +127,7 @@ Each coat has a job, with a strength and a weakness:
 - 白: barks from `BARK_RANGE` instead of biting, hitting every dog within `BARK_SPLASH` of its target. Low HP; it needs biters in front. Its bark shows as gold arcs flying to the target.
 - 胡麻: never attacks. It trails the nearest shiba from just behind and every `HEAL_EVERY` mends every shiba inside `HEAL_RADIUS` at once. A dotted pink ring always shows that radius, a white ring pulses when it heals, and a green plus floats over each shiba it mended.
 
+### Specials in free placement
+
+Every strike shows what it did to each unit it touched: gold digits float up over each dog it hurt, and a green plus with digits over each shiba it healed; the single total in the middle is hidden in free placement. 黒「ジャーキー!!」 drops a spear straight onto each of the `JERKY_TARGETS` dogs nearest the 柴の家. 赤「サツマイモ!!」 leaves gold speed trails under every 赤 for the whole rush. Special damage scales with `FREE_DOG_HP` so it keeps up with the tougher dogs.
+

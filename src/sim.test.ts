@@ -20,6 +20,7 @@ import {
   BARK_RANGE,
   BARK_SPLASH,
   HEAL_RADIUS,
+  JERKY_TARGETS,
   RECHARGE,
   LEVEL_COST_BASE,
   LEVEL_STEP,
@@ -391,6 +392,19 @@ describe('free placement roles', () => {
     if (!u) throw new Error('not placed')
     return u
   }
+
+  it('drops 「ジャーキー!!」 on the dogs nearest the house and notes each hit', () => {
+    const sim = emptyField()
+    const dogs = sim.cats.slice(0, JERKY_TARGETS + 3)
+    dogs.forEach((dog, k) => Object.assign(dog, { alive: true, fly: 0, kind: BREED_BULLDOG, hp: 999, maxHp: 999, dps: 0, speed: 0, x: 20 + k * 25, y: 100 + k * 30 }))
+    sim.aliveCats = dogs.length
+    strikeSpecial(sim, KIND_BLACK)
+    const hit = dogs.filter((d) => d.hp < 999)
+    expect(hit.length).toBe(JERKY_TARGETS)
+    const lowestHitY = Math.min(...hit.map((d) => d.y))
+    for (const d of dogs) if (d.hp === 999) expect(d.y).toBeLessThan(lowestHitY)
+    expect(sim.fxHits.length).toBe(JERKY_TARGETS)
+  })
 
   it('makes a dog go for 黒 over a slightly nearer 赤', () => {
     const sim = emptyField()

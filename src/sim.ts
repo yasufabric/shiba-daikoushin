@@ -87,6 +87,7 @@ import {
   HEAL_RADIUS,
   HEAL_FOLLOW,
   TAN_HASTE,
+  JERKY_TARGETS,
   FREE_RECHARGE,
   FREE_ZONE_Y,
   BITE_EVERY,
@@ -209,6 +210,8 @@ export interface Sim {
   fxT: number
   /** Counts strikes so the renderer can spot a new one. */
   fxId: number
+  /** What the last strike did to each unit it touched: field-local spot, amount, and whether it was a heal. */
+  fxHits: { x: number; y: number; v: number; heal: boolean }[]
   /** Coat whose special struck this step, or -1. */
   sfxStrike: number
   rushT: number
@@ -311,6 +314,7 @@ export function createSim(opts?: SimOptions): Sim {
     fxKind: -1,
     fxT: 0,
     fxId: 0,
+    fxHits: [],
     sfxStrike: -1,
     rushT: 0,
     sfxSpecial: -1,
@@ -1099,10 +1103,25 @@ export function strikeSpecial(sim: Sim, kind: number): void {
   sim.fxT = FX_TIME
   sim.fxId += 1
   sim.sfxStrike = kind
+  sim.fxHits = []
   let dealt = 0
   const cats = sim.cats
+  // Free placement dogs are tougher, so specials hit as much harder there.
+  const scale = sim.free ? FREE_DOG_HP : 1
+  const note = (u: Unit, v: number, heal: boolean): void => {
+    if (v > 0) sim.fxHits.push({ x: u.x, y: u.y, v, heal })
+  }
   if (kind === KIND_TAN) {
     sim.rushT = RUSH_TIME
+    for (const u of sim.shibas) if (u?.alive && u.kind === KIND_TAN) note(u, 2, false)
+  } else if (kind === KIND_BLACK && sim.free) {
+    const targets = cats.filter((c) => c?.alive && c.fly !== 1 && c.hp > 0).sort((a, b) => b.y - a.y).slice(0, JERKY_TARGETS)
+    for (const cat of targets) {
+      const hit = Math.min(Math.max(0, cat.hp), JERKY_HIT * scale)
+      dealt += hit
+      cat.hp -= JERKY_HIT * scale
+      note(cat, hit, false)
+    }
   } else if (kind === KIND_BLACK) {
     for (let lane = 0; lane < LANE_COUNT; lane++) {
       const n = Math.min(JERKY_DEPTH, sim.laneCN[lane] ?? 0)
@@ -1111,22 +1130,29 @@ export function strikeSpecial(sim: Sim, kind: number): void {
       for (let j = 0; j < n; j++) {
         const cat = cats[idx[j] ?? -1]
         if (!cat?.alive || cat.fly === 1) continue
-        dealt += Math.min(Math.max(0, cat.hp), JERKY_HIT)
+        const hit = Math.min(Math.max(0, cat.hp), JERKY_HIT)
+        dealt += hit
         cat.hp -= JERKY_HIT
+        note(cat, hit, false)
       }
     }
   } else if (kind === KIND_SESAME) {
     for (let i = 0; i < sim.shibas.length; i++) {
       const unit = sim.shibas[i]
-      if (unit?.alive && unit.hp > 0) unit.hp = unit.maxHp
+      if (!unit?.alive || unit.hp <= 0) continue
+      note(unit, unit.maxHp - unit.hp, true)
+      unit.hp = unit.maxHp
+      unit.mendAt = sim.time
     }
     sim.homeHp = Math.min(HOME_HP, sim.homeHp + SASAMI_HOME)
   } else {
     for (let i = 0; i < cats.length; i++) {
       const cat = cats[i]
       if (!cat?.alive || cat.fly === 1) continue
-      dealt += Math.min(Math.max(0, cat.hp), CHEESE_HIT)
-      cat.hp -= CHEESE_HIT
+      const hit = Math.min(Math.max(0, cat.hp), CHEESE_HIT * scale)
+      dealt += hit
+      cat.hp -= CHEESE_HIT * scale
+      note(cat, hit, false)
       cat.y = Math.max(22, cat.y - CHEESE_PUSH)
     }
   }
