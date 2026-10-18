@@ -367,11 +367,11 @@ describe('free placement trial', () => {
     expect(dog).toBeDefined()
     if (!dog) return
     dog.x = 80
-    dog.y = 300
+    dog.y = 400
     play(sim, 1, () => NO_INPUT)
-    expect(dog.y).toBeGreaterThan(300)
+    expect(dog.y).toBeGreaterThan(400)
     sim.bones = 500
-    step(sim, 1 / 30, { card: KIND_TAN, at: { x: 120, y: 420 }, restart: false })
+    step(sim, 1 / 30, { card: KIND_TAN, at: { x: 120, y: 450 }, restart: false })
     const shiba = sim.shibas.find((u) => u.alive)
     if (!shiba) throw new Error('no shiba')
     const before = Math.hypot(shiba.x - dog.x, shiba.y - dog.y)
@@ -467,13 +467,13 @@ describe('free placement roles', () => {
 
   it('makes a dog go for 黒 over a slightly nearer 赤', () => {
     const sim = emptyField()
-    const red = drop(sim, KIND_TAN, 150, 400)
-    const black = drop(sim, KIND_BLACK, 230, 400)
+    const red = drop(sim, KIND_TAN, 150, 500)
+    const black = drop(sim, KIND_BLACK, 230, 500)
     red.speed = 0
     black.speed = 0
     const dog = sim.cats[0]
     if (!dog) throw new Error('no dog')
-    Object.assign(dog, { alive: true, fly: 0, kind: BREED_CORGI, hp: 999, maxHp: 999, dps: 0, speed: 30, x: 175, y: 330 })
+    Object.assign(dog, { alive: true, fly: 0, kind: BREED_CORGI, hp: 999, maxHp: 999, dps: 0, speed: 30, x: 175, y: 440 })
     sim.aliveCats = 1
     play(sim, 1.5, () => NO_INPUT)
     expect(Math.hypot(dog.x - black.x, dog.y - black.y)).toBeLessThan(Math.hypot(dog.x - red.x, dog.y - red.y))
