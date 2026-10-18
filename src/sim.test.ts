@@ -2,6 +2,8 @@ import { describe, expect, it } from 'vitest'
 import {
   BOSS_HP,
   STAGES,
+  KIND_BIG,
+  KIND_DISC,
   CALL_BONE,
   BONE_PER_KILL,
   BREED_BOSS,
@@ -62,6 +64,9 @@ import {
   costOf,
   createSim,
   spawnCat,
+  spawnShiba,
+  toggleDeck,
+  deckReady,
   canCall,
   strikeSpecial,
   buyLevel,
@@ -789,5 +794,98 @@ describe('soldiers', () => {
     }
     expect(dog.y).toBeGreaterThan(pond.y + pond.r)
     expect(closest).toBeGreaterThanOrEqual(pond.r)
+  })
+
+  it('keeps a four-coat deck: toggling swaps coats, an incomplete deck blocks START, and only deck coats deploy', () => {
+    const sim = createSim({ tutorial: false, seed: 4, free: true })
+    expect(sim.deck).toEqual([0, 1, 2, 3])
+    expect(toggleDeck(sim, 4)).toBe(false)
+    expect(toggleDeck(sim, 3)).toBe(true)
+    expect(toggleDeck(sim, 4)).toBe(true)
+    expect(sim.deck).toEqual([0, 1, 2, 4])
+    toggleDeck(sim, 0)
+    expect(deckReady(sim)).toBe(false)
+    sim.outcome = 'lost'
+    sim.rewardT = 0
+    step(sim, 1 / 30, { ...NO_INPUT, restart: true })
+    expect(sim.outcome).toBe('lost')
+    toggleDeck(sim, 5)
+    step(sim, 1 / 30, { ...NO_INPUT, restart: true })
+    expect(sim.outcome).toBe('play')
+    expect(sim.deck).toEqual([1, 2, 4, 5])
+    const alive = sim.aliveShibas
+    step(sim, 1 / 30, { ...NO_INPUT, card: 3, at: { x: 100, y: 500 } })
+    expect(sim.aliveShibas).toBe(alive)
+    step(sim, 1 / 30, { ...NO_INPUT, card: 4, at: { x: 100, y: 500 } })
+    expect(sim.aliveShibas).toBe(alive + 1)
+    const saved = createSim({ tutorial: false, free: true, deck: [1, 2, 4, 5] })
+    expect(saved.deck).toEqual([1, 2, 4, 5])
+    expect(createSim({ tutorial: false, free: true, deck: [1, 1, 4, 5] }).deck).toEqual([0, 1, 2, 3])
+    expect(createSim({ tutorial: false, deck: [1, 2, 4, 5] }).deck).toEqual([0, 1, 2, 3])
+  })
+
+  it('ぶち柴 cuts a frisbee through every dog in a line, and どっしり柴 stomps all dogs at its paws', () => {
+    const sim = createSim({ tutorial: false, seed: 4, free: true })
+    for (const u of [...sim.shibas, ...sim.cats]) u.alive = false
+    sim.aliveShibas = 0
+    sim.aliveCats = 0
+    sim.nextCat = 1e9
+    spawnShiba(sim, KIND_DISC, 0, 400)
+    const thrower = sim.shibas.find((u) => u.alive)
+    expect(thrower).toBeDefined()
+    if (!thrower) return
+    thrower.x = 100
+    const line = [330, 290, 250]
+    for (const y of line) spawnCat(sim, 0, BREED_CORGI, { x: 100, y })
+    const off = spawnCat(sim, 0, BREED_CORGI, { x: 160, y: 320 })
+    expect(off).toBe(true)
+    const before = sim.cats.filter((c) => c.alive).map((c) => c.hp)
+    step(sim, 1 / 30, NO_INPUT)
+    const hit = sim.cats.filter((c) => c.alive && c.x === 100 && c.hp < c.maxHp)
+    expect(hit.length).toBeGreaterThanOrEqual(2)
+    expect(sim.cats.filter((c) => c.alive && c.x === 160)[0]?.hp).toBe(before[3])
+
+    const heavy = createSim({ tutorial: false, seed: 4, free: true })
+    for (const u of [...heavy.shibas, ...heavy.cats]) u.alive = false
+    heavy.aliveShibas = 0
+    heavy.aliveCats = 0
+    heavy.nextCat = 1e9
+    spawnShiba(heavy, KIND_BIG, 0, 300)
+    const big = heavy.shibas.find((u) => u.alive)
+    if (!big) return
+    big.x = 100
+    spawnCat(heavy, 0, BREED_CORGI, { x: 112, y: 280 })
+    spawnCat(heavy, 0, BREED_CORGI, { x: 90, y: 292 })
+    spawnCat(heavy, 0, BREED_CORGI, { x: 100, y: 200 })
+    step(heavy, 1 / 30, NO_INPUT)
+    const near = heavy.cats.filter((c) => c.alive && c.y > 250)
+    expect(near.every((c) => c.hp < c.maxHp)).toBe(true)
+    expect(heavy.cats.find((c) => c.alive && c.y < 250)?.hp).toBe(heavy.cats.find((c) => c.alive && c.y < 250)?.maxHp)
+  })
+
+  it('fires ボーロ across the front row and ミルク on the thickest knot', () => {
+    const sim = createSim({ tutorial: false, seed: 4, free: true })
+    for (const u of [...sim.shibas, ...sim.cats]) u.alive = false
+    sim.aliveShibas = 0
+    sim.aliveCats = 0
+    sim.nextCat = 1e9
+    spawnCat(sim, 0, BREED_CORGI, { x: 30, y: 300 })
+    spawnCat(sim, 0, BREED_CORGI, { x: 300, y: 310 })
+    spawnCat(sim, 0, BREED_CORGI, { x: 150, y: 100 })
+    strikeSpecial(sim, KIND_DISC)
+    const rows = sim.cats.filter((c) => c.alive && c.hp > 0)
+    expect(rows.filter((c) => c.y > 250).every((c) => c.hp < c.maxHp)).toBe(true)
+    expect(rows.find((c) => c.y < 150)?.hp).toBe(rows.find((c) => c.y < 150)?.maxHp)
+
+    const knot = createSim({ tutorial: false, seed: 4, free: true })
+    for (const u of [...knot.shibas, ...knot.cats]) u.alive = false
+    knot.aliveShibas = 0
+    knot.aliveCats = 0
+    knot.nextCat = 1e9
+    for (const [x, y] of [[100, 200], [120, 210], [110, 190], [330, 100]] as const) spawnCat(knot, 0, BREED_CORGI, { x, y })
+    strikeSpecial(knot, KIND_BIG)
+    const alive = knot.cats.filter((c) => c.alive)
+    expect(alive.filter((c) => c.x < 200).every((c) => c.stun > 0)).toBe(true)
+    expect(alive.find((c) => c.x > 300)?.stun).toBe(0)
   })
 })

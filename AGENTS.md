@@ -173,3 +173,9 @@ Ghosts, booms and sparks are stamped with `sim.time`. START resets the clock to 
 
 ## 岩と池 (obstacles)
 Each stage lists `rocks` in `balance.ts` (field coordinates, `pond` is drawn as water). They block ground units of both sides: `stepToward` ends with `walkAround`, which pushes a unit to radius `r + 7` and slides it along the edge to the side it is already on (dead centre goes right). Stage 1 has none; keep them out of the deploy zone (y > 440) and away from the top spawn rows. Drawn by `paintRocks` under the units, sealed with the 1px outline, in palette greys and sky blues.
+
+## Roster, deck and the result screen
+Six coats now (`KINDS` 6): 赤, 黒, 胡麻, 白 plus ぶち柴 (`KIND_DISC`, frisbee thrower, pierces a line, special ボーロ!! sweeps the front row) and どっしり柴 (`KIND_BIG`, slow, stomps everything at its paws, special ミルク!! pounds the thickest knot and stuns). Coats are palette maps over the same crowd/hero art (`BUCHI`, `GRAY` in `art.ts`). Free placement only: ?lanes keeps the first four.
+A match brings `DECK_SIZE` (4) coats: `sim.deck`, saved with levels. Dock slot `s` shows coat `deck[s]`; cards send that coat number. On the result screen tap a coat's portrait to put it in or out of the deck (START stays dim until the deck is full) and the gold button to buy a level.
+The result screen lays itself out from the top (`shopLayout`); short phones get a compact header and START floats at the bottom edge so it is never off screen. Taps on it map with `screenToWorld(..., flat)` and `shopTarget`, because the in-play dock squeeze must not apply there (it once made START miss on some phones).
+`?dev` has `__shiba.place('s'|'c', kind, x, y)` to drop a shiba or dog for screenshots.

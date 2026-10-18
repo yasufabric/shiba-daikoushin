@@ -153,7 +153,7 @@ describe('sprites', () => {
     expect(INTERNAL_H * 2).toBe(VIEW_H)
     expect(CROWD_PX).toBe(20)
     expect(CAT_PX).toBe(20)
-    expect(crowdArt).toHaveLength(4)
+    expect(crowdArt).toHaveLength(6)
     expect(dogArt).toHaveLength(5)
     for (const strip of dogArt) expect(strip).toHaveLength(10)
     for (const fur of crowdArt) {
@@ -161,7 +161,7 @@ describe('sprites', () => {
       for (const seal of fur) assertSealed(seal, CROWD_PX, CROWD_PX)
     }
     for (const strip of dogArt) for (const seal of strip) assertSealed(seal, CAT_PX, CAT_PX)
-    expect(heroArt).toHaveLength(13)
+    expect(heroArt).toHaveLength(19)
     for (const seal of heroArt) assertSealed(seal, HERO_PX, HERO_PX)
     assertSealed(boneArt, 12, 12)
     assertSealed(pawArt, 14, 16)

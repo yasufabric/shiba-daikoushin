@@ -1,6 +1,7 @@
 import { createSynth } from './audio'
 import {
   CARD_H,
+  KINDS,
   CARD_W,
   CARD_XS,
   CALL_H,
@@ -13,21 +14,12 @@ import {
   FIELD_X,
   FIELD_Y,
   LANE_COUNT,
-  SHOP_ROW_GAP,
-  SHOP_ROW_H,
-  SHOP_ROW_W,
-  SHOP_ROW_X,
-  SHOP_ROW_Y0,
-  START_H,
-  START_W,
-  START_X,
-  START_Y,
   SPECIAL_NEED,
   RECALL_LIFT,
   RECALL_TAP,
 } from './balance'
-import { createSim, dogsLeft, fillMarch, NO_INPUT, step, type Input, type Outcome } from './sim'
-import { createRenderer, draw, screenToWorld, type ScreenInsets } from './render'
+import { createSim, dogsLeft, fillMarch, spawnCat, spawnShiba, NO_INPUT, step, type Input, type Outcome } from './sim'
+import { createRenderer, draw, screenToWorld, shopTarget, type ScreenInsets } from './render'
 
 const canvasEl = document.querySelector<HTMLCanvasElement>('#game')
 if (!canvasEl) throw new Error('canvas unavailable')
@@ -61,6 +53,7 @@ interface Save {
   purse: number
   stage: number
   best: number[]
+  deck: number[]
 }
 
 function loadSave(): Save | null {
@@ -71,12 +64,13 @@ function loadSave(): Save | null {
     if (!data || typeof data !== 'object') return null
     const { levels, purse } = data as Partial<Save>
     if (!Array.isArray(levels) || typeof purse !== 'number') return null
-    const { stage, best } = data as Partial<Save>
+    const { stage, best, deck } = data as Partial<Save>
     return {
       levels: levels.map((n) => (typeof n === 'number' ? n : 1)),
       purse,
       stage: typeof stage === 'number' ? stage : 0,
       best: Array.isArray(best) ? best.map((n) => (typeof n === 'number' ? n : 0)) : [],
+      deck: Array.isArray(deck) ? deck.map((n) => (typeof n === 'number' ? n : -1)) : [],
     }
   } catch {
     return null
@@ -85,7 +79,7 @@ function loadSave(): Save | null {
 
 function storeSave(): void {
   try {
-    localStorage.setItem(SAVE_KEY, JSON.stringify({ levels: sim.levels, purse: sim.purse, stage: sim.stage, best: sim.best }))
+    localStorage.setItem(SAVE_KEY, JSON.stringify({ levels: sim.levels, purse: sim.purse, stage: sim.stage, best: sim.best, deck: sim.deck }))
   } catch {
     // Private mode can reject storage. Levels still hold for this visit.
   }
@@ -94,7 +88,7 @@ function storeSave(): void {
 const saved = loadSave()
 // Free placement is the game; ?lanes keeps the older five-path game for comparison.
 const freeOn = !new URLSearchParams(location.search).has('lanes')
-const sim = createSim({ tutorial: !seenTutorial(), levels: saved?.levels, purse: saved?.purse, free: freeOn, stage: saved?.stage, best: saved?.best })
+const sim = createSim({ tutorial: !seenTutorial(), levels: saved?.levels, purse: saved?.purse, free: freeOn, stage: saved?.stage, best: saved?.best, deck: saved?.deck })
 let savedSeq = sim.saveSeq
 const renderer = createRenderer()
 const synth = createSynth()
@@ -123,6 +117,8 @@ interface ShibaDev {
   setScale: (scale: number) => void
   fill: (count: number) => void
   special: (kind: number) => void
+  /** Drop a shiba or a rival dog right where you want it, for screenshots. */
+  place: (side: 's' | 'c', kind: number, x: number, y: number) => void
   snapshot: () => {
     time: number
     shibas: number
@@ -166,6 +162,15 @@ if (devOn) {
     },
     special(kind: number) {
       sim.charge[kind] = SPECIAL_NEED[kind] ?? 0
+    },
+    place(side, kind, x, y) {
+      if (side === 's') {
+        spawnShiba(sim, kind, 0, y)
+        const u = sim.shibas[(sim.cursorS - 1 + sim.shibas.length) % sim.shibas.length]
+        if (u) u.x = x
+      } else {
+        spawnCat(sim, 0, kind, { x, y })
+      }
     },
     snapshot() {
       return {
@@ -249,7 +254,8 @@ function blockScroll(ev: Event): void {
 
 function toLogical(ev: PointerEvent): { x: number; y: number } {
   const rect = canvas.getBoundingClientRect()
-  return screenToWorld(ev.clientX, ev.clientY, rect.left, rect.top)
+  // The result screen is drawn from the top without the dock squeeze, so its taps map flat.
+  return screenToWorld(ev.clientX, ev.clientY, rect.left, rect.top, sim.outcome !== 'play')
 }
 
 function hitCard(x: number, y: number, cardX: number): boolean {
@@ -262,22 +268,15 @@ canvas.addEventListener('pointerdown', (ev) => {
   const p = toLogical(ev)
   if (sim.outcome !== 'play') {
     if (sim.rewardT > 0) return
-    if (p.x >= START_X && p.x <= START_X + START_W && p.y >= START_Y && p.y <= START_Y + START_H) {
-      input.restart = true
-      return
-    }
-    for (let kind = 0; kind < sim.levels.length; kind++) {
-      const top = SHOP_ROW_Y0 + kind * (SHOP_ROW_H + SHOP_ROW_GAP)
-      if (p.x >= SHOP_ROW_X && p.x <= SHOP_ROW_X + SHOP_ROW_W && p.y >= top && p.y <= top + SHOP_ROW_H) {
-        input.levelUp = kind
-        return
-      }
-    }
+    const hit = shopTarget(p.x, p.y, sim.free ? KINDS : 4)
+    if (hit.type === 'start') input.restart = true
+    else if (hit.type === 'pick') input.toggleDeck = hit.kind
+    else if (hit.type === 'buy') input.levelUp = hit.kind
     return
   }
   for (let card = 0; card < CARD_XS.length; card++) {
     if (hitCard(p.x, p.y, CARD_XS[card] ?? 0)) {
-      input.pick = card
+      input.pick = sim.free ? (sim.deck[card] ?? card) : card
       return
     }
   }
@@ -369,6 +368,7 @@ function advance(dt: number): void {
   input.callWave = undefined
   input.pick = undefined
   input.levelUp = undefined
+  input.toggleDeck = undefined
   if (sim.saveSeq !== savedSeq) {
     savedSeq = sim.saveSeq
     storeSave()

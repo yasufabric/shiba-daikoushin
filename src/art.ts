@@ -186,11 +186,43 @@ const CREAM: Record<string, string> = {
   q: DANGER,
 }
 
+/** ぶち柴: white fur with orange patches, so the frisbee thrower reads apart from the plain white healer. */
+const BUCHI: Record<string, string> = {
+  ...CREAM,
+  s: FUR_BODY,
+  o: WHITE,
+  h: WHITE,
+  m: WHITE_MID,
+  c: FUR_LIGHT,
+  e: FUR_BODY,
+  L: FUR_DARK,
+  q: GOLD,
+}
+
+/** どっしり柴: a big grey-brown coat with a dark outline, for the slow stomper. */
+const GRAY: Record<string, string> = {
+  ...RED,
+  L: NIGHT,
+  o: WHITE_DARK,
+  h: WHITE_MID,
+  m: NIGHT_3,
+  c: WHITE_MID,
+  e: WHITE_MID,
+  s: WHITE_DARK,
+  k: NIGHT,
+  n: NIGHT,
+  w: WHITE,
+  t: WHITE_MID,
+  q: GOLD,
+}
+
 export const FUR_RED = 0
 export const FUR_BLACK = 1
 export const FUR_SESAME = 2
 export const FUR_CREAM = 3
-const FUR_MAPS = [RED, BLACK, SESAME, CREAM] as const
+export const FUR_BUCHI = 4
+export const FUR_GRAY = 5
+const FUR_MAPS = [RED, BLACK, SESAME, CREAM, BUCHI, GRAY] as const
 
 const CAT: Record<string, string> = {
   L: CAT_DARK,
@@ -718,9 +750,9 @@ function sealAll(name: string, frames: readonly (readonly string[])[], map: Reco
   return frames.map((rows, i) => seal(`${name}-${i}`, rows, map))
 }
 
-const FUR_NAMES = ['red', 'black', 'sesame', 'cream'] as const
+const FUR_NAMES = ['red', 'black', 'sesame', 'cream', 'buchi', 'gray'] as const
 
-/** One 10-frame strip per fur: 赤, 黒, 胡麻, 白. */
+/** One 10-frame strip per fur: 赤, 黒, 胡麻, 白, ぶち, どっしり. */
 export const crowdArt: readonly Seal[][] = FUR_MAPS.map((map, i) => sealAll(`crowd-${FUR_NAMES[i] ?? i}`, CROWD_ROWS, map))
 
 const BOSS_MAP: Record<string, string> = { ...CAT, g: GOLD_LIGHT, G: GOLD, y: GOLD_DARK }
@@ -781,6 +813,8 @@ const HERO_COATS = [
   ['black', BLACK],
   ['sesame', SESAME],
   ['cream', CREAM],
+  ['buchi', BUCHI],
+  ['gray', GRAY],
 ] as const
 
 /** Four coats in card order (赤, 黒, 胡麻, 白) × open, blink, smug, then the reward (red with a gold collar). Index with heroCell. */

@@ -64,7 +64,7 @@ export const STEP_TAN = 8
 export const STEP_BLACK = 16
 /** One shiba per tap, for every card. */
 /** Seconds a card needs before it can send another shiba. Order: 赤, 黒, 胡麻, 白. */
-export const RECHARGE = [2.5, 6, 4, 7] as const
+export const RECHARGE = [2.5, 6, 4, 7, 5, 9] as const
 /** One shiba per tap, for every card. */
 export const COUNT_TAN = 1
 export const COUNT_BLACK = 1
@@ -107,7 +107,7 @@ export const HEAVY_EVERY = 2.3
 export const HEAVY_HIT = 180
 
 /** Specials fire on their own once a coat has dealt this much damage (白: healed this much). Order: 赤, 黒, 胡麻, 白. */
-export const SPECIAL_NEED = [1000, 800, 1400, 900] as const
+export const SPECIAL_NEED = [1000, 800, 1400, 900, 1200, 1000] as const
 export const CUT_TIME = 1.1
 /** After the cut-in the special strikes; its field effect plays for this long. */
 export const FX_TIME = 0.9
@@ -194,7 +194,13 @@ export const KIND_TAN = 0
 export const KIND_BLACK = 1
 export const KIND_SESAME = 2
 export const KIND_WHITE = 3
-export const KINDS = 4
+/** ぶち柴 (the frisbee thrower) and どっしり柴 (the slow stomper). Free placement only. */
+export const KIND_DISC = 4
+export const KIND_BIG = 5
+export const KINDS = 6
+/** Cards in a deck: the shop picks this many of the roster. */
+export const DECK_SIZE = 4
+export const DEFAULT_DECK = [0, 1, 2, 3] as const
 
 export const BONE_X = 16
 export const BONE_Y = 678
@@ -208,12 +214,18 @@ export const WIN_PAY = 300
 export const LOSS_PAY = 80
 export const BONE_PER_KILL = 2
 
-/** Level-up screen layout, in world px. Four coat rows, then the START button. */
-export const SHOP_ROW_X = 30
-export const SHOP_ROW_W = 330
-export const SHOP_ROW_Y0 = 236
-export const SHOP_ROW_H = 92
-export const SHOP_ROW_GAP = 10
+/** Level-up screen layout, in world px: a two-column grid of coat cards (portrait zone picks the deck, the rest buys a level), then START. */
+export const SHOP_X0 = 12
+export const SHOP_Y0 = 236
+export const SHOP_CELL_W = 179
+export const SHOP_CELL_H = 124
+export const SHOP_GAP = 8
+/** The left part of a cell, in world px, that toggles the coat in the deck. */
+export const SHOP_PICK_W = 84
+/** Top-left of a coat's cell. */
+export function shopCell(kind: number): { x: number; y: number } {
+  return { x: SHOP_X0 + (kind % 2) * (SHOP_CELL_W + SHOP_GAP), y: SHOP_Y0 + Math.floor(kind / 2) * (SHOP_CELL_H + SHOP_GAP) }
+}
 export const START_X = 95
 export const START_Y = 660
 export const START_W = 200
@@ -289,3 +301,30 @@ export const CALL_X = 6
 export const CALL_Y = 36
 export const CALL_W = 54
 export const CALL_H = 16
+
+/** ぶち柴: throws a frisbee in a straight line; it cuts through every dog along the way. */
+export const HP_DISC = 36
+export const DPS_DISC = 8
+export const SPEED_DISC = 50
+export const DISC_EVERY = 1.9
+export const DISC_HIT = 32
+/** Starts throwing from this far, and the disc flies this far from the thrower. */
+export const DISC_REACH = 125
+export const DISC_RANGE = 190
+/** Half-width of the disc's path. */
+export const DISC_WIDTH = 13
+/** ぶち「ボーロ!!」: a sweep across the whole row of the most advanced dog. */
+export const BORO_HIT = 140
+export const BORO_BAND = 34
+
+/** どっしり柴: slow and sturdy; every beat it stomps everything within reach of its own paws. */
+export const HP_BIG = 300
+export const DPS_BIG = 0
+export const SPEED_BIG = 24
+export const BIG_EVERY = 2.2
+export const BIG_HIT = 52
+export const BIG_RADIUS = 44
+/** どっしり「ミルク!!」: a heavy pound on the thickest knot of dogs, stunning them. */
+export const MILK_HIT = 150
+export const MILK_RADIUS = 72
+export const MILK_STUN = 2.5
