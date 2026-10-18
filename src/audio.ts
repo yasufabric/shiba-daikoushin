@@ -3,6 +3,7 @@ export interface Synth {
   deploy(): void
   cannon(): void
   fanfare(win: boolean): void
+  special(kind: number): void
 }
 
 export function createSynth(): Synth {
@@ -77,6 +78,18 @@ export function createSynth(): Synth {
       amp.connect(ac.destination)
       src.start(t)
       src.stop(t + 0.34)
+    },
+    special(kind: number) {
+      const ac = context()
+      if (!ac) return
+      const t = ac.currentTime
+      // A low ゴゴゴ rumble, two barks, then a rising sting pitched per coat.
+      tone(70, 0.4, 'sawtooth', 0.05, t, 55)
+      tone(620, 0.06, 'square', 0.05, t + 0.05, 380)
+      tone(620, 0.06, 'square', 0.05, t + 0.16, 380)
+      const root = [392, 330, 523][kind] ?? 392
+      const notes = [root, root * 1.25, root * 1.5, root * 2]
+      for (let i = 0; i < notes.length; i++) tone(notes[i] ?? root, 0.1, 'square', 0.04, t + 0.28 + i * 0.06)
     },
     fanfare(win: boolean) {
       const ac = context()

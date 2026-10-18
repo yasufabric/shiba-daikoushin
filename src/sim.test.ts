@@ -2,6 +2,13 @@ import { describe, expect, it } from 'vitest'
 import {
   BOSS_AT,
   CANNON_NEED,
+  COUNT_WHITE,
+  CUT_TIME,
+  HEAVY_HIT,
+  KIND_BLACK,
+  KIND_TAN,
+  KIND_WHITE,
+  SPECIAL_NEED,
   CASTLE_HP,
   CLASH_AT,
   COST_TAN,
@@ -16,7 +23,9 @@ import {
 } from './balance'
 import {
   cannonReady,
+  costOf,
   createSim,
+  fireSpecial,
   fillMarch,
   NO_INPUT,
   phaseAt,
@@ -174,5 +183,68 @@ describe('battle', () => {
     expect(sim.time).toBe(0)
     expect(sim.aliveShibas).toBe(START_SHIBAS)
     expect(sim.tutorial).toBe(true)
+  })
+})
+
+describe('soldiers', () => {
+  it('deploys the 白柴 card as barkers spread across paths', () => {
+    const sim = createSim({ tutorial: false })
+    sim.bones = 500
+    const cost = costOf(sim, KIND_WHITE)
+    step(sim, 1 / 30, { card: 2, cannon: false, restart: false })
+    let whites = 0
+    const lanes = new Set<number>()
+    for (const unit of sim.shibas) {
+      if (!unit.alive || unit.kind !== KIND_WHITE) continue
+      whites += 1
+      lanes.add(unit.lane)
+    }
+    expect(whites).toBe(COUNT_WHITE)
+    expect(lanes.size).toBe(COUNT_WHITE)
+    expect(costOf(sim, KIND_WHITE)).toBeGreaterThan(cost)
+  })
+
+  it('lands 黒柴 bites as single heavy hits and fills only that coat', () => {
+    const sim = createSim({ tutorial: false, seed: 5 })
+    for (const unit of sim.shibas) if (unit.alive) unit.hp = 0
+    sim.bones = 1000
+    step(sim, 1 / 30, { card: 1, cannon: false, restart: false })
+    step(sim, 1 / 30, { card: 1, cannon: false, restart: false })
+    expect(sim.aliveShibas).toBe(4)
+    play(sim, 20, () => NO_INPUT)
+    // Each bite lands whole: up to HEAVY_HIT, capped by the cat's remaining hp.
+    expect(sim.charge[KIND_BLACK] ?? 0).toBeGreaterThanOrEqual(HEAVY_HIT * 2)
+    expect(sim.charge[KIND_TAN]).toBe(0)
+    expect(sim.charge[KIND_WHITE]).toBe(0)
+  })
+
+  it('fires a special on its own once the gauge fills, with a cut-in beat', () => {
+    const sim = createSim({ tutorial: false, seed: 2 })
+    play(sim, 61, () => NO_INPUT)
+    sim.charge[KIND_TAN] = SPECIAL_NEED[KIND_TAN]
+    step(sim, 1 / 30, NO_INPUT)
+    expect(sim.sfxSpecial).toBe(KIND_TAN)
+    expect(sim.cutKind).toBe(KIND_TAN)
+    expect(sim.rushT).toBeGreaterThan(0)
+    expect(sim.charge[KIND_TAN]).toBe(0)
+    play(sim, CUT_TIME + 0.1, () => NO_INPUT)
+    expect(sim.cutKind).toBe(-1)
+  })
+
+  it('shoves every cat back with 白「チーズ!!」 and hits the castle with 黒「ジャーキー!!」', () => {
+    const sim = createSim({ tutorial: false, seed: 4 })
+    play(sim, 70, () => NO_INPUT)
+    const ys = sim.cats.filter((c) => c.alive && c.fly === 0).map((c) => c.y)
+    expect(ys.length).toBeGreaterThan(0)
+    fireSpecial(sim, KIND_WHITE)
+    const after = sim.cats.filter((c) => c.alive && c.fly === 0)
+    expect(after.every((c) => c.hp < 32)).toBe(true)
+    expect(sim.floatDmg).toBeGreaterThan(0)
+
+    const boss = createSim({ tutorial: false, seed: 4 })
+    boss.boss = true
+    const hp = boss.castleHp
+    fireSpecial(boss, KIND_BLACK)
+    expect(boss.castleHp).toBeLessThan(hp)
   })
 })

@@ -9,9 +9,10 @@ export const START_SHIBAS = 10
 export const HOLD_Y = 118
 export const CASTLE_REACH = 100
 export const GATE_DEPTH = 210
-/** Feet-to-feet gap. A 16×16 crowd sprite is 32 world px tall, so 36 leaves a sliver of night between dogs. */
-export const GAP = 36
-export const ATTACK_RANGE = 40
+/** Feet-to-feet gap. A 24×24 soldier is 48 world px tall, so 52 leaves a sliver of meadow between dogs. */
+export const GAP = 52
+/** Must reach past GAP, or the two front lines would stop just out of bite. */
+export const ATTACK_RANGE = 56
 
 export const MAX_CATS = 420
 export const CANNON_NEED = 50
@@ -26,11 +27,11 @@ export const CANNON_CASTLE = 18
 export const CAT_HP = 32
 export const CAT_DPS = 9
 export const CAT_SPEED = 50
-export const CASTLE_HP = 11000
+export const CASTLE_HP = 6000
 export const WAVE_EVERY = 3.2
 export const TRICKLE_EVERY = 3.2
 export const TRICKLE_COUNT = 2
-export const GUARD_CATS = 16
+export const GUARD_CATS = 10
 
 export const COST_TAN = 26
 export const COST_BLACK = 68
@@ -45,6 +46,34 @@ export const DPS_BLACK = 24
 export const SPEED_TAN = 88
 export const SPEED_BLACK = 70
 
+/** 白柴: barks from the second row. Each bark hits every cat in reach in its lane and both neighbors. */
+export const COST_WHITE = 44
+export const STEP_WHITE = 11
+export const COUNT_WHITE = 3
+export const HP_WHITE = 40
+export const DPS_WHITE = 10
+export const SPEED_WHITE = 76
+export const BARK_EVERY = 1.1
+export const BARK_HIT = 8
+export const BARK_REACH = 90
+
+/** 黒柴: one heavy bite at a time, enough to drop a cat. */
+export const HEAVY_EVERY = 1.3
+export const HEAVY_HIT = 40
+
+/** Specials fire on their own once a coat has dealt this much damage. Order: 赤, 黒, 白. */
+export const SPECIAL_NEED = [700, 480, 1000] as const
+export const CUT_TIME = 1.1
+/** 赤「サツマイモ!!」: every 赤 charges at double pace and double bite. */
+export const RUSH_TIME = 4
+/** 黒「ジャーキー!!」: the front three cats of every lane, and the castle once it can be hit. */
+export const JERKY_HIT = 80
+export const JERKY_DEPTH = 3
+export const JERKY_CASTLE = 500
+/** 白「チーズ!!」: a field-wide shockwave that also shoves cats back. */
+export const CHEESE_HIT = 26
+export const CHEESE_PUSH = 60
+
 export const CANNON_X = 350
 export const CANNON_Y = 28
 export const CANNON_R = 30
@@ -58,17 +87,22 @@ export const FIELD_W = 366
 export const FIELD_H = 608
 export const PANEL_Y = 676
 
-export const LANE_COUNT = 8
+/** Five marching paths. They steer the sim; the field draws no lane stripes. */
+export const LANE_COUNT = 5
 export const MAX_SHIBAS = 600
 export const MARCH_COUNT = 240
 
 export const KIND_TAN = 0
 export const KIND_BLACK = 1
+export const KIND_WHITE = 2
+export const KINDS = 3
 
 export const BONE_X = 16
 export const BONE_Y = 678
 export const CARD_Y = 714
-export const CARD_W = 172
+export const CARD_W = 114
 export const CARD_H = 110
 export const CARD_X0 = 16
-export const CARD_X1 = 202
+export const CARD_X1 = 138
+export const CARD_X2 = 260
+export const CARD_XS = [CARD_X0, CARD_X1, CARD_X2] as const

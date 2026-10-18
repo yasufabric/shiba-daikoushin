@@ -5,9 +5,9 @@ import {
   CANNON_Y,
   CARD_H,
   CARD_W,
-  CARD_X0,
-  CARD_X1,
+  CARD_XS,
   CARD_Y,
+  SPECIAL_NEED,
 } from './balance'
 import { cannonReady, createSim, fillMarch, NO_INPUT, step, type Input, type Outcome } from './sim'
 import { createRenderer, draw, screenToWorld, type ScreenInsets } from './render'
@@ -64,6 +64,7 @@ interface ShibaDev {
   seek: (seconds: number) => void
   setScale: (scale: number) => void
   fill: (count: number) => void
+  special: (kind: number) => void
   snapshot: () => {
     time: number
     shibas: number
@@ -102,6 +103,9 @@ if (devOn) {
     },
     fill(count: number) {
       fillMarch(sim, count)
+    },
+    special(kind: number) {
+      sim.charge[kind] = SPECIAL_NEED[kind] ?? 0
     },
     snapshot() {
       return {
@@ -205,8 +209,9 @@ canvas.addEventListener('pointerdown', (ev) => {
     input.cannon = true
     return
   }
-  if (hitCard(p.x, p.y, CARD_X0)) input.card = 0
-  else if (hitCard(p.x, p.y, CARD_X1)) input.card = 1
+  for (let card = 0; card < CARD_XS.length; card++) {
+    if (hitCard(p.x, p.y, CARD_XS[card] ?? 0)) input.card = card
+  }
 })
 
 function playSounds(before: Outcome): void {
@@ -216,8 +221,13 @@ function playSounds(before: Outcome): void {
     renderer.hitstop = 0.05
     renderer.shakeUntil = sim.time + 0.3
   }
+  if (sim.sfxSpecial >= 0) {
+    synth.special(sim.sfxSpecial)
+    renderer.shakeUntil = sim.time + 0.25
+  }
   sim.sfxDeploy = 0
   sim.sfxCannon = 0
+  sim.sfxSpecial = -1
   if (sim.outcome !== before && sim.outcome !== 'play') {
     synth.fanfare(sim.outcome === 'won')
     if (sim.outcome === 'won') {
