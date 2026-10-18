@@ -4,6 +4,11 @@ import {
   CARD_W,
   CARD_XS,
   CARD_Y,
+  FIELD_H,
+  FIELD_W,
+  FIELD_X,
+  FIELD_Y,
+  LANE_COUNT,
   SPECIAL_NEED,
 } from './balance'
 import { createSim, fillMarch, NO_INPUT, step, type Input, type Outcome } from './sim'
@@ -199,9 +204,25 @@ canvas.addEventListener('pointerdown', (ev) => {
   }
   if (sim.outcome !== 'play') return
   for (let card = 0; card < CARD_XS.length; card++) {
-    if (hitCard(p.x, p.y, CARD_XS[card] ?? 0)) input.card = card
+    if (hitCard(p.x, p.y, CARD_XS[card] ?? 0)) {
+      input.pick = card
+      return
+    }
+  }
+  const lane = laneAt(p.x, p.y)
+  if (lane >= 0) {
+    input.card = sim.picked
+    input.lane = lane
   }
 })
+
+/** The path under a field tap, or -1 off the field. */
+function laneAt(x: number, y: number): number {
+  if (y < FIELD_Y || y > FIELD_Y + FIELD_H) return -1
+  const fx = x - FIELD_X
+  if (fx < 0 || fx > FIELD_W) return -1
+  return Math.min(LANE_COUNT - 1, Math.floor((fx * LANE_COUNT) / FIELD_W))
+}
 
 function playSounds(before: Outcome): void {
   if (sim.sfxDeploy === 1) synth.deploy()
@@ -242,6 +263,8 @@ function advance(dt: number): void {
     if (sim.outcome !== 'play') break
   }
   input.card = -1
+  input.lane = undefined
+  input.pick = undefined
   input.restart = false
   if (!sim.tutorial && !tutorialStored) {
     tutorialStored = true

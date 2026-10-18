@@ -102,7 +102,12 @@ export interface Unit {
 }
 
 export interface Input {
+  /** Deploy this card now (-1 for none). */
   card: number
+  /** Path to deploy into; when left out, the card goes down the next path in turn. */
+  lane?: number
+  /** Pick this card for the next field tap (-1 or left out for no change). */
+  pick?: number
   restart: boolean
 }
 
@@ -129,6 +134,8 @@ export interface Sim {
   floatDmg: number
   outcome: Outcome
   tutorial: boolean
+  /** The card a field tap will deploy. */
+  picked: number
   rewardT: number
   nextCat: number
   guard: boolean
@@ -217,6 +224,7 @@ export function createSim(opts?: SimOptions): Sim {
     floatDmg: 0,
     outcome: 'play',
     tutorial: opts?.tutorial !== false,
+    picked: KIND_TAN,
     rewardT: 0,
     nextCat: CLASH_AT,
     guard: false,
@@ -387,7 +395,8 @@ export function step(sim: Sim, dt: number, input: Input = NO_INPUT): void {
     return
   }
 
-  if (input.card >= 0 && input.card < KINDS) tryDeploy(sim, input.card)
+  if (input.pick !== undefined && input.pick >= 0 && input.pick < KINDS) sim.picked = input.pick
+  if (input.card >= 0 && input.card < KINDS) tryDeploy(sim, input.card, input.lane)
 
   const income = BONE_RATE + sim.aliveShibas * BONE_PER_SHIBA
   const next = sim.time + dt >= MATCH_SECONDS - 1e-4 ? MATCH_SECONDS : sim.time + dt
@@ -456,14 +465,15 @@ export function step(sim: Sim, dt: number, input: Input = NO_INPUT): void {
   }
 }
 
-function tryDeploy(sim: Sim, card: number): void {
+function tryDeploy(sim: Sim, card: number, chosen?: number): void {
   const cost = costOf(sim, card)
   const count = COUNT_OF[card] ?? COUNT_TAN
   if (sim.bones < cost) {
     deny(sim, card)
     return
   }
-  const start = sim.seq % LANE_COUNT
+  const pinned = chosen !== undefined && chosen >= 0 && chosen < LANE_COUNT
+  const start = pinned ? chosen : sim.seq % LANE_COUNT
   sim.seq += 1
   let spawned = 0
   for (let i = 0; i < count; i++) {
@@ -478,9 +488,9 @@ function tryDeploy(sim: Sim, card: number): void {
   }
   sim.bones -= cost
   const step = STEP_OF[card] ?? STEP_TAN
+  sim.tutorial = false
   if (card === KIND_TAN) {
     sim.costTan += step
-    sim.tutorial = false
   } else if (card === KIND_BLACK) {
     sim.costBlack += step
   } else if (card === KIND_WHITE) {

@@ -374,6 +374,7 @@ export function draw(
   paintHome(g, renderer)
   paintUnits(g, renderer, sim)
   paintHomeBar(g, renderer, sim)
+  if (sim.outcome === 'play') paintLaneArrows(g, renderer)
   paintGhosts(g, renderer, sim)
   paintBooms(g, renderer, sim)
   g.restore()
@@ -1136,7 +1137,7 @@ function paintDock(ctx: CanvasRenderingContext2D, renderer: Renderer, sim: Sim):
     const deny = [sim.deny0, sim.deny1, sim.deny2, sim.deny3][kind] ?? 0
     const cost = costOf(sim, kind)
     const x = px(at(CARD_XS[kind] ?? CARD_X0) + denyShift(deny))
-    paintCard(ctx, renderer, x, kind, cost, sim.bones >= cost, kind === KIND_TAN && sim.tutorial, sim.time)
+    paintCard(ctx, renderer, x, kind, cost, sim.bones >= cost, false, sim.time, kind === sim.picked)
     paintGauge(ctx, x, kind, sim)
   }
 }
@@ -1155,8 +1156,9 @@ function paintCard(
   affordable: boolean,
   hint: boolean,
   time: number,
+  picked: boolean,
 ): void {
-  const y = pyDock(at(CARD_Y))
+  const y = pyDock(at(CARD_Y)) - (picked ? 3 : 0)
   const w = at(CARD_W)
   const h = at(CARD_H)
   ctx.fillStyle = affordable ? NIGHT_1 : NIGHT
@@ -1171,8 +1173,9 @@ function paintCard(
   const phase = Math.floor(time * 8) & 3
   const border = hint ? (GOLD_CYCLE[phase] ?? GOLD_LIGHT) : affordable ? GOLD : NIGHT_2
   const inner = hint ? (GOLD_CYCLE[(phase + 2) & 3] ?? GOLD) : affordable ? GOLD_DARK : NIGHT_1
-  frameRect(ctx, x, y, w, h, border)
-  frameRect(ctx, x + 1, y + 1, w - 2, h - 2, inner)
+  frameRect(ctx, x, y, w, h, picked ? GOLD_HOT : border)
+  frameRect(ctx, x + 1, y + 1, w - 2, h - 2, picked ? GOLD_LIGHT : inner)
+  if (picked) frameRect(ctx, x + 2, y + 2, w - 4, h - 4, GOLD)
   ctx.fillStyle = LINE
   ctx.fillRect(x, y, 1, 1)
   ctx.fillRect(x + w - 1, y, 1, 1)
@@ -1183,8 +1186,8 @@ function paintCard(
   const hop = affordable ? (HOP[Math.floor(time * 8) & 7] ?? 0) >> 1 : 0
   ctx.drawImage(renderer.sheets.hero, col * HERO_PX, 0, HERO_PX, HERO_PX, hx, y + 3 - hop, HERO_PX, HERO_PX)
   if (kind === KIND_SESAME) drawHeart(ctx, x + w - 10, y + 3)
-  ctx.drawImage(renderer.sheets.bone, x + 3, y + h - 14)
-  drawNumber(ctx, renderer, cost | 0, x + 17, y + h - 12, false)
+  ctx.drawImage(renderer.sheets.bone, x + 1, y + h - 14)
+  drawNumber(ctx, renderer, cost | 0, x + 13, y + h - 12, false)
 }
 
 /** Special gauge under the portrait. Full gauges flash through the golds until the cut-in plays. */
@@ -1214,10 +1217,29 @@ function frameRect(ctx: CanvasRenderingContext2D, x: number, y: number, w: numbe
   ctx.fillRect(x + w - 1, y, 1, h)
 }
 
+/** Where a field tap sends the picked card: one up-arrow per path, above the 柴の家. Static, like the meadow. */
+function laneArrowY(renderer: Renderer): number {
+  return py(at(FIELD_Y + FIELD_H)) - renderer.sheets.home.height - 22
+}
+
+function paintLaneArrows(ctx: CanvasRenderingContext2D, renderer: Renderer): void {
+  const y = laneArrowY(renderer)
+  let x = px(at(FIELD_X))
+  for (let lane = 0; lane < LANE_PX.length; lane++) {
+    const cx = x + ((LANE_PX[lane] ?? 0) >> 1)
+    ctx.fillStyle = LINE
+    for (let r = 0; r < 4; r++) ctx.fillRect(cx - r - 1, y + r, r * 2 + 3, 2)
+    ctx.fillStyle = GOLD_LIGHT
+    for (let r = 0; r < 3; r++) ctx.fillRect(cx - r, y + r + 1, r * 2 + 1, 1)
+    x += LANE_PX[lane] ?? 0
+  }
+}
+
+/** Tutorial pointer: points at a path, since a field tap is what sends a shiba. */
 function paintPaw(ctx: CanvasRenderingContext2D, renderer: Renderer, time: number): void {
   const bob = BOB[Math.floor(time * 6) & 7] ?? 0
-  const x = px(at(CARD_X0) + ((at(CARD_W) - pawArt.w) >> 1))
-  const y = pyDock(at(CARD_Y)) - 6 + bob
+  const x = px(at(FIELD_X)) + (LANE_PX[0] ?? 0) + ((LANE_PX[1] ?? 0) >> 1) - (pawArt.w >> 1)
+  const y = laneArrowY(renderer) - pawArt.h - 2 + bob
   ctx.drawImage(renderer.sheets.paw, x, y)
 }
 

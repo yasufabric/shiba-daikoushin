@@ -1,6 +1,6 @@
 # しば大行進
 
-Portrait phone game. Soldier shibas march up the field from the 柴の家 at the bottom, rival dogs come down, and a three-minute match ends at the 犬の屋敷. Dogs that reach the field floor bite the 柴の家; when its gold HP bar empties the match is lost, as it is when the clock runs out. The only input is deploying a card. There is no cannon or other tap-fired attack.
+Portrait phone game. Soldier shibas march up the field from the 柴の家 at the bottom, rival dogs come down, and a three-minute match ends at the 犬の屋敷. Dogs that reach the field floor bite the 柴の家; when its gold HP bar empties the match is lost, as it is when the clock runs out. The only input is deploying a shiba: tap a card to pick it (it lifts with a gold frame and stays picked), then tap anywhere on a path to send one shiba of that coat down it. 赤 starts picked. While a match is on, a small gold up-arrow sits above the 柴の家 in each path to show where taps land; the tutorial paw points at one. Dogs arrive on random paths, so where you send each shiba matters: a path left empty lets dogs walk to the 柴の家. There is no cannon or other tap-fired attack.
 
 Four cards, four soldiers, each with its own role. The cards sit in one row of four. Every tap of a card sends out exactly one shiba, so the field stays readable (about a dozen shibas in a typical match); the next shiba of that coat costs a little more. A match opens with one 赤 on each path.
 
