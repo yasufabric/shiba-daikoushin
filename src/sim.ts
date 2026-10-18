@@ -68,6 +68,7 @@ import {
   HEAL_AMOUNT,
   HEAL_EVERY,
   HEAL_REACH,
+  BITE_EVERY,
   RECHARGE,
   BONE_PER_KILL,
   BOSS_DPS,
@@ -104,6 +105,10 @@ export interface Unit {
   fly: number
   /** Seconds until the next heavy bite or bark. */
   cd: number
+  /** Seconds until this unit's next front-line bite. */
+  bite: number
+  /** Match time of the last bite this unit landed, for the lunge and spark. */
+  bitAt: number
 }
 
 export interface Input {
@@ -221,6 +226,8 @@ function makePool(max: number): Unit[] {
       dps: 0,
       fly: 0,
       cd: 0,
+      bite: 0,
+      bitAt: -9,
     })
   }
   return units
@@ -354,6 +361,8 @@ export function spawnShiba(sim: Sim, kind: number, lane: number, y: number): boo
   unit.speed = SPEED_OF[k] ?? SPEED_TAN
   unit.fly = 0
   unit.cd = 0
+  unit.bite = BITE_EVERY * 0.5
+  unit.bitAt = -9
   unit.y = y
   unit.x = laneW * (lane + 0.5) + ((lane * 7 + (y | 0) * 3) % 21) - 10
   sim.aliveShibas += 1
@@ -392,6 +401,8 @@ function spawnCat(sim: Sim, lane: number, breed: number): boolean {
   unit.speed = BREED_SPEED[breed] ?? BREED_SPEED[BREED_CORGI]
   unit.fly = 0
   unit.cd = 0
+  unit.bite = BITE_EVERY * 0.5
+  unit.bitAt = -9
   unit.y = 22 + (lane % 4) * 16
   unit.x = laneW * (lane + 0.5) + ((sim.aliveCats * 7 + lane * 5) % 17) - 8
   sim.aliveCats += 1
@@ -710,18 +721,32 @@ function moveLane(sim: Sim, lane: number, dt: number): void {
   const shiba = sn > 0 ? sim.shibas[sIdx[0] ?? -1] : undefined
   const cat = cn > 0 ? sim.cats[cIdx[0] ?? -1] : undefined
   if (shiba?.alive && cat?.alive && Math.abs(shiba.y - cat.y) <= ATTACK_RANGE) {
-    shiba.hp -= cat.dps * dt
+    cat.bite -= dt
+    if (cat.bite <= 0) {
+      cat.bite += BITE_EVERY
+      shiba.hp -= cat.dps * BITE_EVERY
+      cat.bitAt = sim.time
+    }
     if (shiba.kind === KIND_BLACK) {
       shiba.cd -= dt
       if (shiba.cd <= 0) {
         shiba.cd = HEAVY_EVERY
         hurt(sim, cat, HEAVY_HIT * power(sim, KIND_BLACK), KIND_BLACK)
+        shiba.bitAt = sim.time
       }
-    } else if (shiba.kind === KIND_TAN) {
-      hurt(sim, cat, shiba.dps * (sim.rushT > 0 ? 2 : 1) * dt, KIND_TAN)
     } else {
-      hurt(sim, cat, shiba.dps * dt, shiba.kind)
+      const rushing = shiba.kind === KIND_TAN && sim.rushT > 0
+      shiba.bite -= dt * (rushing ? 2 : 1)
+      if (shiba.bite <= 0) {
+        shiba.bite += BITE_EVERY
+        hurt(sim, cat, shiba.dps * BITE_EVERY, shiba.kind)
+        shiba.bitAt = sim.time
+      }
     }
+  } else {
+    // Out of reach the next bite comes a beat after contact, so a fresh pair does not trade on the first frame.
+    if (shiba?.alive) shiba.bite = BITE_EVERY * 0.5
+    if (cat?.alive) cat.bite = BITE_EVERY * 0.5
   }
 }
 

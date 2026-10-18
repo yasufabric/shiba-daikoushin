@@ -25,20 +25,20 @@ export const BREED_BULLDOG = 2
 export const BREEDS = 3
 /** The boss, セントバーナード. Not part of the wave mix; it walks out of the mansion once every regular dog has been sent. */
 export const BREED_BOSS = 3
-export const BOSS_HP = 2000
-export const BOSS_DPS = 36
-export const BOSS_SPEED = 16
+export const BOSS_HP = 2400
+export const BOSS_DPS = 40
+export const BOSS_SPEED = 10
 /** チワワ fast and frail, コーギー the baseline, ブルドッグ slow and tough. */
 export const BREED_HP = [20, 30, 60] as const
-export const BREED_DPS = [7, 9, 12] as const
-export const BREED_SPEED = [72, 50, 30] as const
+export const BREED_DPS = [10, 12, 16] as const
+export const BREED_SPEED = [44, 30, 18] as const
 /** In a clash wave, every Nth dog is a ブルドッグ; N shrinks as the match runs on. */
 export const BULLDOG_EVERY = 7
 /** 柴の家 at the bottom of the field. Cats that reach it bite it; at 0 the match is lost. */
 export const HOME_HP = 1500
 /** How far above the field floor a cat must be to bite the home. */
 export const HOME_REACH = 40
-export const WAVE_EVERY = 3.2
+export const WAVE_EVERY = 2.3
 export const TRICKLE_EVERY = 3.2
 export const TRICKLE_COUNT = 2
 
@@ -52,12 +52,14 @@ export const RECHARGE = [2.5, 6, 4, 7] as const
 /** One shiba per tap, for every card. */
 export const COUNT_TAN = 1
 export const COUNT_BLACK = 1
+/** Front-line fighters trade bites on this beat instead of draining HP every frame, so each attack can be seen. */
+export const BITE_EVERY = 0.7
 export const HP_TAN = 70
 export const HP_BLACK = 180
 export const DPS_TAN = 26
 export const DPS_BLACK = 24
-export const SPEED_TAN = 88
-export const SPEED_BLACK = 70
+export const SPEED_TAN = 52
+export const SPEED_BLACK = 42
 
 /** 白柴: barks from the second row. Each bark hits every cat in reach in its lane and both neighbors. */
 export const COST_WHITE = 60
@@ -65,7 +67,7 @@ export const STEP_WHITE = 10
 export const COUNT_WHITE = 1
 export const HP_WHITE = 80
 export const DPS_WHITE = 10
-export const SPEED_WHITE = 76
+export const SPEED_WHITE = 46
 export const BARK_EVERY = 1.1
 export const BARK_HIT = 13
 export const BARK_REACH = 90
@@ -76,7 +78,7 @@ export const STEP_SESAME = 16
 export const COUNT_SESAME = 1
 export const HP_SESAME = 70
 export const DPS_SESAME = 6
-export const SPEED_SESAME = 84
+export const SPEED_SESAME = 50
 export const HEAL_EVERY = 1
 export const HEAL_AMOUNT = 10
 /** How far ahead (and a little behind) the healer reaches, in world px along the path. */

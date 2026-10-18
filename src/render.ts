@@ -386,6 +386,7 @@ export function draw(
   g.clip()
   paintHome(g, renderer)
   paintUnits(g, renderer, sim)
+  paintBiteSparks(g, sim)
   paintHpBars(g, sim)
   paintBossBar(g, sim)
   paintHomeBar(g, renderer, sim)
@@ -554,6 +555,39 @@ function paintHomeBar(ctx: CanvasRenderingContext2D, renderer: Renderer, sim: Si
   ctx.fillRect(barX, barY, fill, 1)
 }
 
+/** A bite lunges the biter 3px toward its foe for a tenth of a second. */
+function lunge(sim: Sim, bitAt: number): number {
+  const age = sim.time - bitAt
+  return age >= 0 && age < 0.1 ? 3 : 0
+}
+
+/** Where a bite lands, a white-and-gold star flashes for a tenth of a second. */
+function paintBiteSparks(ctx: CanvasRenderingContext2D, sim: Sim): void {
+  for (let i = 0; i < sim.shibas.length; i++) {
+    const unit = sim.shibas[i]
+    if (!unit?.alive) continue
+    const age = sim.time - unit.bitAt
+    if (age < 0 || age >= 0.1) continue
+    drawSpark(ctx, px(at(FIELD_X + unit.x)), py(at(FIELD_Y + unit.y)) - CROWD_PX - 4, age)
+  }
+  for (let i = 0; i < sim.cats.length; i++) {
+    const dog = sim.cats[i]
+    if (!dog?.alive || dog.fly === 1) continue
+    const age = sim.time - dog.bitAt
+    if (age < 0 || age >= 0.1) continue
+    drawSpark(ctx, px(at(FIELD_X + dog.x)), py(at(FIELD_Y + dog.y)) + 2, age)
+  }
+}
+
+function drawSpark(ctx: CanvasRenderingContext2D, x: number, y: number, age: number): void {
+  const r = age < 0.05 ? 4 : 3
+  ctx.fillStyle = GOLD
+  ctx.fillRect(x - r, y - 1, r * 2 + 1, 3)
+  ctx.fillRect(x - 1, y - r, 3, r * 2 + 1)
+  ctx.fillStyle = WHITE
+  ctx.fillRect(x - 1, y - 1, 3, 3)
+}
+
 /** A small HP bar over every hurt unit, drawn after all units so none hides another's. Gold for shibas, pink for dogs. */
 function paintHpBars(ctx: CanvasRenderingContext2D, sim: Sim): void {
   for (let i = 0; i < sim.shibas.length; i++) {
@@ -609,7 +643,7 @@ function drawShiba(ctx: CanvasRenderingContext2D, renderer: Renderer, sim: Sim, 
   const flash = fighting && hitFrame(beat)
   const dx = px(at(FIELD_X + unit.x)) - (CROWD_PX >> 1)
   const hop = celebrateHop(sim, index)
-  const dy = py(at(FIELD_Y + unit.y)) - CROWD_PX - hop
+  const dy = py(at(FIELD_Y + unit.y)) - CROWD_PX - hop - lunge(sim, unit.bitAt)
   ctx.fillStyle = NIGHT
   ctx.fillRect(dx + 4, dy + hop + CROWD_PX - 2, 16, 2)
   const cd = unit.cd
@@ -674,7 +708,7 @@ function drawCat(ctx: CanvasRenderingContext2D, renderer: Renderer, sim: Sim, in
     return
   }
   const dx = px(at(FIELD_X + cat.x)) - (CAT_PX >> 1)
-  const dy = py(at(FIELD_Y + cat.y)) - CAT_PX
+  const dy = py(at(FIELD_Y + cat.y)) - CAT_PX + (cat.fly === 1 ? 0 : lunge(sim, cat.bitAt))
   if (cat.fly === 1) {
     if (renderer.catFly[index] !== 1) {
       renderer.catFly[index] = 1

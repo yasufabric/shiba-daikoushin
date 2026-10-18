@@ -102,7 +102,7 @@ Idle is 2 frames, 0.5s each. Walk and run are 4 frames at 12fps. Attack is 1 win
 
 ### Effects
 
-Particles are square dots of 1, 2, or 3px. No circles, gradients, or translucency. Glow cycles the four golds. An explosion is 4 frames: white, yellow, orange, then particles. Screen shake is integer pixels, at most 3. Hitstop is 0.05s when a match is won and when a special strikes. A hurt unit shows a 16×2 HP bar 4px above its sprite with a `#120b10` border: gold for shibas, pink for dogs. Full-health units show none, so a calm field stays clean. Damage numbers are gold with a `#120b10` border. They pop from 1.5× to 1×, and that pop stays on integer pixels (12×15, then 8×10) with no fractional scale of the glyph grid.
+Particles are square dots of 1, 2, or 3px. No circles, gradients, or translucency. Glow cycles the four golds. An explosion is 4 frames: white, yellow, orange, then particles. Screen shake is integer pixels, at most 3. Hitstop is 0.05s when a match is won and when a special strikes. Front-line fighters trade discrete bites every `BITE_EVERY` (0.7s) instead of draining HP every frame: the biter lunges 3px toward its foe for 0.1s and a white-and-gold star flashes where the bite lands. Shake and hitstop are cleared when a new match starts. A hurt unit shows a 16×2 HP bar 4px above its sprite with a `#120b10` border: gold for shibas, pink for dogs. Full-health units show none, so a calm field stays clean. Damage numbers are gold with a `#120b10` border. They pop from 1.5× to 1×, and that pop stays on integer pixels (12×15, then 8×10) with no fractional scale of the glyph grid.
 
 Finish like a late Super Famicom game.
 

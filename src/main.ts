@@ -313,6 +313,11 @@ function advance(dt: number): void {
     const h = Math.min(left, 1 / 30)
     const before = sim.outcome
     step(sim, h, first ? input : NO_INPUT)
+    // A new match restarts the clock, so drop any shake or hitstop left over from the last one.
+    if (before !== 'play' && sim.outcome === 'play') {
+      renderer.shakeUntil = 0
+      renderer.hitstop = 0
+    }
     playSounds(before)
     first = false
     left -= h
