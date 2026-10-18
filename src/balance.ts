@@ -98,12 +98,12 @@ export const HEAVY_EVERY = 1.3
 export const HEAVY_HIT = 80
 
 /** Specials fire on their own once a coat has dealt this much damage (胡麻: healed this much). Order: 赤, 黒, 白, 胡麻. */
-export const SPECIAL_NEED = [700, 480, 1000, 600] as const
+export const SPECIAL_NEED = [1000, 800, 1400, 900] as const
 export const CUT_TIME = 1.1
 /** After the cut-in the special strikes; its field effect plays for this long. */
 export const FX_TIME = 0.9
 /** 赤「サツマイモ!!」: every 赤 charges at double pace and double bite. */
-export const RUSH_TIME = 4
+export const RUSH_TIME = 3
 /** 黒「ジャーキー!!」: the front three dogs of every lane, the boss included. */
 export const JERKY_HIT = 80
 export const JERKY_DEPTH = 3
@@ -115,9 +115,9 @@ export const CHEESE_PUSH = 60
 /** Free placement 白「チーズ!!」is crowd control: light damage, a big shove, and every dog but the boss freezes. */
 export const CHEESE_FREE_HIT = 10
 export const CHEESE_FREE_PUSH = 90
-export const CHEESE_STUN = 2.5
+export const CHEESE_STUN = 1.8
 /** Free placement 黒「ジャーキー!!」is a few heavy single hits on the dogs nearest the 柴の家 (per FREE_DOG_HP). */
-export const JERKY_FREE_HIT = 210
+export const JERKY_FREE_HIT = 130
 
 export const VIEW_W = 390
 export const VIEW_H = 844
@@ -161,7 +161,7 @@ export const HEAL_SEEK_SPAN = 300
 /** 赤 in free placement walks this much faster than the others. */
 export const TAN_HASTE = 1.35
 /** 黒「ジャーキー!!」in free placement: a spear drops on each of the dogs nearest the 柴の家, this many. */
-export const JERKY_TARGETS = 3
+export const JERKY_TARGETS = 2
 /** A dog this close to the 柴の家 door bites the house. */
 export const FREE_HOME_REACH = 60
 /** A dog with nothing in sight walks straight down and turns for the door only this close to the bottom. */

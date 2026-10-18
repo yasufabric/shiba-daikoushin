@@ -7,6 +7,7 @@ import {
   CARD_W,
   CARD_X0,
   CARD_Y,
+  BARK_SPLASH,
   BOSS_HP,
   BREED_BOSS,
   BREED_BULLDOG,
@@ -417,6 +418,7 @@ export function draw(
   paintHome(g, renderer)
   paintUnits(g, renderer, sim)
   if (sim.free) paintRoles(g, sim)
+  if (sim.free) paintAttacks(g, sim)
   paintBiteSparks(g, sim)
   paintHpBars(g, sim)
   paintBossBar(g, sim)
@@ -645,22 +647,64 @@ function paintRoles(ctx: CanvasRenderingContext2D, sim: Sim): void {
       ctx.fillRect(cx - 2, top, 5, 1)
       ctx.fillRect(cx, top - 2, 1, 5)
     }
-    if (unit.kind === KIND_WHITE) {
-      const age = sim.time - unit.bitAt
-      if (age >= 0 && age < 0.18) {
-        const tx = px(at(FIELD_X + unit.aimX))
-        const ty = fpy(unit.aimY) - (CAT_PX >> 1)
-        const reach = age / 0.18
-        for (let k = 1; k <= 3; k++) {
-          const f = Math.min(1, reach * 1.2 - (3 - k) * 0.15)
-          if (f <= 0) continue
-          const wx = Math.round(cx + (tx - cx) * f)
-          const wy = Math.round(cy + (ty - cy) * f)
-          ctx.fillStyle = k === 3 ? WHITE : GOLD_LIGHT
-          ctx.fillRect(wx - 2, wy - 2, 5, 1)
-          ctx.fillRect(wx - 3, wy - 1, 1, 3)
-          ctx.fillRect(wx + 3, wy - 1, 1, 3)
+  }
+}
+
+/** Clash Royale–style attack readouts at the dog that was hit: 赤 slashes three quick claw marks, 黒 slams a ground ring, 白 lobs a ball that bursts in a splash ring. */
+function paintAttacks(ctx: CanvasRenderingContext2D, sim: Sim): void {
+  for (const unit of sim.shibas) {
+    if (!unit?.alive || unit.kind === KIND_SESAME) continue
+    const age = sim.time - unit.bitAt
+    if (age < 0 || age >= 0.45) continue
+    const tx = px(at(FIELD_X + unit.aimX))
+    const ty = fpy(unit.aimY) - (CAT_PX >> 1)
+    if (unit.kind === KIND_BLACK) {
+      // A heavy slam: a flat ring racing out along the ground, plus a dust puff.
+      const t = Math.min(1, age / 0.35)
+      const r = 4 + Math.round(t * 18)
+      const gy = ty + 6
+      ctx.fillStyle = t < 0.5 ? WHITE : GOLD
+      for (let k = 0; k < 22; k++) {
+        const a = (k / 22) * Math.PI * 2
+        ctx.fillRect(tx + Math.round(Math.cos(a) * r), gy + Math.round(Math.sin(a) * r * 0.4), 3, 2)
+      }
+      if (age < 0.12) {
+        ctx.fillStyle = WHITE
+        ctx.fillRect(tx - 8, ty - 1, 17, 3)
+        ctx.fillRect(tx - 1, ty - 8, 3, 17)
+      }
+    } else if (unit.kind === KIND_WHITE) {
+      const fly = 0.16
+      const sx = px(at(FIELD_X + unit.x))
+      const sy = fpy(unit.y) - CROWD_PX
+      if (age < fly) {
+        const f = age / fly
+        const bx = Math.round(sx + (tx - sx) * f)
+        const by = Math.round(sy + (ty - sy) * f - Math.sin(f * Math.PI) * 14)
+        ctx.fillStyle = LINE
+        ctx.fillRect(bx - 3, by - 3, 7, 7)
+        ctx.fillStyle = WHITE
+        ctx.fillRect(bx - 2, by - 2, 5, 5)
+        ctx.fillStyle = GOLD
+        ctx.fillRect(bx - 1, by, 3, 2)
+      } else {
+        const t = Math.min(1, (age - fly) / 0.28)
+        const r = Math.round(at(BARK_SPLASH) * (0.4 + t * 0.6))
+        ctx.fillStyle = t < 0.5 ? WHITE : GOLD_LIGHT
+        for (let k = 0; k < 24; k++) {
+          const a = (k / 24) * Math.PI * 2
+          ctx.fillRect(tx + Math.round(Math.cos(a) * r), ty + Math.round(Math.sin(a) * r * 0.75), 2, 2)
         }
+      }
+    } else if (age < 0.16) {
+      // Three quick slash marks, one after another.
+      const shown = Math.min(3, 1 + Math.floor(age / 0.05))
+      for (let k = 0; k < shown; k++) {
+        const ox = (k - 1) * 6
+        ctx.fillStyle = LINE
+        for (let i = 0; i < 11; i++) ctx.fillRect(tx + ox - 5 + i, ty - 6 + i, 3, 3)
+        ctx.fillStyle = k === shown - 1 ? WHITE : GOLD_LIGHT
+        for (let i = 0; i < 11; i++) ctx.fillRect(tx + ox - 5 + i, ty - 6 + i, 2, 2)
       }
     }
   }
@@ -679,6 +723,7 @@ function paintBiteSparks(ctx: CanvasRenderingContext2D, sim: Sim): void {
     if (!unit?.alive) continue
     const age = sim.time - unit.bitAt
     if (age < 0 || age >= 0.1) continue
+    if (sim.free) continue
     drawSpark(ctx, px(at(FIELD_X + unit.x)), fpy(unit.y) - CROWD_PX - 4, age)
   }
   for (let i = 0; i < sim.cats.length; i++) {
