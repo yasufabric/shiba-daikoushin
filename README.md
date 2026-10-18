@@ -1,6 +1,6 @@
 # しば大行進
 
-Three-minute portrait march. Deploy shibas, hold the 柴の家, and break the rival dogs' mansion.
+Portrait defense. Send shibas down the paths, hold the 柴の家 against a pack of rival dogs, and beat the セントバーナード that comes out last.
 
 https://yasufabric.github.io/shiba-daikoushin/
 

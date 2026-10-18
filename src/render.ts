@@ -7,7 +7,9 @@ import {
   CARD_W,
   CARD_X0,
   CARD_Y,
-  CASTLE_HP,
+  BOSS_HP,
+  BREED_BOSS,
+  BREED_CORGI,
   HOME_HP,
   FIELD_H,
   FIELD_W,
@@ -77,7 +79,7 @@ import {
   WHITE_DARK,
   WHITE_MID,
 } from './palette'
-import { costOf, levelCost, type Outcome, type Sim } from './sim'
+import { costOf, dogsLeft, levelCost, type Outcome, type Sim, type Unit } from './sim'
 import { createSheets, type Sheets } from './sprites'
 
 const BUCKETS = 96
@@ -385,6 +387,7 @@ export function draw(
   paintHome(g, renderer)
   paintUnits(g, renderer, sim)
   paintHpBars(g, sim)
+  paintBossBar(g, sim)
   paintHomeBar(g, renderer, sim)
   if (sim.outcome === 'play') paintLaneArrows(g, renderer)
   paintGhosts(g, renderer, sim)
@@ -495,17 +498,32 @@ function paintCastle(ctx: CanvasRenderingContext2D, renderer: Renderer, sim: Sim
   const x = (frame.internalW - BOSS_W) >> 1
   const y = frame.topDy
   ctx.drawImage(sprite, x, y)
-  if (!sim.boss) return
-  const barW = 60
-  const barX = x + ((BOSS_W - barW) >> 1)
-  const barY = y + BOSS_H - 6
+  paintDogsLeft(ctx, renderer, sim, x + BOSS_W + 6, y + 6)
+}
+
+/** How many dogs are still to beat, the boss included: a dog-head icon and pink digits beside the mansion. */
+function paintDogsLeft(ctx: CanvasRenderingContext2D, renderer: Renderer, sim: Sim, x: number, y: number): void {
+  const icon = renderer.sheets.cat
+  ctx.drawImage(icon, 4 * CAT_PX, BREED_CORGI * 4 * CAT_PX, CAT_PX, 16, x - 4, y - 2, CAT_PX, 16)
+  drawNumber(ctx, renderer, dogsLeft(sim), x + 22, y + 2, false)
+}
+
+/** The boss's HP, a wide pink bar across the top of the field while it is out. */
+function paintBossBar(ctx: CanvasRenderingContext2D, sim: Sim): void {
+  const boss = sim.bossIndex >= 0 ? sim.cats[sim.bossIndex] : undefined
+  if (!boss?.alive || boss.fly === 1) return
+  const w = frame.internalW - 24
+  const x = 12
+  const y = py(at(FIELD_Y)) + 4
+  ctx.fillStyle = LINE
+  ctx.fillRect(x - 1, y - 1, w + 2, 6)
   ctx.fillStyle = DANGER_DARK
-  ctx.fillRect(barX, barY, barW, 4)
-  const fill = Math.round(barW * Math.max(0, sim.castleHp / CASTLE_HP))
+  ctx.fillRect(x, y, w, 4)
+  const fill = Math.max(0, Math.round((w * boss.hp) / BOSS_HP))
   ctx.fillStyle = DANGER
-  ctx.fillRect(barX, barY, fill, 4)
+  ctx.fillRect(x, y, fill, 4)
   ctx.fillStyle = DANGER_LIGHT
-  ctx.fillRect(barX, barY, fill, 1)
+  ctx.fillRect(x, y, fill, 1)
 }
 
 /** 柴の家: centered on the field floor. */
@@ -547,7 +565,7 @@ function paintHpBars(ctx: CanvasRenderingContext2D, sim: Sim): void {
   }
   for (let i = 0; i < sim.cats.length; i++) {
     const dog = sim.cats[i]
-    if (!dog?.alive || dog.fly === 1 || dog.hp >= dog.maxHp || dog.maxHp <= 0) continue
+    if (!dog?.alive || dog.fly === 1 || dog.hp >= dog.maxHp || dog.maxHp <= 0 || dog.kind === BREED_BOSS) continue
     const x = px(at(FIELD_X + dog.x)) - 8
     const y = py(at(FIELD_Y + dog.y)) - CAT_PX - 4
     drawHpBar(ctx, x, y, dog.hp / dog.maxHp, DANGER_DARK, DANGER, DANGER_LIGHT)
@@ -651,6 +669,10 @@ function paintBark(ctx: CanvasRenderingContext2D, age: number, cx: number, top: 
 function drawCat(ctx: CanvasRenderingContext2D, renderer: Renderer, sim: Sim, index: number): void {
   const cat = sim.cats[index]
   if (!cat?.alive) return
+  if (cat.kind === BREED_BOSS) {
+    drawBoss(ctx, renderer, sim, cat, index)
+    return
+  }
   const dx = px(at(FIELD_X + cat.x)) - (CAT_PX >> 1)
   const dy = py(at(FIELD_Y + cat.y)) - CAT_PX
   if (cat.fly === 1) {
@@ -676,6 +698,27 @@ function drawCat(ctx: CanvasRenderingContext2D, renderer: Renderer, sim: Sim, in
   const pose = poseOf(moved, fighting)
   const beat = offbeat(sim.time, index)
   blitCat(ctx, renderer, cat.kind, pose, fighting ? beat : sim.time, cat.lane, 0, fighting && hitFrame(beat), dx, dy)
+}
+
+/** The boss: 48×48, two walk frames, a hit flash while it fights, and a big burst when it falls. */
+function drawBoss(ctx: CanvasRenderingContext2D, renderer: Renderer, sim: Sim, boss: Unit, index: number): void {
+  const size = renderer.sheets.boss.height >> 1
+  const dx = px(at(FIELD_X + boss.x)) - (size >> 1)
+  const dy = py(at(FIELD_Y + boss.y)) - size
+  if (boss.fly === 1) {
+    if (renderer.catFly[index] !== 1) {
+      renderer.catFly[index] = 1
+      for (let k = 0; k < 4; k++) spawnBoom(renderer, sim, dx + 8 + k * 10, dy + 10 + (k & 1) * 20)
+    }
+    return
+  }
+  renderer.catFly[index] = 0
+  ctx.fillStyle = NIGHT
+  ctx.fillRect(dx + 8, dy + size - 2, size - 16, 2)
+  const frameNo = Math.floor(sim.time * 3) & 1
+  const fighting = foeNear(sim, boss.lane, boss.y, false)
+  const flash = fighting && hitFrame(offbeat(sim.time, index))
+  ctx.drawImage(renderer.sheets.boss, frameNo * size, flash ? size : 0, size, size, dx, dy, size, size)
 }
 
 function noteDeaths(renderer: Renderer, sim: Sim): void {
@@ -1240,8 +1283,8 @@ function paintCard(
     ctx.fillRect(x + 2, top + cover - 1, w - 4, 1)
   }
   if (kind === KIND_SESAME) drawHeart(ctx, x + w - 10, y + 3)
-  ctx.drawImage(renderer.sheets.bone, x + 1, y + h - 15)
-  drawNumber(ctx, renderer, cost | 0, x + 13, y + h - 13, false)
+  ctx.drawImage(renderer.sheets.bone, x + 1, y + h - 17)
+  drawNumber(ctx, renderer, cost | 0, x + 13, y + h - 15, false)
 }
 
 /** Special gauge under the portrait. Full gauges flash through the golds until the cut-in plays. */

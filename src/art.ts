@@ -2,6 +2,7 @@ import {
   BOSS_H,
   BOSS_W,
   HOME_H,
+  BOSS_PX,
   HOME_W,
   CAT_BODY,
   CAT_DARK,
@@ -714,6 +715,51 @@ const FUR_NAMES = ['red', 'black', 'sesame', 'cream'] as const
 
 /** One 10-frame strip per fur: 赤, 黒, 胡麻, 白. */
 export const crowdArt: readonly Seal[][] = FUR_MAPS.map((map, i) => sealAll(`crowd-${FUR_NAMES[i] ?? i}`, CROWD_ROWS, map))
+
+const BOSS_MAP: Record<string, string> = { ...CAT, g: GOLD_LIGHT, G: GOLD, y: GOLD_DARK }
+
+/** セントバーナード, the boss: 48×48 front view with floppy ears, a white blaze and chest, and a gold barrel under its chin. Two walk frames. */
+function bossRows(step: number): string[] {
+  const g = blank(BOSS_PX, BOSS_PX)
+  blot(g, 8, 24, 32, 18, 'b')
+  shave(g, 8, 24, 32, 18, 4)
+  blot(g, 9, 26, 2, 14, 'h')
+  blot(g, 37, 26, 2, 14, 'm')
+  blot(g, 15, 27, 18, 13, 'w')
+  const back = step === 0 ? 0 : 2
+  blot(g, 10, 40 + back, 8, 8 - back, 'm')
+  blot(g, 30, 42 - back, 8, 6 + back, 'm')
+  blot(g, 11, 46, 6, 2, 'w')
+  blot(g, 31, 46, 6, 2, 'w')
+  blot(g, 10, 3, 28, 24, 'b')
+  for (let i = 0; i < 5; i++) {
+    for (let j = 0; j < 5 - i; j++) {
+      put(g, 10 + j, 3 + i, '.')
+      put(g, 37 - j, 3 + i, '.')
+    }
+  }
+  blot(g, 11, 8, 2, 14, 'h')
+  for (const ex of [3, 37]) {
+    blot(g, ex, 7, 8, 17, 'm')
+    shave(g, ex, 7, 8, 17, 3)
+    blot(g, ex + 2, 9, 4, 12, 'd')
+  }
+  blot(g, 21, 3, 6, 12, 'w')
+  blot(g, 14, 15, 20, 11, 'w')
+  for (const ex of [14, 27]) {
+    blot(g, ex, 9, 7, 6, 'd')
+    blot(g, ex + 2, 10, 3, 3, 'e')
+  }
+  blot(g, 21, 16, 6, 4, 'n')
+  blot(g, 17, 22, 14, 2, 'd')
+  blot(g, 19, 26, 10, 8, 'G')
+  blot(g, 20, 27, 8, 1, 'g')
+  blot(g, 19, 29, 10, 1, 'y')
+  blot(g, 19, 32, 10, 1, 'y')
+  return g
+}
+
+export const bossArt = [seal('boss-0', bossRows(0), BOSS_MAP), seal('boss-1', bossRows(1), BOSS_MAP)]
 
 const DOG_NAMES = ['chihuahua', 'corgi', 'bulldog'] as const
 

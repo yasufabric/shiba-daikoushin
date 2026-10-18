@@ -20,7 +20,7 @@ import {
   START_Y,
   SPECIAL_NEED,
 } from './balance'
-import { createSim, fillMarch, NO_INPUT, step, type Input, type Outcome } from './sim'
+import { createSim, dogsLeft, fillMarch, NO_INPUT, step, type Input, type Outcome } from './sim'
 import { createRenderer, draw, screenToWorld, type ScreenInsets } from './render'
 
 const canvasEl = document.querySelector<HTMLCanvasElement>('#game')
@@ -113,7 +113,8 @@ interface ShibaDev {
     cats: number
     bones: number
     boss: boolean
-    castle: number
+    left: number
+    bossHp: number
     home: number
     outcome: Outcome
     tutorial: boolean
@@ -157,7 +158,8 @@ if (devOn) {
         cats: sim.aliveCats,
         bones: sim.bones,
         boss: sim.boss,
-        castle: sim.castleHp,
+        left: dogsLeft(sim),
+        bossHp: sim.bossIndex >= 0 ? (sim.cats[sim.bossIndex]?.hp ?? 0) : -1,
         home: sim.homeHp,
         outcome: sim.outcome,
         tutorial: sim.tutorial,

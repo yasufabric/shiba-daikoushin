@@ -1,6 +1,9 @@
 import { describe, expect, it } from 'vitest'
 import {
-  BOSS_AT,
+  BOSS_HP,
+  BONE_PER_KILL,
+  BREED_BOSS,
+  DOG_COUNT,
   BONE_PER_SHIBA,
   BONE_RATE,
   COUNT_BLACK,
@@ -26,7 +29,6 @@ import {
   BREED_CORGI,
   BREED_HP,
   BREED_SPEED,
-  CASTLE_HP,
   HOME_HP,
   CLASH_AT,
   COST_TAN,
@@ -34,7 +36,6 @@ import {
   FIELD_H,
   BANNER_HOLD,
   LOSE_HOLD,
-  MATCH_SECONDS,
   START_BONES,
   START_SHIBAS,
   STEP_TAN,
@@ -47,6 +48,7 @@ import {
   levelCost,
   NO_INPUT,
   phaseAt,
+  dogsLeft,
   step,
   type Input,
   type Sim,
@@ -60,6 +62,14 @@ function play(sim: Sim, seconds: number, inputFor: (sim: Sim) => Input): void {
   }
 }
 
+/** Every dog sent and the field cleared, so the next step decides the match. */
+function clearField(sim: Sim): void {
+  sim.toSend = 0
+  sim.boss = true
+  for (const dog of sim.cats) dog.alive = false
+  sim.aliveCats = 0
+}
+
 function greedy(sim: Sim): Input {
   let card = -1
   if (sim.bones >= sim.costBlack && sim.aliveShibas >= 8) card = 1
@@ -69,17 +79,15 @@ function greedy(sim: Sim): Input {
 }
 
 describe('match clock', () => {
-  it('opens in the grow phase and changes at the clash and boss marks', () => {
+  it('opens in the grow phase, turns to the clash, and holds a fixed pack of dogs plus the boss', () => {
     const sim = createSim({ tutorial: false })
     expect(sim.time).toBe(0)
     expect(phaseAt(0)).toBe('grow')
     expect(phaseAt(CLASH_AT - 0.01)).toBe('grow')
     expect(phaseAt(CLASH_AT)).toBe('clash')
-    expect(phaseAt(BOSS_AT - 0.01)).toBe('clash')
-    expect(phaseAt(BOSS_AT)).toBe('boss')
-    expect(phaseAt(MATCH_SECONDS)).toBe('boss')
     expect(sim.bones).toBe(START_BONES)
-    expect(sim.castleHp).toBe(CASTLE_HP)
+    expect(sim.toSend).toBeLessThan(DOG_COUNT)
+    expect(dogsLeft(sim)).toBe(DOG_COUNT + 1)
     expect(sim.boss).toBe(false)
   })
 })
@@ -160,7 +168,7 @@ describe('cats', () => {
     for (let i = 0; i < steps; i++) {
       step(sim, 1 / 30, NO_INPUT)
       if (sim.time <= 10) openingPeak = Math.max(openingPeak, sim.aliveCats)
-      if (sim.time >= CLASH_AT && sim.time < BOSS_AT) clashPeak = Math.max(clashPeak, sim.aliveCats)
+      if (sim.time >= CLASH_AT && !sim.boss) clashPeak = Math.max(clashPeak, sim.aliveCats)
     }
     expect(openingPeak).toBeGreaterThan(0)
     expect(openingPeak).toBeLessThan(12)
@@ -171,21 +179,25 @@ describe('cats', () => {
 })
 
 describe('battle', () => {
-  it('brings the dog mansion at 150s and lets a deploying player destroy it', () => {
+  it('sends the boss once the last dog has left, and wins when every dog is beaten', () => {
     const sim = createSim({ tutorial: false, seed: 3 })
-    let sawCats = false
-    let sawBoss = false
-    play(sim, 180, (current) => {
-      if (current.time >= CLASH_AT && current.time < BOSS_AT && current.aliveCats > 0) sawCats = true
-      if (current.boss) sawBoss = true
-      return greedy(current)
+    sim.toSend = 1
+    play(sim, 30, (current) => {
+      if (current.boss) current.homeHp = Math.max(current.homeHp, 1)
+      return NO_INPUT
     })
-    expect(sawCats).toBe(true)
-    expect(sawBoss).toBe(true)
+    expect(sim.toSend).toBe(0)
+    expect(sim.boss).toBe(true)
+    const boss = sim.cats[sim.bossIndex]
+    expect(boss?.kind).toBe(BREED_BOSS)
+    expect(boss?.maxHp).toBe(BOSS_HP)
+    expect(sim.outcome).toBe('play')
+    for (const dog of sim.cats) if (dog.alive) dog.hp = 0
+    const kills = sim.kills
+    step(sim, 1 / 30, NO_INPUT)
     expect(sim.outcome).toBe('won')
-    expect(sim.time).toBeGreaterThan(BOSS_AT)
-    expect(sim.time).toBeLessThan(MATCH_SECONDS)
-    expect(sim.castleHp).toBe(0)
+    expect(sim.kills).toBeGreaterThan(kills)
+    expect(sim.earned).toBe(WIN_PAY + sim.kills * BONE_PER_KILL)
     expect(sim.rewardT).toBe(BANNER_HOLD)
     expect(BANNER_HOLD).toBeGreaterThanOrEqual(2)
     expect(BANNER_HOLD).toBeLessThanOrEqual(3)
@@ -206,13 +218,13 @@ describe('battle', () => {
     play(sim, 180, () => NO_INPUT)
     expect(sim.outcome).toBe('lost')
     expect(sim.homeHp).toBe(0)
-    expect(sim.time).toBeLessThan(BOSS_AT)
-    expect(sim.castleHp).toBe(CASTLE_HP)
+    expect(dogsLeft(sim)).toBeGreaterThan(0)
     expect(sim.tutorial).toBe(true)
     expect(sim.rewardT).toBe(LOSE_HOLD)
     expect(LOSE_HOLD).toBe(BANNER_HOLD)
-    expect(sim.earned).toBe(LOSS_PAY)
-    expect(sim.purse).toBe(LOSS_PAY)
+    expect(sim.earned).toBe(LOSS_PAY + sim.kills * BONE_PER_KILL)
+    expect(sim.purse).toBe(sim.earned)
+    const paid = sim.earned
     step(sim, 1, NO_INPUT)
     expect(sim.outcome).toBe('lost')
     step(sim, LOSE_HOLD, NO_INPUT)
@@ -223,7 +235,7 @@ describe('battle', () => {
     expect(sim.time).toBe(0)
     expect(sim.aliveShibas).toBe(START_SHIBAS)
     expect(sim.tutorial).toBe(true)
-    expect(sim.purse).toBe(LOSS_PAY)
+    expect(sim.purse).toBe(paid)
   })
 })
 
@@ -286,7 +298,9 @@ describe('胡麻柴', () => {
 describe('levels', () => {
   it('pays every match into a purse that buys coat levels on the level-up screen', () => {
     const sim = createSim({ tutorial: false, seed: 3, purse: 0 })
-    play(sim, 180, greedy)
+    play(sim, 5, greedy)
+    clearField(sim)
+    step(sim, 1 / 30, NO_INPUT)
     expect(sim.outcome).toBe('won')
     expect(sim.earned).toBeGreaterThanOrEqual(WIN_PAY)
     expect(sim.purse).toBe(sim.earned)
@@ -402,7 +416,7 @@ describe('soldiers', () => {
     expect(sim.fxKind).toBe(-1)
   })
 
-  it('shoves every cat back with 白「チーズ!!」 and hits the castle with 黒「ジャーキー!!」', () => {
+  it('shoves every dog back with 白「チーズ!!」 and pierces the boss with 黒「ジャーキー!!」', () => {
     const sim = createSim({ tutorial: false, seed: 4 })
     play(sim, 70, () => NO_INPUT)
     const ys = sim.cats.filter((c) => c.alive && c.fly === 0).map((c) => c.y)
@@ -412,10 +426,14 @@ describe('soldiers', () => {
     expect(after.every((c) => c.hp < (BREED_HP[c.kind] ?? 0))).toBe(true)
     expect(sim.floatDmg).toBeGreaterThan(0)
 
-    const boss = createSim({ tutorial: false, seed: 4 })
-    boss.boss = true
-    const hp = boss.castleHp
-    strikeSpecial(boss, KIND_BLACK)
-    expect(boss.castleHp).toBeLessThan(hp)
+    const field = createSim({ tutorial: false, seed: 4 })
+    field.toSend = 0
+    for (const dog of field.cats) dog.alive = false
+    field.aliveCats = 0
+    step(field, 1 / 30, NO_INPUT)
+    const boss = field.cats[field.bossIndex]
+    expect(boss?.kind).toBe(BREED_BOSS)
+    strikeSpecial(field, KIND_BLACK)
+    expect(boss?.hp ?? BOSS_HP).toBeLessThan(BOSS_HP)
   })
 })
