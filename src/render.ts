@@ -383,6 +383,7 @@ export function draw(
   g.clip()
   paintHome(g, renderer)
   paintUnits(g, renderer, sim)
+  paintHpBars(g, sim)
   paintHomeBar(g, renderer, sim)
   if (sim.outcome === 'play') paintLaneArrows(g, renderer)
   paintGhosts(g, renderer, sim)
@@ -532,6 +533,37 @@ function paintHomeBar(ctx: CanvasRenderingContext2D, renderer: Renderer, sim: Si
   ctx.fillRect(barX, barY, fill, 4)
   ctx.fillStyle = GOLD_LIGHT
   ctx.fillRect(barX, barY, fill, 1)
+}
+
+/** A small HP bar over every hurt unit, drawn after all units so none hides another's. Gold for shibas, pink for dogs. */
+function paintHpBars(ctx: CanvasRenderingContext2D, sim: Sim): void {
+  for (let i = 0; i < sim.shibas.length; i++) {
+    const unit = sim.shibas[i]
+    if (!unit?.alive || unit.hp >= unit.maxHp || unit.maxHp <= 0) continue
+    const x = px(at(FIELD_X + unit.x)) - 8
+    const y = py(at(FIELD_Y + unit.y)) - CROWD_PX - 4
+    drawHpBar(ctx, x, y, unit.hp / unit.maxHp, GOLD_DARK, GOLD, GOLD_LIGHT)
+  }
+  for (let i = 0; i < sim.cats.length; i++) {
+    const dog = sim.cats[i]
+    if (!dog?.alive || dog.fly === 1 || dog.hp >= dog.maxHp || dog.maxHp <= 0) continue
+    const x = px(at(FIELD_X + dog.x)) - 8
+    const y = py(at(FIELD_Y + dog.y)) - CAT_PX - 4
+    drawHpBar(ctx, x, y, dog.hp / dog.maxHp, DANGER_DARK, DANGER, DANGER_LIGHT)
+  }
+}
+
+function drawHpBar(ctx: CanvasRenderingContext2D, x: number, y: number, ratio: number, back: string, fill: string, lit: string): void {
+  const w = 16
+  const full = Math.max(0, Math.min(w, Math.ceil(w * ratio)))
+  ctx.fillStyle = LINE
+  ctx.fillRect(x - 1, y - 1, w + 2, 4)
+  ctx.fillStyle = back
+  ctx.fillRect(x, y, w, 2)
+  ctx.fillStyle = fill
+  ctx.fillRect(x, y, full, 2)
+  ctx.fillStyle = lit
+  ctx.fillRect(x, y, full, 1)
 }
 
 function paintUnits(ctx: CanvasRenderingContext2D, renderer: Renderer, sim: Sim): void {
