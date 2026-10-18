@@ -1,6 +1,6 @@
 # しば大行進
 
-Portrait phone game about holding the line. Rival dogs walk out of the 犬の屋敷 at the top on random paths; soldier shibas march up from the 柴の家 at the bottom and hold a line mid-field. Each match sends a fixed pack of `DOG_COUNT` dogs; once the last has left the mansion the boss, a 32×32 セントバーナード with a gold barrel, walks out down the middle path. Beat every dog, the boss included, to win. Dogs that reach the field floor bite the 柴の家; when its gold HP bar empties the match is lost. There is no clock and no attack on the mansion. A dog icon and number beside the mansion count the dogs left, and a wide pink bar across the top shows the boss's HP while it is out. Match pay is a base for the result plus `BONE_PER_KILL` per dog beaten.
+Portrait phone game about holding the line. Rival dogs walk out of the 敵の犬小屋 at the top on random paths; soldier shibas march up from the 柴の家 at the bottom and hold a line mid-field. Each match sends a fixed pack of `DOG_COUNT` dogs; once the last has left the mansion the boss, a 32×32 セントバーナード with a gold barrel, walks out down the middle path. Beat every dog, the boss included, to win. Dogs that reach the field floor bite the 柴の家; when its gold HP bar empties the match is lost. There is no clock and no attack on the mansion. A dog icon and number beside the mansion count the dogs left, and a wide pink bar across the top shows the boss's HP while it is out. Match pay is a base for the result plus `BONE_PER_KILL` per dog beaten.
 
 Four cards, four soldiers, each with its own role. The cards sit in one row of four. Every tap of a card sends out exactly one shiba, so the field stays readable (about a dozen shibas in a typical match); the next shiba of that coat costs a little more. After sending a shiba a card also needs a short recharge (`RECHARGE`: 赤 2.5s, 黒 6s, 白 4s, 胡麻 7s), shown as a night shutter over its portrait that slides away; a tap while it recharges is denied with the card shake, so a hoard of ホネ can't be dumped all at once. A match opens with one 赤 on each path.
 
@@ -50,7 +50,7 @@ Design grid 195×422. CSS-pixel scale is an integer of at least 2, chosen so the
 - Hero shiba: 32×32, big head, head and body the same height.
 - Rival dogs: 20×20 front view. Three breeds share the foot and tail rows and differ by head: チワワ (huge pointed ears, bug eyes, fast and frail), コーギー (tall ears, white blaze, the baseline, no tail), ブルドッグ (rose ears, jowls, underbite, slow and tough). ブルドッグ join only once the clash starts.
 - The code still names every foe a cat (`sim.cats`, `CAT_PX`, the cat palette names); `kind` on a foe is its breed.
-- 犬の屋敷: 72×64, dim until the boss comes out.
+- 敵の犬小屋: 72×64, a purple plank dog house with pricked ears on the roof, a red bone plaque, and a dark door with eyes and fangs. The eyes are dim until the boss comes out.
 - Boss dog: 32×32 front view, two walk frames, white hit flash.
 - 柴の家: 64×48, a plank dog house with a bone plaque and a dark arched door, centered on the field floor. Its HP bar is gold, drawn over the units.
 - Marching soldier: 20×20, with a steel helmet between the ears and a coat-colored band. Up to four fur colors plus the outline.
@@ -108,7 +108,7 @@ Finish like a late Super Famicom game.
 
 ### Match end
 
-Beating the last dog plays the 犬の屋敷 (spired towers and a keep with a floppy-eared dog face, the gate for a mouth) bursting: hitstop, a 4-frame explosion on the castle (white, yellow, orange, then square particles), a shiba hop, and a gold `CLEAR!` banner. The banner pops from 1.5× to 1× on integer pixels, holds for 2.4s, then the level-up screen appears. A loss shows a `LOSE!` banner for the same beat. No explanatory sentence.
+Beating the last dog plays the 敵の犬小屋 (a purple plank dog house with two pricked ears on its roof and glowing eyes in the dark door) bursting: hitstop, a 4-frame explosion on the castle (white, yellow, orange, then square particles), a shiba hop, and a gold `CLEAR!` banner. The banner pops from 1.5× to 1× on integer pixels, holds for 2.4s, then the level-up screen appears. A loss shows a `LOSE!` banner for the same beat. No explanatory sentence.
 
 ### Levels
 
@@ -139,3 +139,7 @@ Once the clash starts, each wave is one of three named patterns (or the old mixe
 - チワワの群れ (`WAVE_SWARM`): `SWARM_COUNT` fast, frail チワワ from the left, right, or middle. Wants 白 splash or a 黒 wall.
 - ブルドッグの壁 (`WAVE_WALL`): `WALL_COUNT` slow, tough ブルドッグ shoulder to shoulder across the field. Wants focused 赤 and specials.
 - コーギーの挟み撃ち (`WAVE_PINCER`): `PINCER_COUNT` コーギー split onto both edges. Wants shibas spread, not clumped.
+
+### Short screens
+
+When the screen is shorter than the 422-row design (a phone with the browser bars showing), the card dock rides up over the field. The field is then squeezed vertically (`fpy`) so its floor, the 柴の家, and the dogs at its door always stay above the dock; sprites keep their size, only the spots between them close up, and taps are mapped back the same way.

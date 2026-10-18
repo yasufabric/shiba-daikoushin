@@ -286,6 +286,17 @@ function py(designY: number): number {
   return designY + frame.topDy
 }
 
+/** A field point's screen row. On a short screen (the dock rides up over the field) the field is squeezed so its floor, the 柴の家 and every dog at the door stay above the dock; sprites keep their size, only their spots close up. */
+function fpy(worldY: number): number {
+  let y = at(FIELD_Y + worldY)
+  if (frame.dockDy < 0) {
+    const top = at(FIELD_Y)
+    const span = at(FIELD_H)
+    y = top + Math.round(((y - top) * (span + frame.dockDy)) / span)
+  }
+  return py(y)
+}
+
 function pyDock(designY: number): number {
   return designY + frame.topDy + frame.dockDy
 }
@@ -299,7 +310,12 @@ export function screenToWorld(
   const ix = Math.round((clientX - rectLeft - frame.ox) / frame.scale) - frame.shiftX
   const iyRaw = Math.round((clientY - rectTop - frame.oy) / frame.scale) - frame.topDy
   const panel = at(PANEL_Y) + frame.dockDy
-  const iy = iyRaw >= panel ? iyRaw - frame.dockDy : iyRaw
+  let iy = iyRaw >= panel ? iyRaw - frame.dockDy : iyRaw
+  if (frame.dockDy < 0 && iyRaw < panel) {
+    const top = at(FIELD_Y)
+    const span = at(FIELD_H)
+    iy = top + Math.round(((iyRaw - top) * span) / (span + frame.dockDy))
+  }
   return { x: ix * 2, y: iy * 2 }
 }
 
@@ -395,8 +411,7 @@ export function draw(
   paintCastle(g, renderer, sim)
   g.save()
   g.beginPath()
-  const fieldExtra = frame.dockDy > 0 ? frame.dockDy : 0
-  g.rect(px(at(FIELD_X)), py(at(FIELD_Y)), at(FIELD_W), at(FIELD_H) + fieldExtra)
+  g.rect(px(at(FIELD_X)), py(at(FIELD_Y)), at(FIELD_W), at(FIELD_H) + frame.dockDy)
   g.clip()
   paintHome(g, renderer)
   paintUnits(g, renderer, sim)
@@ -572,7 +587,7 @@ function paintBossBar(ctx: CanvasRenderingContext2D, sim: Sim): void {
 function paintHome(ctx: CanvasRenderingContext2D, renderer: Renderer): void {
   const sprite = renderer.sheets.home
   const x = (frame.internalW - sprite.width) >> 1
-  const floor = py(at(FIELD_Y + FIELD_H))
+  const floor = fpy(FIELD_H)
   const y = floor - sprite.height
   ctx.drawImage(sprite, x, y)
 }
@@ -581,7 +596,7 @@ function paintHome(ctx: CanvasRenderingContext2D, renderer: Renderer): void {
 function paintHomeBar(ctx: CanvasRenderingContext2D, renderer: Renderer, sim: Sim): void {
   const sprite = renderer.sheets.home
   const x = (frame.internalW - sprite.width) >> 1
-  const y = py(at(FIELD_Y + FIELD_H)) - sprite.height
+  const y = fpy(FIELD_H) - sprite.height
   const barW = 40
   const barX = x + ((sprite.width - barW) >> 1)
   const barY = y - 6
@@ -601,7 +616,7 @@ function paintRoles(ctx: CanvasRenderingContext2D, sim: Sim): void {
   for (const unit of sim.shibas) {
     if (!unit?.alive) continue
     const cx = px(at(FIELD_X + unit.x))
-    const cy = py(at(FIELD_Y + unit.y)) - (CROWD_PX >> 1)
+    const cy = fpy(unit.y) - (CROWD_PX >> 1)
     if (unit.kind === KIND_SESAME) {
       const r = at(HEAL_RADIUS)
       const age = sim.time - unit.bitAt
@@ -621,7 +636,7 @@ function paintRoles(ctx: CanvasRenderingContext2D, sim: Sim): void {
     }
     const mend = sim.time - unit.mendAt
     if (mend >= 0 && mend < 0.45) {
-      const top = py(at(FIELD_Y + unit.y)) - CROWD_PX - 6 - Math.floor(mend * 20)
+      const top = fpy(unit.y) - CROWD_PX - 6 - Math.floor(mend * 20)
       ctx.fillStyle = LINE
       ctx.fillRect(cx - 3, top - 1, 7, 3)
       ctx.fillRect(cx - 1, top - 3, 3, 7)
@@ -633,7 +648,7 @@ function paintRoles(ctx: CanvasRenderingContext2D, sim: Sim): void {
       const age = sim.time - unit.bitAt
       if (age >= 0 && age < 0.18) {
         const tx = px(at(FIELD_X + unit.aimX))
-        const ty = py(at(FIELD_Y + unit.aimY)) - (CAT_PX >> 1)
+        const ty = fpy(unit.aimY) - (CAT_PX >> 1)
         const reach = age / 0.18
         for (let k = 1; k <= 3; k++) {
           const f = Math.min(1, reach * 1.2 - (3 - k) * 0.15)
@@ -663,14 +678,14 @@ function paintBiteSparks(ctx: CanvasRenderingContext2D, sim: Sim): void {
     if (!unit?.alive) continue
     const age = sim.time - unit.bitAt
     if (age < 0 || age >= 0.1) continue
-    drawSpark(ctx, px(at(FIELD_X + unit.x)), py(at(FIELD_Y + unit.y)) - CROWD_PX - 4, age)
+    drawSpark(ctx, px(at(FIELD_X + unit.x)), fpy(unit.y) - CROWD_PX - 4, age)
   }
   for (let i = 0; i < sim.cats.length; i++) {
     const dog = sim.cats[i]
     if (!dog?.alive || dog.fly === 1) continue
     const age = sim.time - dog.bitAt
     if (age < 0 || age >= 0.1) continue
-    drawSpark(ctx, px(at(FIELD_X + dog.x)), py(at(FIELD_Y + dog.y)) + 2, age)
+    drawSpark(ctx, px(at(FIELD_X + dog.x)), fpy(dog.y) + 2, age)
   }
 }
 
@@ -689,14 +704,14 @@ function paintHpBars(ctx: CanvasRenderingContext2D, sim: Sim): void {
     const unit = sim.shibas[i]
     if (!unit?.alive || unit.hp >= unit.maxHp || unit.maxHp <= 0) continue
     const x = px(at(FIELD_X + unit.x)) - 8
-    const y = py(at(FIELD_Y + unit.y)) - CROWD_PX - 4
+    const y = fpy(unit.y) - CROWD_PX - 4
     drawHpBar(ctx, x, y, unit.hp / unit.maxHp, GOLD_DARK, GOLD, GOLD_LIGHT)
   }
   for (let i = 0; i < sim.cats.length; i++) {
     const dog = sim.cats[i]
     if (!dog?.alive || dog.fly === 1 || dog.hp >= dog.maxHp || dog.maxHp <= 0 || dog.kind === BREED_BOSS) continue
     const x = px(at(FIELD_X + dog.x)) - 8
-    const y = py(at(FIELD_Y + dog.y)) - CAT_PX - 4
+    const y = fpy(dog.y) - CAT_PX - 4
     drawHpBar(ctx, x, y, dog.hp / dog.maxHp, DANGER_DARK, DANGER, DANGER_LIGHT)
   }
   // A frozen dog (チーズ!!) wears three gold stars circling over its head.
@@ -705,7 +720,7 @@ function paintHpBars(ctx: CanvasRenderingContext2D, sim: Sim): void {
     const dog = sim.cats[i]
     if (!dog?.alive || dog.fly === 1 || dog.stun <= 0) continue
     const cx = px(at(FIELD_X + dog.x))
-    const cy = py(at(FIELD_Y + dog.y)) - CAT_PX - 16
+    const cy = fpy(dog.y) - CAT_PX - 16
     for (let k = 0; k < 3; k++) {
       const a = (beat + k * 2) % 6
       const ox = [-6, -3, 3, 6, 3, -3][a] ?? 0
@@ -758,7 +773,7 @@ function drawShiba(ctx: CanvasRenderingContext2D, renderer: Renderer, sim: Sim, 
   const flash = fighting && hitFrame(beat)
   const dx = px(at(FIELD_X + unit.x)) - (CROWD_PX >> 1)
   const hop = celebrateHop(sim, index)
-  const dy = py(at(FIELD_Y + unit.y)) - CROWD_PX - hop - lunge(sim, unit.bitAt)
+  const dy = fpy(unit.y) - CROWD_PX - hop - lunge(sim, unit.bitAt)
   ctx.fillStyle = NIGHT
   ctx.fillRect(dx + 3, dy + hop + CROWD_PX - 2, CROWD_PX - 6, 2)
   const cd = unit.cd
@@ -823,7 +838,7 @@ function drawCat(ctx: CanvasRenderingContext2D, renderer: Renderer, sim: Sim, in
     return
   }
   const dx = px(at(FIELD_X + cat.x)) - (CAT_PX >> 1)
-  const dy = py(at(FIELD_Y + cat.y)) - CAT_PX + (cat.fly === 1 ? 0 : lunge(sim, cat.bitAt))
+  const dy = fpy(cat.y) - CAT_PX + (cat.fly === 1 ? 0 : lunge(sim, cat.bitAt))
   if (cat.fly === 1) {
     if (renderer.catFly[index] !== 1) {
       renderer.catFly[index] = 1
@@ -855,7 +870,7 @@ function drawCat(ctx: CanvasRenderingContext2D, renderer: Renderer, sim: Sim, in
 function drawBoss(ctx: CanvasRenderingContext2D, renderer: Renderer, sim: Sim, boss: Unit, index: number): void {
   const size = renderer.sheets.boss.height >> 1
   const dx = px(at(FIELD_X + boss.x)) - (size >> 1)
-  const dy = py(at(FIELD_Y + boss.y)) - size
+  const dy = fpy(boss.y) - size
   if (boss.fly === 1) {
     if (renderer.catFly[index] !== 1) {
       renderer.catFly[index] = 1
@@ -879,7 +894,7 @@ function noteDeaths(renderer: Renderer, sim: Sim): void {
     const alive = unit?.alive ? 1 : 0
     if ((renderer.shibaOn[i] ?? 0) === 1 && alive === 0 && unit) {
       const dx = px(at(FIELD_X + unit.x)) - (CROWD_PX >> 1)
-      const dy = py(at(FIELD_Y + unit.y)) - CROWD_PX
+      const dy = fpy(unit.y) - CROWD_PX
       spawnGhost(renderer, sim, dx, dy, furOf(unit.kind))
       spawnBoom(renderer, sim, dx + (CROWD_PX >> 1), dy + (CROWD_PX >> 1))
     }
@@ -1149,7 +1164,7 @@ function paintFxHits(ctx: CanvasRenderingContext2D, renderer: Renderer, sim: Sim
     const digits = digitCount(v)
     const w = digits * 10 + (hit.heal ? 9 : 0)
     const x = px(at(FIELD_X + hit.x)) - (w >> 1)
-    const y = py(at(FIELD_Y + hit.y)) - CAT_PX - 14 - rise
+    const y = fpy(hit.y) - CAT_PX - 14 - rise
     if (hit.heal) {
       ctx.fillStyle = LINE
       ctx.fillRect(x, y + 3, 7, 3)
@@ -1170,7 +1185,7 @@ function paintJerkyRain(ctx: CanvasRenderingContext2D, renderer: Renderer, sim: 
     if (!hit) continue
     const land = 0.18 + (i % 4) * 0.03
     const x = px(at(FIELD_X + hit.x)) - 6
-    const ground = py(at(FIELD_Y + hit.y)) - 30
+    const ground = fpy(hit.y) - 30
     if (age < land) {
       const y = Math.round(fy - 44 + ((ground - (fy - 44)) * age) / land)
       ctx.fillStyle = GOLD_LIGHT
@@ -1191,7 +1206,7 @@ function paintRushAura(ctx: CanvasRenderingContext2D, sim: Sim): void {
     const unit = sim.shibas[i]
     if (!unit?.alive || unit.kind !== KIND_TAN) continue
     const x = px(at(FIELD_X + unit.x))
-    const top = py(at(FIELD_Y + unit.y)) - CROWD_PX
+    const top = fpy(unit.y) - CROWD_PX
     for (let k = 0; k < 3; k++) {
       const rise = (beat + i * 3 + k * 4) % 12
       const ex = x - 8 + ((i * 7 + k * 6) % 16)
@@ -1226,7 +1241,7 @@ function paintPotatoRain(ctx: CanvasRenderingContext2D, renderer: Renderer, sim:
     const unit = sim.shibas[i]
     if (!unit?.alive || unit.kind !== KIND_TAN) continue
     const x = px(at(FIELD_X + unit.x)) - 10
-    const head = py(at(FIELD_Y + unit.y)) - CROWD_PX
+    const head = fpy(unit.y) - CROWD_PX
     const land = 0.22 + (n % 5) * 0.05
     n += 1
     if (age < land) {
@@ -1267,7 +1282,7 @@ function paintJerky(ctx: CanvasRenderingContext2D, renderer: Renderer, sim: Sim,
       if (!idx) continue
       for (let j = 0; j < n; j++) {
         const dog = sim.cats[idx[j] ?? -1]
-        if (dog) spawnBoom(renderer, sim, px(at(FIELD_X + dog.x)), py(at(FIELD_Y + dog.y)) - 14)
+        if (dog) spawnBoom(renderer, sim, px(at(FIELD_X + dog.x)), fpy(dog.y) - 14)
       }
     }
   }
@@ -1293,7 +1308,7 @@ function paintSasami(ctx: CanvasRenderingContext2D, renderer: Renderer, sim: Sim
     const unit = sim.shibas[i]
     if (!unit?.alive) continue
     const x = px(at(FIELD_X + unit.x))
-    const top = py(at(FIELD_Y + unit.y)) - CROWD_PX
+    const top = fpy(unit.y) - CROWD_PX
     const lag = (i % 4) * 0.06
     if (age < lag || age > lag + 0.6) continue
     const rise = Math.floor((age - lag) * 40)
@@ -1301,7 +1316,7 @@ function paintSasami(ctx: CanvasRenderingContext2D, renderer: Renderer, sim: Sim
   }
   const home = renderer.sheets.home
   const hx = frame.internalW >> 1
-  const hy = py(at(FIELD_Y + FIELD_H)) - (home.height >> 1)
+  const hy = fpy(FIELD_H) - (home.height >> 1)
   const spin = Math.floor(age * 16) & 3
   for (let k = 0; k < 6; k++) {
     const ang = ((k * 60 + age * 240) * Math.PI) / 180
@@ -1520,12 +1535,12 @@ function frameRect(ctx: CanvasRenderingContext2D, x: number, y: number, w: numbe
 
 /** Where a field tap sends the picked card: one up-arrow per path, above the 柴の家. Static, like the meadow. */
 function laneArrowY(renderer: Renderer): number {
-  return py(at(FIELD_Y + FIELD_H)) - renderer.sheets.home.height - 22
+  return fpy(FIELD_H) - renderer.sheets.home.height - 22
 }
 
 /** Free placement: a dashed gold line marks the top of the zone a tap can drop a shiba into. */
 function paintFreeZone(ctx: CanvasRenderingContext2D): void {
-  const y = py(at(FIELD_Y + FREE_ZONE_Y))
+  const y = fpy(FREE_ZONE_Y)
   const x0 = px(at(FIELD_X))
   const w = at(FIELD_W)
   ctx.fillStyle = LINE
@@ -1552,7 +1567,7 @@ function paintPaw(ctx: CanvasRenderingContext2D, renderer: Renderer, time: numbe
   const bob = BOB[Math.floor(time * 6) & 7] ?? 0
   if (free) {
     // Free placement: point into the deploy zone, just under its line.
-    ctx.drawImage(renderer.sheets.paw, (frame.internalW - pawArt.w) >> 1, py(at(FIELD_Y + FREE_ZONE_Y)) + 18 + bob)
+    ctx.drawImage(renderer.sheets.paw, (frame.internalW - pawArt.w) >> 1, fpy(FREE_ZONE_Y) + 18 + bob)
     return
   }
   const x = px(at(FIELD_X)) + (LANE_PX[0] ?? 0) + ((LANE_PX[1] ?? 0) >> 1) - (pawArt.w >> 1)

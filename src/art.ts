@@ -574,59 +574,42 @@ const PAW_ROWS = [
   '..............',
 ] as const
 
-/** 犬の屋敷: two spired towers and a keep with a floppy-eared dog face. The gate is the mouth. */
+/** 敵の犬小屋: a purple plank dog house with two pricked ears on its roof and a dark door where a pair of eyes glows (dim when asleep). */
 function castleRows(live: boolean): string[] {
   const g = blank(BOSS_W, BOSS_H)
   const eye = live ? 'e' : 'r'
-  const glow = live ? 'g' : 'm'
-  for (const tx of [2, 52]) {
-    blot(g, tx, 14, 18, 50, 'b')
-    tri(g, tx - 1, 0, 20, 16, 'm')
-    tri(g, tx + 4, 5, 10, 9, 'b')
-    blot(g, tx + 7, 9, 2, 5, 'h')
-    blot(g, tx + 1, 15, 2, 48, 'h')
-    blot(g, tx + 15, 15, 2, 48, 'm')
-    for (let y = 22; y < 62; y += 7) {
-      blot(g, tx + 1, y, 16, 1, 'm')
-      put(g, tx + 6 + ((y / 7) & 1) * 6, y + 3, 'm')
-      put(g, tx + 6 + ((y / 7) & 1) * 6, y + 4, 'm')
-    }
-    blot(g, tx + 6, 24, 6, 9, 'n')
-    shave(g, tx + 6, 24, 6, 9, 2)
-    blot(g, tx + 7, 27, 4, 5, glow)
-    blot(g, tx + 7, 40, 4, 14, live ? 'e' : 'p')
-    blot(g, tx + 7, 40, 1, 14, live ? 'p' : 'h')
+  // Walls: planks, a lit left edge and a shadowed right edge.
+  blot(g, 6, 26, 60, 38, 'b')
+  blot(g, 7, 27, 3, 37, 'h')
+  blot(g, 61, 27, 4, 37, 'm')
+  for (let y = 33; y < 62; y += 7) blot(g, 7, y, 58, 1, 'm')
+  // Roof, with two pricked dog ears on top.
+  for (const ex of [22, 38]) {
+    tri(g, ex, 0, 12, 18, 'm')
+    tri(g, ex + 3, 4, 6, 10, 'p')
   }
-  blot(g, 18, 22, 36, 42, 'b')
-  blot(g, 22, 16, 28, 7, 'b')
-  shave(g, 22, 16, 28, 7, 3)
-  blot(g, 19, 23, 10, 3, 'h')
-  blot(g, 18, 22, 1, 42, 'd')
-  blot(g, 53, 22, 1, 42, 'd')
-  blot(g, 50, 24, 3, 40, 'm')
-  for (const ear of [19, 47]) {
-    blot(g, ear, 18, 6, 20, 'm')
-    blot(g, ear + 1, 18, 4, 19, 'd')
-    shave(g, ear, 18, 6, 20, 3)
+  tri(g, 0, 8, 72, 20, 'm')
+  tri(g, 5, 11, 30, 13, 'b')
+  blot(g, 0, 27, 72, 3, 'd')
+  blot(g, 1, 28, 70, 1, 'm')
+  // A bone plaque over the door, in danger red.
+  blot(g, 26, 31, 20, 5, 'r')
+  blot(g, 26, 31, 20, 1, 'e')
+  blot(g, 24, 30, 3, 3, 'e')
+  blot(g, 45, 30, 3, 3, 'e')
+  blot(g, 24, 33, 3, 3, 'r')
+  blot(g, 45, 33, 3, 3, 'r')
+  // The door: a dark arch, a pair of eyes, a row of fangs.
+  blot(g, 23, 38, 26, 26, 'n')
+  shave(g, 23, 38, 26, 26, 7)
+  for (let x = 27; x < 46; x += 5) blot(g, x, 40, 1, 24, 'N')
+  for (const ex of [28, 39]) {
+    blot(g, ex, 47, 6, 5, eye)
+    blot(g, ex + 1, 48, 2, 2, 'h')
   }
-  for (const ex of [26, 39]) {
-    blot(g, ex, 29, 7, 7, 'd')
-    shave(g, ex, 29, 7, 7, 2)
-    blot(g, ex + 1, 30, 5, 5, eye)
-    blot(g, ex + 2, 31, 3, 3, 'n')
-    blot(g, ex + 2, 31, 1, 1, 'h')
-    blot(g, ex + 3, 31, 1, 1, 'h')
-  }
-  blot(g, 32, 37, 8, 5, 'n')
-  shave(g, 32, 37, 8, 5, 2)
-  blot(g, 33, 38, 2, 1, 'h')
-  blot(g, 34, 38, 2, 1, 'h')
-  blot(g, 28, 46, 16, 18, 'n')
-  shave(g, 28, 46, 16, 18, 4)
-  blot(g, 28, 60, 16, 4, 'n')
-  for (let x = 31; x < 42; x += 3) blot(g, x, 47, 1, 17, 'N')
-  for (const fx of [29, 39]) {
-    tri(g, fx, 46, 4, 4, 'h')
+  for (let x = 29; x < 44; x += 4) {
+    blot(g, x, 57, 2, 3, 'h')
+    put(g, x, 60, 'h')
   }
   return g
 }
