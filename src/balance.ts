@@ -7,10 +7,10 @@ export const START_BONES = 40
 export const START_SHIBAS = 5
 
 export const HOLD_Y = 240
-/** Feet-to-feet gap. A 24×24 soldier is 48 world px tall, so 52 leaves a sliver of meadow between dogs. */
-export const GAP = 52
+/** Feet-to-feet gap. A 16×16 soldier is 32 world px tall, so 36 leaves a sliver of meadow between dogs. */
+export const GAP = 36
 /** Must reach past GAP, or the two front lines would stop just out of bite. */
-export const ATTACK_RANGE = 56
+export const ATTACK_RANGE = 40
 
 export const MAX_CATS = 420
 export const FLOAT_TIME = 1.15
@@ -123,9 +123,9 @@ export const FREE_ZONE_Y = 330
 export const FREE_SIGHT_SHIBA = 110
 export const FREE_SIGHT_DOG = 100
 /** Centre-to-centre distance at which two foes bite. */
-export const FREE_REACH = 46
+export const FREE_REACH = 34
 /** Units of one side push apart below this distance. */
-export const FREE_SPACE = 30
+export const FREE_SPACE = 22
 /** With nothing in sight, shibas walk up to this line and wait. */
 export const FREE_HOLD_Y = 250
 /** Shibas never chase above this line, so they can't camp the mansion gate. */

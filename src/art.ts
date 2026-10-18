@@ -264,59 +264,34 @@ function mirror(half: readonly string[], swap: Record<string, string>, fur: stri
 }
 
 /**
- * Front-facing soldier shiba, 24×24. Left half, mirrored. A steel helmet sits between upright ears
- * (left lit, right in shadow) with a coat-colored band, then brows, open eyes with a highlight,
- * white urajiro cheeks and muzzle, a dark nose and a シバスマイル tongue. The curl sits on the right hip.
+ * Front-facing soldier shiba, 16×16. Left half, mirrored. Upright ears (left lit, right in shadow), a steel
+ * helmet with a coat-colored band, eyes with a highlight, white urajiro cheeks and muzzle, a dark nose and a
+ * シバスマイル tongue. The curl sits on the right hip.
  */
 const CROWD_HALF = [
-  '..L.........',
-  '.LhL........',
-  '.LhoL...LLLL',
-  'LhhcoL.Luutt',
-  'LhccoLLuuttt',
-  'LhccLuuttttt',
-  'LhcLtttttttt',
-  'LhoLqqqqqqqq',
-  'LhhooooooooO',
-  'LhoooeeooooO',
-  'LhoooookxooO',
-  'LwwooookkooO',
-  'LwwwwooooooO',
-  'Lwwwwwwwwooo',
-  'Lwwwwwwwwwnn',
-  '.Lwwwwwwkwwn',
-  '..Lwwwwwwkpp',
-  '...Lwwwwwwww',
-  '...Lowwwwwww',
-  '..Lhoswwwwww',
-  '..Lhooowwwww',
+  '.L......',
+  'LhL.....',
+  'LhcL.LLL',
+  'LccLLuut',
+  'LcLuuttt',
+  'LoLqqqqq',
+  'Lhoooooo',
+  'Lhookxoo',
+  'Lwwooooo',
+  'Lwwwwwwn',
+  '.Lwwwwwp',
+  '..Lowwww',
+  '.Lhoswww',
+  '.Lhooowww'.slice(0, 8),
 ] as const
 
-const PAW_DOWN = ['..LhoooLwwwL', '..LhooLwwwwL', '..LLLLLLLLLL'] as const
-const PAW_UP = ['..LhooLwwwwL', '..LLLLLLLLLL', '............'] as const
+const PAW_DOWN = ['.LooLwww', '.LwwL...'] as const
+const PAW_UP = ['.LooLwww', '........'] as const
 
 const CROWD_SWAP: Record<string, string> = { h: 'o', O: 'o', u: 't', t: 'T' }
 
-const CURL_UP = [
-  '..LLLL..',
-  '.LhoooL.',
-  'LhoLLomL',
-  'LoLccLmL',
-  'LoLcLomL',
-  'LocLoomL',
-  '.LmmmmL.',
-  '..LLLL..',
-] as const
-const CURL_WAG = [
-  '.LLLL...',
-  'LhoooL..',
-  'LoLLomL.',
-  'LLccLmL.',
-  'LcLLomL.',
-  '.LcoomL.',
-  '..LmmL..',
-  '...LL...',
-] as const
+const CURL_UP = ['.LL.', 'LcoL', 'LomL', '.LL.'] as const
+const CURL_WAG = ['LL..', 'LcoL', '.LmL', '.LL.'] as const
 
 type Mouth = 'smile' | 'shut' | 'bark'
 
@@ -342,16 +317,14 @@ const CROWD_POSES: readonly CrowdPose[] = [
 ]
 
 function crowdRows(pose: CrowdPose): string[] {
-  const half = [...CROWD_HALF.map((line) => line.replace(/O/g, 'o'))]
-  const body = mirror(half, CROWD_SWAP, 'o', 'm')
+  const body = mirror([...CROWD_HALF], CROWD_SWAP, 'o', 'm')
   const left = pose.left ? PAW_DOWN : PAW_UP
   const right = pose.right ? PAW_DOWN : PAW_UP
   const feet = mirrorPair(left, right, CROWD_SWAP, 'o', 'm')
   const g = [...body, ...feet]
-  if (pose.mouth === 'shut') stamp(g, 10, 16, ['wwww'])
-  if (pose.mouth === 'bark') stamp(g, 9, 14, ['wnnnnw', 'nppppn', 'wnnnnw'])
-  if (pose.wag) stamp(g, 17, 14, CURL_WAG)
-  else stamp(g, 16, 14, CURL_UP)
+  if (pose.mouth === 'shut') stamp(g, 7, 10, ['ww'])
+  if (pose.mouth === 'bark') stamp(g, 6, 9, ['nnnn', 'nppn'])
+  stamp(g, 12, 10, pose.wag ? CURL_WAG : CURL_UP)
   return g
 }
 
@@ -460,87 +433,57 @@ function hero(face: Face, reward: boolean): string[] {
 }
 
 /**
- * Rival dogs, 28×28 front view, in the enemy purples so they never read as shibas. Left halves, mirrored.
+ * Rival dogs, 20×20 front view, in the enemy purples so they never read as shibas. Left halves, mirrored.
  * Breed order matches BREED_* in balance: チワワ (huge ears, bug eyes), コーギー (tall ears, white blaze), ブルドッグ (rose ears, jowls, underbite).
  */
 const DOG_HALVES: readonly (readonly string[])[] = [
   [
-    '.LL...........',
-    '.LpL..........',
-    '.LppL.........',
-    '.LhppL........',
-    '.LhpppL.......',
-    '.LhbpppL......',
-    '..LhbbppLLLLLL',
-    '..Lhbbbbbbbbbb',
-    '..Lhbbbbbbbbbb',
-    '..Lhbbbbbbbbbb',
-    '..LhbbLLLbbbbb',
-    '..LhbLeeeLbbbb',
-    '..LhbLewwLbbbb',
-    '..LhbbLLLbbbbb',
-    '...Lhbbbbbbbww',
-    '...Lhbbbbbwwdd',
-    '....LLbbbbwwww',
-    '.....LLbbbbwww',
-    '...LLhbbbbbbww',
-    '...Lhbbbbbbbbw',
-    '...Lhbbbbbbbbb',
-    '...Lhbbbbbbbbb',
-    '...Lhbbbbbbbbb',
-    '...Lbbbbbbbbbb',
+    '.LL.......',
+    '.LpL......',
+    '.LppL.....',
+    '.LhppLLLLL',
+    '..Lhbbbbbb',
+    '..LhbLLbbb',
+    '..LhLeeLbb',
+    '..LhbLLbbb',
+    '...Lhbbbww',
+    '....Lbbwwd',
+    '...LLbbwww',
+    '..Lhbbbbbw',
+    '..Lhbbbbbb',
+    '..Lbbbbbbb',
   ],
   [
-    '..LL..........',
-    '.LbbL.........',
-    '.LbppL........',
-    'LhbppbL.......',
-    'LhbpppbL......',
-    'LhbpppbL......',
-    'LhbbppbbLLLLLw',
-    'Lhbbbbbbbbbbww',
-    '.Lhbbbbbbbbbww',
-    '.Lhbbbbbbbbbww',
-    '.LhbbLLLbbbbww',
-    '.LhbLeedLbbwww',
-    '.LhbbLLLbbwwww',
-    '.Lhbbbbbbwwwww',
-    '..Lhbbbbwwwwdd',
-    '..LLhbbwwwwwdd',
-    '...Lhbwwwwwwww',
-    '...Lhbwwwwwwww',
-    '...Lhbbwwwwwww',
-    '...Lhbbbwwwwww',
-    '...Lhbbbbwwwww',
-    '...Lhbbbbbbwww',
-    '...Lhbbbbbbbbb',
-    '...Lbbbbbbbbbb',
+    '.LL.......',
+    'LbbL......',
+    'LbppL.....',
+    'LbppbL....',
+    'LbpppbLLLw',
+    'Lhbbbbbbww',
+    '.LhbLLbbww',
+    '.LhLeeLbww',
+    '.LhbLLbwww',
+    '..Lhbbwwdd',
+    '..LLhwwwww',
+    '..Lhbwwwww',
+    '..Lhbbwwww',
+    '..Lbbbbbbb',
   ],
   [
-    '..............',
-    '..............',
-    '..............',
-    '..LLL.........',
-    '.LmmbL........',
-    '.LmbbbLLLLLLLL',
-    'Lhbbbbbbbbbbbb',
-    'Lhbbbbbbbbbbww',
-    'Lhbbbbbbbbbwww',
-    'LhbLLLbbbbbwww',
-    'LhLeedLbbbwwww',
-    'LhbLLLbbbbwwww',
-    'Lhbbbbbbbbwwdd',
-    'Lhwwwwwwwwwddd',
-    'Lhwwwwwwwwwwww',
-    'LhwwwLLLLLLLLL',
-    'LhwwLwwLwwwwww',
-    'Lhbwwwwwwwwwww',
-    '.Lhbbwwwwwwwww',
-    '.Lhbbbbwwwwwww',
-    '..Lhbbbbbbwwww',
-    '...Lhbbbbbbbbb',
-    '...Lhbbbbbbbbb',
-    '...Lbbbbbbbbbb',
+    '..........',
+    '..LLL.....',
+    '.LmmbLLLLL',
+    'Lhbbbbbbbb',
+    'Lhbbbbbbww',
+    'LhLLLbbbww',
+    'LLeedLbwww',
+    'LhLLLbbwww',
+    'Lhbbbbbwdd',
+    'LhwwwwwwdL',
+    'LhwwLLLLLL',
+    'LhwLwwLwww',
+    '.Lhbwwwwww',
+    '..Lbbbbbbb',
   ],
 ]
 
@@ -550,16 +493,16 @@ function twin(half: readonly string[]): string[] {
 }
 
 const DOG_FEET = [
-  ['...LbbbbmLbbbbbbbbLmbbbbL...', '...LmmmmL.LLLLLLLL.LmmmmL...', '...LmmmmL..........LLLLLL...', '...LLLLLL...................'],
-  ['...LbbbbmLbbbbbbbbLmbbbbL...', '...LmmmmL.LLLLLLLL.LmmmmL...', '...LmmmmL..........LmmmmL...', '...LLLLLL..........LLLLLL...'],
-  ['...LbbbbmLbbbbbbbbLmbbbbL...', '...LmmmmL.LLLLLLLL.LmmmmL...', '...LLLLLL..........LmmmmL...', '...................LLLLLL...'],
-  ['...LbbbbmLbbbbbbbbLmbbbbL...', '...LmmmmL.LLLLLLLL.LmmmmL...', '...LmmmmL..........LmmmmL...', '...LLLLLL..........LLLLLL...'],
-  ['...LbbbbbbbbbbbbbbbbbbbbL...', '...LmmmmLLmmmmmmmmLLmmmmL...', '...LmmmmL..........LmmmmL...', '...LLLLLL..........LLLLLL...'],
+  ['..LbbbmLbbbbLmbbbL..', '..LmmmL.LLLL.LmmmL..', '..LmmmL......LLLLL..', '..LLLLL.............'],
+  ['..LbbbmLbbbbLmbbbL..', '..LmmmL.LLLL.LmmmL..', '..LmmmL......LmmmL..', '..LLLLL......LLLLL..'],
+  ['..LbbbmLbbbbLmbbbL..', '..LmmmL.LLLL.LmmmL..', '..LLLLL......LmmmL..', '.............LLLLL..'],
+  ['..LbbbmLbbbbLmbbbL..', '..LmmmL.LLLL.LmmmL..', '..LmmmL......LmmmL..', '..LLLLL......LLLLL..'],
+  ['..LbbbbbbbbbbbbbbL..', '..LmmmLLmmmmLLmmmL..', '..LmmmL......LmmmL..', '..LLLLL......LLLLL..'],
 ] as const
 
-const DOG_TAIL_A = ['..LL', '.LbL', 'LbL.', 'LmL.', 'LmL.', 'LmL.'] as const
-const DOG_TAIL_B = ['LL..', 'LbL.', '.LbL', '.LmL', 'LmL.', 'LmL.'] as const
-const DOG_PAW = ['LLLLL.', 'LhhhbL', 'LhbbbL', '.LmmL.'] as const
+const DOG_TAIL_A = ['.LL', 'LbL', 'LmL', '.L.'] as const
+const DOG_TAIL_B = ['LL.', 'LbL', 'LmL', 'L..'] as const
+const DOG_PAW = ['LLLL.', 'LhbbL', '.LLL.'] as const
 
 interface DogPose {
   feet: number
@@ -582,13 +525,13 @@ const DOG_POSES: readonly DogPose[] = [
 ]
 
 function dogFrame(breed: number, pose: DogPose): string[] {
-  const g = twin(DOG_HALVES[breed] ?? DOG_HALVES[0] ?? [])
+  const g = ['.'.repeat(20), '.'.repeat(20), ...twin(DOG_HALVES[breed] ?? DOG_HALVES[0] ?? [])]
   for (const line of DOG_FEET[pose.feet] ?? DOG_FEET[0]) g.push(line)
   if (pose.blink) {
     for (let y = 0; y < g.length; y++) g[y] = (g[y] ?? '').replace(/e/g, 'L')
   }
-  if (breed !== 1) stamp(g, 24, 16, pose.tail ? DOG_TAIL_B : DOG_TAIL_A)
-  if (pose.swipe) stamp(g, 0, 17, DOG_PAW)
+  if (breed !== 1) stamp(g, 16, 11, pose.tail ? DOG_TAIL_B : DOG_TAIL_A)
+  if (pose.swipe) stamp(g, 0, 12, DOG_PAW)
   return g
 }
 
@@ -718,44 +661,44 @@ export const crowdArt: readonly Seal[][] = FUR_MAPS.map((map, i) => sealAll(`cro
 
 const BOSS_MAP: Record<string, string> = { ...CAT, g: GOLD_LIGHT, G: GOLD, y: GOLD_DARK }
 
-/** セントバーナード, the boss: 48×48 front view with floppy ears, a white blaze and chest, and a gold barrel under its chin. Two walk frames. */
+/** セントバーナード, the boss: 32×32 front view with floppy ears, a white blaze and chest, and a gold barrel under its chin. Two walk frames. */
 function bossRows(step: number): string[] {
   const g = blank(BOSS_PX, BOSS_PX)
-  blot(g, 8, 24, 32, 18, 'b')
-  shave(g, 8, 24, 32, 18, 4)
-  blot(g, 9, 26, 2, 14, 'h')
-  blot(g, 37, 26, 2, 14, 'm')
-  blot(g, 15, 27, 18, 13, 'w')
-  const back = step === 0 ? 0 : 2
-  blot(g, 10, 40 + back, 8, 8 - back, 'm')
-  blot(g, 30, 42 - back, 8, 6 + back, 'm')
-  blot(g, 11, 46, 6, 2, 'w')
-  blot(g, 31, 46, 6, 2, 'w')
-  blot(g, 10, 3, 28, 24, 'b')
-  for (let i = 0; i < 5; i++) {
-    for (let j = 0; j < 5 - i; j++) {
-      put(g, 10 + j, 3 + i, '.')
-      put(g, 37 - j, 3 + i, '.')
+  blot(g, 5, 16, 22, 12, 'b')
+  shave(g, 5, 16, 22, 12, 3)
+  blot(g, 6, 18, 1, 8, 'h')
+  blot(g, 25, 18, 1, 8, 'm')
+  blot(g, 10, 18, 12, 9, 'w')
+  const back = step === 0 ? 0 : 1
+  blot(g, 7, 27 + back, 5, 5 - back, 'm')
+  blot(g, 20, 28 - back, 5, 4 + back, 'm')
+  blot(g, 8, 31, 3, 1, 'w')
+  blot(g, 21, 31, 3, 1, 'w')
+  blot(g, 7, 2, 18, 16, 'b')
+  for (let i = 0; i < 3; i++) {
+    for (let j = 0; j < 3 - i; j++) {
+      put(g, 7 + j, 2 + i, '.')
+      put(g, 24 - j, 2 + i, '.')
     }
   }
-  blot(g, 11, 8, 2, 14, 'h')
-  for (const ex of [3, 37]) {
-    blot(g, ex, 7, 8, 17, 'm')
-    shave(g, ex, 7, 8, 17, 3)
-    blot(g, ex + 2, 9, 4, 12, 'd')
+  blot(g, 8, 5, 1, 10, 'h')
+  for (const ex of [2, 24]) {
+    blot(g, ex, 5, 6, 11, 'm')
+    shave(g, ex, 5, 6, 11, 2)
+    blot(g, ex + 2, 6, 2, 8, 'd')
   }
-  blot(g, 21, 3, 6, 12, 'w')
-  blot(g, 14, 15, 20, 11, 'w')
-  for (const ex of [14, 27]) {
-    blot(g, ex, 9, 7, 6, 'd')
-    blot(g, ex + 2, 10, 3, 3, 'e')
+  blot(g, 14, 2, 4, 8, 'w')
+  blot(g, 9, 10, 14, 7, 'w')
+  for (const ex of [9, 18]) {
+    blot(g, ex, 6, 5, 4, 'd')
+    blot(g, ex + 1, 7, 2, 2, 'e')
   }
-  blot(g, 21, 16, 6, 4, 'n')
-  blot(g, 17, 22, 14, 2, 'd')
-  blot(g, 19, 26, 10, 8, 'G')
-  blot(g, 20, 27, 8, 1, 'g')
-  blot(g, 19, 29, 10, 1, 'y')
-  blot(g, 19, 32, 10, 1, 'y')
+  blot(g, 14, 11, 4, 3, 'n')
+  blot(g, 11, 15, 10, 1, 'd')
+  blot(g, 12, 17, 8, 6, 'G')
+  blot(g, 13, 18, 6, 1, 'g')
+  blot(g, 12, 19, 8, 1, 'y')
+  blot(g, 12, 21, 8, 1, 'y')
   return g
 }
 

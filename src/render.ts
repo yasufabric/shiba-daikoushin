@@ -122,11 +122,13 @@ export interface Renderer {
   shibaOn: Uint8Array
   shibaSeen: Uint8Array
   shibaY: Float32Array
+  shibaX: Float32Array
   shibaCd: Float32Array
   shibaAct: Float64Array
   catFly: Uint8Array
   catSeen: Uint8Array
   catY: Float32Array
+  catX: Float32Array
   catBirth: Float64Array
   ghostX: Int16Array
   ghostY: Int16Array
@@ -312,11 +314,13 @@ export function createRenderer(): Renderer {
     shibaOn: new Uint8Array(MAX_SHIBAS),
     shibaSeen: new Uint8Array(MAX_SHIBAS),
     shibaY: new Float32Array(MAX_SHIBAS),
+    shibaX: new Float32Array(MAX_SHIBAS),
     shibaCd: new Float32Array(MAX_SHIBAS),
     shibaAct: new Float64Array(MAX_SHIBAS).fill(-9),
     catFly: new Uint8Array(MAX_CATS),
     catSeen: new Uint8Array(MAX_CATS),
     catY: new Float32Array(MAX_CATS),
+    catX: new Float32Array(MAX_CATS),
     catBirth: new Float64Array(MAX_CATS),
     ghostX: new Int16Array(GHOSTS),
     ghostY: new Int16Array(GHOSTS),
@@ -511,7 +515,7 @@ function paintCastle(ctx: CanvasRenderingContext2D, renderer: Renderer, sim: Sim
 /** How many dogs are still to beat, the boss included: a dog-head icon and pink digits beside the mansion. */
 function paintDogsLeft(ctx: CanvasRenderingContext2D, renderer: Renderer, sim: Sim, x: number, y: number): void {
   const icon = renderer.sheets.cat
-  ctx.drawImage(icon, 4 * CAT_PX, BREED_CORGI * 4 * CAT_PX, CAT_PX, 16, x - 4, y - 2, CAT_PX, 16)
+  ctx.drawImage(icon, 4 * CAT_PX, BREED_CORGI * 4 * CAT_PX, CAT_PX, 14, x - 3, y - 2, CAT_PX, 14)
   drawNumber(ctx, renderer, dogsLeft(sim), x + 22, y + 2, false)
 }
 
@@ -693,11 +697,14 @@ function drawShiba(ctx: CanvasRenderingContext2D, renderer: Renderer, sim: Sim, 
   const unit = sim.shibas[index]
   if (!unit?.alive) return
   const prev = renderer.shibaY[index] ?? 0
+  const prevX = renderer.shibaX[index] ?? 0
   const seen = renderer.shibaSeen[index] === 1
   renderer.shibaY[index] = unit.y
+  renderer.shibaX[index] = unit.x
   renderer.shibaSeen[index] = 1
-  const moved = !seen || Math.abs(unit.y - prev) > 0.2
-  const fighting = foeNear(sim, unit.lane, unit.y, true)
+  // Any step, up, down, or sideways, plays the walk.
+  const moved = !seen || Math.abs(unit.y - prev) > 0.2 || Math.abs(unit.x - prevX) > 0.2
+  const fighting = sim.free ? sim.time - unit.bitAt < 1 : foeNear(sim, unit.lane, unit.y, true)
   const pose = poseOf(moved, fighting)
   const beat = offbeat(sim.time, index)
   const flash = fighting && hitFrame(beat)
@@ -705,23 +712,23 @@ function drawShiba(ctx: CanvasRenderingContext2D, renderer: Renderer, sim: Sim, 
   const hop = celebrateHop(sim, index)
   const dy = py(at(FIELD_Y + unit.y)) - CROWD_PX - hop - lunge(sim, unit.bitAt)
   ctx.fillStyle = NIGHT
-  ctx.fillRect(dx + 4, dy + hop + CROWD_PX - 2, 16, 2)
+  ctx.fillRect(dx + 3, dy + hop + CROWD_PX - 2, CROWD_PX - 6, 2)
   const cd = unit.cd
   if (seen && cd > (renderer.shibaCd[index] ?? 0) + 0.5) {
     renderer.shibaAct[index] = sim.time
-    if (unit.kind === KIND_BLACK) spawnBoom(renderer, sim, dx + 11, dy - 4)
+    if (unit.kind === KIND_BLACK) spawnBoom(renderer, sim, dx + (CROWD_PX >> 1), dy - 4)
   }
   renderer.shibaCd[index] = cd
   if (unit.kind === KIND_TAN && sim.rushT > 0 && moved) {
     ctx.fillStyle = (Math.floor(sim.time * 24) & 1) === 0 ? GOLD : GOLD_LIGHT
-    ctx.fillRect(dx + 6, dy + CROWD_PX, 1, 4)
-    ctx.fillRect(dx + 16, dy + CROWD_PX + 1, 1, 5)
+    ctx.fillRect(dx + 4, dy + CROWD_PX, 1, 3)
+    ctx.fillRect(dx + CROWD_PX - 5, dy + CROWD_PX + 1, 1, 4)
   }
   blitCrowd(ctx, renderer, furOf(unit.kind), pose, fighting ? beat : sim.time, unit.lane, 0, flash, dx, dy)
-  if (unit.kind === KIND_WHITE) paintBark(ctx, sim.time - (renderer.shibaAct[index] ?? -9), dx + 12, dy)
+  if (unit.kind === KIND_WHITE) paintBark(ctx, sim.time - (renderer.shibaAct[index] ?? -9), dx + (CROWD_PX >> 1), dy)
   if (unit.kind === KIND_SESAME) {
-    drawHeart(ctx, dx + 16, dy + 1)
-    paintMend(ctx, sim.time - (renderer.shibaAct[index] ?? -9), dx + 12, dy)
+    drawHeart(ctx, dx + CROWD_PX - 7, dy - 2)
+    paintMend(ctx, sim.time - (renderer.shibaAct[index] ?? -9), dx + (CROWD_PX >> 1), dy)
   }
 }
 
@@ -782,13 +789,15 @@ function drawCat(ctx: CanvasRenderingContext2D, renderer: Renderer, sim: Sim, in
   }
   renderer.catFly[index] = 0
   ctx.fillStyle = NIGHT
-  ctx.fillRect(dx + 4, dy + CAT_PX - 2, 20, 2)
+  ctx.fillRect(dx + 3, dy + CAT_PX - 2, CAT_PX - 6, 2)
   const prev = renderer.catY[index] ?? 0
+  const prevX = renderer.catX[index] ?? 0
   const seen = renderer.catSeen[index] === 1
   renderer.catY[index] = cat.y
+  renderer.catX[index] = cat.x
   renderer.catSeen[index] = 1
-  const moved = !seen || Math.abs(cat.y - prev) > 0.2
-  const fighting = foeNear(sim, cat.lane, cat.y, false)
+  const moved = !seen || Math.abs(cat.y - prev) > 0.2 || Math.abs(cat.x - prevX) > 0.2
+  const fighting = sim.free ? sim.time - cat.bitAt < 1 : foeNear(sim, cat.lane, cat.y, false)
   const pose = poseOf(moved, fighting)
   const beat = offbeat(sim.time, index)
   blitCat(ctx, renderer, cat.kind, pose, fighting ? beat : sim.time, cat.lane, 0, fighting && hitFrame(beat), dx, dy)
