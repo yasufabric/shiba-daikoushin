@@ -67,7 +67,18 @@ The crowd sprite and the 32×32 card portrait are the same front-facing shiba. A
 - A dark nose, `#6b2e12`.
 - A curled tail over the hip with a cream center.
 
-The portrait is that same view with a larger head, eye highlights, and a thicker curl. The cream card keeps orange ears and an orange tail.
+The portrait is that same view with a larger head, eye highlights, and a thicker curl.
+
+The face smiles: a happy squint and a pink tongue (`#ffb3cf`), the シバスマイル. Urajiro runs unbroken from the cheeks down the chest.
+
+Four coats share one set of rows and differ only by color map:
+
+- 赤 (red): the tan card and most of its crowd.
+- 胡麻 (sesame): red with `#6b2e12` tips on the crown and back. A sprinkle of the tan crowd.
+- 白 (cream): `#f6c27a` body with `#e08a3c` ear and curl shade. A sprinkle of the tan crowd.
+- 黒 (black and tan): the second card. Night shades for fur (`#2c3a63` body, `#4a5d8f` lit, `#18213d` shade), tan まろ眉 brows, tan curl underside, white urajiro.
+
+Gestures: idle wags the curl, the attack windup shuts the mouth and the hit frame barks.
 
 ### Animation
 

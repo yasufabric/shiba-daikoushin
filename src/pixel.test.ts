@@ -6,9 +6,10 @@ import {
   boneArt,
   castleDim,
   castleLive,
+  cannonDim,
+  cannonLive,
   catArt,
-  crowdTan,
-  crowdWhite,
+  crowdArt,
   heroArt,
   pawArt,
   type Seal,
@@ -148,15 +149,18 @@ describe('sprites', () => {
     expect(INTERNAL_W * 2).toBe(VIEW_W)
     expect(INTERNAL_H * 2).toBe(VIEW_H)
     expect(CROWD_PX).toBe(16)
-    expect(crowdTan).toHaveLength(10)
-    expect(crowdWhite).toHaveLength(10)
+    expect(crowdArt).toHaveLength(4)
     expect(catArt).toHaveLength(10)
-    for (const seal of crowdTan) assertSealed(seal, CROWD_PX, CROWD_PX)
-    for (const seal of crowdWhite) assertSealed(seal, CROWD_PX, CROWD_PX)
+    for (const fur of crowdArt) {
+      expect(fur).toHaveLength(10)
+      for (const seal of fur) assertSealed(seal, CROWD_PX, CROWD_PX)
+    }
     for (const seal of catArt) assertSealed(seal, CAT_PX, CAT_PX)
     for (const seal of heroArt) assertSealed(seal, HERO_PX, HERO_PX)
     assertSealed(boneArt, 12, 12)
     assertSealed(pawArt, 14, 16)
+    assertSealed(cannonLive, 20, 20)
+    assertSealed(cannonDim, 20, 20)
     assertSealed(castleLive, BOSS_W, BOSS_H)
     assertSealed(castleDim, BOSS_W, BOSS_H)
     expect(BOSS_W).toBeGreaterThanOrEqual(64)
@@ -178,6 +182,25 @@ describe('sprites', () => {
     expect(body).toBeGreaterThan(80)
     expect(head / body).toBeGreaterThan(0.75)
     expect(head / body).toBeLessThan(1.35)
+  })
+
+  it('keeps the shiba read across all four coats', () => {
+    const colorsOf = (seal: Seal | undefined): Set<string> => new Set((seal?.color ?? []).filter(Boolean))
+    const [red, black, sesame, cream] = crowdArt.map((fur) => fur[0])
+    for (const coat of [red, black, sesame, cream]) {
+      const colors = colorsOf(coat)
+      expect(colors.has('#fffaf0'), `${coat?.name} urajiro`).toBe(true)
+      expect(colors.has('#ffb3cf'), `${coat?.name} smile`).toBe(true)
+    }
+    expect(colorsOf(black).has('#f6c27a'), 'まろ眉').toBe(true)
+    expect(colorsOf(black).has('#2c3a63')).toBe(true)
+    expect(colorsOf(sesame).has('#6b2e12')).toBe(true)
+    expect(red?.color).not.toEqual(sesame?.color)
+    expect(cream?.color).not.toEqual(red?.color)
+    const shut = crowdArt[0]?.[6]
+    const bark = crowdArt[0]?.[7]
+    expect(shut?.color).not.toEqual(red?.color)
+    expect(bark?.color).not.toEqual(shut?.color)
   })
 
   it('pops damage glyphs from 8×10 to an integer 12×15', () => {
