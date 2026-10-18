@@ -12,6 +12,7 @@ import {
   BREED_BULLDOG,
   BREED_CHIHUAHUA,
   BREED_CORGI,
+  FIELD_CAP,
   FREE_WAVE_SLOW,
   WAVE_EVERY,
   WAVE_MIXED,
@@ -1436,14 +1437,19 @@ function paintDock(ctx: CanvasRenderingContext2D, renderer: Renderer, sim: Sim):
   const y = pyDock(at(PANEL_Y))
   ctx.fillStyle = NIGHT
   ctx.fillRect(0, y + 1, frame.internalW, Math.max(0, frame.internalH - y - 1))
-  ctx.drawImage(renderer.sheets.bone, px(at(BONE_X)), pyDock(at(BONE_Y)))
-  drawNumber(ctx, renderer, sim.bones | 0, px(at(BONE_X)) + 14, pyDock(at(BONE_Y)) + 1, false)
+  if (sim.free) {
+    paintFieldCap(ctx, sim, px(at(BONE_X)), pyDock(at(BONE_Y)) + 1)
+  } else {
+    ctx.drawImage(renderer.sheets.bone, px(at(BONE_X)), pyDock(at(BONE_Y)))
+    drawNumber(ctx, renderer, sim.bones | 0, px(at(BONE_X)) + 14, pyDock(at(BONE_Y)) + 1, false)
+  }
   for (let kind = 0; kind < KINDS; kind++) {
     const deny = [sim.deny0, sim.deny1, sim.deny2, sim.deny3][kind] ?? 0
-    const cost = costOf(sim, kind)
+    const cost = sim.free ? -1 : costOf(sim, kind)
     const x = px(at(CARD_XS[kind] ?? CARD_X0) + denyShift(deny))
     const wait = (sim.recharge[kind] ?? 0) / (RECHARGE[kind] ?? 1)
-    paintCard(ctx, renderer, x, kind, cost, sim.bones >= cost && wait <= 0, false, sim.time, kind === sim.picked, wait)
+    const ready = sim.free ? sim.aliveShibas < FIELD_CAP : sim.bones >= cost
+    paintCard(ctx, renderer, x, kind, cost, ready && wait <= 0, false, sim.time, kind === sim.picked, wait)
     paintGauge(ctx, x, kind, sim)
   }
 }
@@ -1502,8 +1508,28 @@ function paintCard(
     ctx.fillRect(x + 2, top + cover - 1, w - 4, 1)
   }
   if (kind === KIND_SESAME) drawHeart(ctx, x + w - 10, y + 3)
-  ctx.drawImage(renderer.sheets.bone, x + 1, y + h - 17)
-  drawNumber(ctx, renderer, cost | 0, x + 13, y + h - 15, false)
+  if (cost >= 0) {
+    ctx.drawImage(renderer.sheets.bone, x + 1, y + h - 17)
+    drawNumber(ctx, renderer, cost | 0, x + 13, y + h - 15, false)
+  }
+}
+
+/** Free placement: one pip per shiba the field can hold, gold for each one out there, so the cap reads at a glance. */
+function paintFieldCap(ctx: CanvasRenderingContext2D, sim: Sim, x: number, y: number): void {
+  for (let i = 0; i < FIELD_CAP; i++) {
+    const px0 = x + i * 10
+    ctx.fillStyle = LINE
+    ctx.fillRect(px0, y, 9, 9)
+    const used = i < sim.aliveShibas
+    ctx.fillStyle = used ? GOLD : NIGHT_1
+    ctx.fillRect(px0 + 1, y + 1, 7, 7)
+    ctx.fillStyle = used ? GOLD_LIGHT : NIGHT_2
+    ctx.fillRect(px0 + 1, y + 1, 7, 2)
+    if (used) {
+      ctx.fillStyle = GOLD_DARK
+      ctx.fillRect(px0 + 1, y + 7, 7, 1)
+    }
+  }
 }
 
 /** Special gauge under the portrait. Full gauges flash through the golds until the cut-in plays. */

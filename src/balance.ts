@@ -176,6 +176,8 @@ export const FREE_PACE = 0.65
 /** Cards recharge this many times slower, and ホネ come in at this share, so shibas can't be spammed. */
 export const FREE_RECHARGE = 1.5
 export const FREE_INCOME = 0.8
+/** Free placement: no ホネ to spend on a shiba. The only gates are the card's recharge and this many shibas alive on the field at once. */
+export const FIELD_CAP = 8
 export const MAX_SHIBAS = 600
 export const MARCH_COUNT = 240
 
