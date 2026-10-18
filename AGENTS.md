@@ -32,7 +32,7 @@ Later PRs follow this standard. Simulation coordinates stay on the 390×844 fiel
 
 ### Resolution
 
-Fixed internal resolution 195×422, upscaled by an integer factor of at least 2. `imageSmoothingEnabled` stays false. 195×422 ×2 is the 390×844 phone viewport. No fractional scale and no half pixels. Round drawn positions to integers.
+Design grid 195×422. Pick the largest integer scale that fits that grid in the viewport, then grow the internal buffer so the scaled canvas covers the screen. Width stays near 195 when the phone matches the design; height or width flex on other aspect ratios. `imageSmoothingEnabled` stays false. No letterboxing, no fractional scale, and no half pixels. 195×422 ×2 is the 390×844 phone. The night backdrop covers every extra pixel, including under the notch. Round drawn positions to integers. The page uses `100dvh`, `visualViewport`, and `viewport-fit=cover`.
 
 ### Sprite sizes
 
