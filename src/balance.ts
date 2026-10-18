@@ -141,6 +141,8 @@ export const HEAL_RADIUS = 80
 export const HEAL_FOLLOW = 46
 /** 赤 in free placement walks this much faster than the others. */
 export const TAN_HASTE = 1.35
+/** 黒「ジャーキー!!」in free placement: a spear drops on each of the dogs nearest the 柴の家, this many. */
+export const JERKY_TARGETS = 8
 /** A dog this close to the 柴の家 door bites the house. */
 export const FREE_HOME_REACH = 60
 /** A dog with nothing in sight walks straight down and turns for the door only this close to the bottom. */
