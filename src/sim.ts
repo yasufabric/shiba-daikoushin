@@ -90,6 +90,7 @@ import {
   FREE_DOG_HP,
   FREE_WAVE_SLOW,
   FREE_INCOME,
+  FIELD_CAP,
   FREE_PACE,
   FREE_SHIBA_TOP,
   TAUNT,
@@ -647,7 +648,12 @@ function tryDeploy(sim: Sim, card: number, chosen?: number, at?: { x: number; y:
     deny(sim, card)
     return
   }
-  if (sim.bones < cost) {
+  if (sim.free) {
+    if (sim.aliveShibas >= FIELD_CAP) {
+      deny(sim, card)
+      return
+    }
+  } else if (sim.bones < cost) {
     deny(sim, card)
     return
   }
@@ -675,9 +681,9 @@ function tryDeploy(sim: Sim, card: number, chosen?: number, at?: { x: number; y:
     deny(sim, card)
     return
   }
-  sim.bones -= cost
+  if (!sim.free) sim.bones -= cost
   sim.recharge[card] = (RECHARGE[card] ?? 0) * (sim.free ? FREE_RECHARGE : 1)
-  const step = STEP_OF[card] ?? STEP_TAN
+  const step = sim.free ? 0 : (STEP_OF[card] ?? STEP_TAN)
   sim.tutorial = false
   if (card === KIND_TAN) {
     sim.costTan += step
@@ -975,7 +981,7 @@ function moveFree(sim: Sim, rawDt: number): void {
     }
     const reach = shiba.kind === KIND_WHITE ? BARK_RANGE : FREE_REACH
     const d = Math.hypot(foe.x - shiba.x, foe.y - shiba.y)
-    if (d > reach) {
+    if (d > reach + 4) {
       stepToward(shiba, foe.x, foe.y, Math.min(d - reach * 0.9, shiba.speed * pace * dt))
       continue
     }
@@ -1035,7 +1041,7 @@ function moveFree(sim: Sim, rawDt: number): void {
       continue
     }
     const d = Math.hypot(foe.x - dog.x, foe.y - dog.y)
-    if (d > FREE_REACH) {
+    if (d > FREE_REACH + 4) {
       stepToward(dog, foe.x, foe.y, Math.min(d - FREE_REACH * 0.9, dog.speed * dt))
       continue
     }
