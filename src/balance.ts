@@ -169,7 +169,7 @@ export const FREE_HOME_REACH = 60
 /** A dog with nothing in sight walks straight down and turns for the door only this close to the bottom. */
 export const FREE_TURN = 150
 /** Shibas gang up on dogs in free placement, so dogs there get tougher and bite harder. */
-export const FREE_DOG_HP = 2.8
+export const FREE_DOG_HP = 3.4
 export const FREE_DOG_DPS = 2.0
 /** Waves come this many times slower in free placement, so fewer dogs crowd the field at once. */
 export const FREE_WAVE_SLOW = 1.4
