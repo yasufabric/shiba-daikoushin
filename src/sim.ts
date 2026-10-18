@@ -990,6 +990,8 @@ function moveFree(sim: Sim, rawDt: number): void {
       if (shiba.cd <= 0) {
         shiba.cd = HEAVY_EVERY
         hurt(sim, foe, HEAVY_HIT * power(sim, KIND_BLACK), KIND_BLACK)
+        shiba.aimX = foe.x
+        shiba.aimY = foe.y
         shiba.bitAt = sim.time
       }
     } else if (shiba.kind === KIND_WHITE) {
@@ -1010,6 +1012,8 @@ function moveFree(sim: Sim, rawDt: number): void {
       if (shiba.bite <= 0) {
         shiba.bite += BITE_EVERY
         hurt(sim, foe, shiba.dps * BITE_EVERY, shiba.kind)
+        shiba.aimX = foe.x
+        shiba.aimY = foe.y
         shiba.bitAt = sim.time
       }
     }

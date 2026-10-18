@@ -143,3 +143,7 @@ Once the clash starts, each wave is one of three named patterns (or the old mixe
 ### Short screens
 
 When the screen is shorter than the 422-row design (a phone with the browser bars showing), the card dock rides up over the field. The field is then squeezed vertically (`fpy`) so its floor, the 柴の家, and the dogs at its door always stay above the dock; sprites keep their size, only the spots between them close up, and taps are mapped back the same way.
+
+## Attack readouts and weaker specials (free placement)
+
+Every bite shows where it lands, Clash Royale style: 赤 slashes three quick claw marks at the dog, 黒 slams a ground ring with a white cross flash, 白 lobs a white ball in an arc that bursts into a `BARK_SPLASH`-sized ring (`paintAttacks` in render.ts; the sim stores `aimX/aimY` on every bite). Specials are weaker and charge slower (`SPECIAL_NEED` 1000/800/1400/900, `RUSH_TIME` 3, `CHEESE_STUN` 1.8, `JERKY_FREE_HIT` 130 on `JERKY_TARGETS` 2) so they are a swing, not a win button.
