@@ -242,3 +242,6 @@ Each free-placement match opens with `paintStageBanner`: a night band with STAGE
 
 ## おやつ砲 (the house's cannon)
 After にゃんこ砲. `sim.cannonT` charges to `CANNON_CHARGE` s; a sky-blue bar over the house's health bar shows it, and when full the bar blinks with TAP!. A tap within `CANNON_TAP` of the house (checked first among field taps, only when charged) sends `Input.cannon`: `fireCannon` hits every dog within `CANNON_REACH` of the floor for `CANNON_HIT` × stage hp (flat on the boss) and shoves non-boss dogs `CANNON_PUSH` back up. A white band runs up the field; thud, shake, hitstop, buzz.
+
+## Empty start
+Free placement no longer opens with five 赤 on the field (play-test: not wanted); the player sends the first shibas. ?lanes keeps them.

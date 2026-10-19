@@ -859,7 +859,8 @@ function boot(sim: Sim): void {
   sim.sfxDeploy = 0
   clear(sim.shibas)
   clear(sim.cats)
-  for (let i = 0; i < START_SHIBAS; i++) {
+  // Free placement starts with an empty field: the player sends the first shibas.
+  for (let i = 0; i < (sim.free ? 0 : START_SHIBAS); i++) {
     spawnShiba(sim, KIND_TAN, OPEN_LANE[i] ?? 0, OPEN_Y[i] ?? 480)
   }
   for (let i = 0; i < TRICKLE_COUNT; i++) {
