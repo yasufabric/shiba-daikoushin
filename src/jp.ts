@@ -81,3 +81,38 @@ export function jpWidth(text: string, size: number): number {
   if (typeof document === 'undefined') return text.length * size
   return jpText(text, size, WHITE).width - 4
 }
+
+/**
+ * Plain text in the phone's own font (play-test: "普通の字でいい"). Queued in internal pixels while the frame is painted,
+ * then drawn by `flushPlain` onto the display canvas after the upscale, at full device resolution and anti-aliased,
+ * so small explanatory text reads like any app's text. The one deliberate exception to the palette-snapped pixel text.
+ */
+interface Plain {
+  text: string
+  x: number
+  y: number
+  size: number
+  color: string
+  align: CanvasTextAlign
+  bold: boolean
+}
+const plain: Plain[] = []
+
+export function queuePlain(text: string, x: number, y: number, size: number, color: string, align: CanvasTextAlign = 'left', bold = false): void {
+  plain.push({ text, x, y, size, color, align, bold })
+}
+
+/** Draw and clear the queue: internal (x, y) lands at (ox + x * scale, oy + y * scale) in CSS px on `ctx`. */
+export function flushPlain(ctx: CanvasRenderingContext2D, ox: number, oy: number, scale: number): void {
+  if (plain.length === 0) return
+  ctx.save()
+  ctx.textBaseline = 'top'
+  for (const p of plain) {
+    ctx.font = `${p.bold ? 'bold' : '600'} ${Math.round(p.size * scale)}px ${FONT}`
+    ctx.textAlign = p.align
+    ctx.fillStyle = p.color
+    ctx.fillText(p.text, ox + p.x * scale, oy + p.y * scale)
+  }
+  ctx.restore()
+  plain.length = 0
+}

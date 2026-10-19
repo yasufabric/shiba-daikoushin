@@ -83,7 +83,7 @@ import {
   MAX_SHIBAS,
   PANEL_Y,
 } from './balance'
-import { drawJP, jpWidth } from './jp'
+import { drawJP, flushPlain, jpWidth, queuePlain } from './jp'
 import { finish as hdFinish, flash as hdFlash } from './hd'
 import { BANNER_POP, BANNER_REST, CLEAR_WORD, glyphBit, LEVEL_WORD, letterBit, LOSE_WORD, START_WORD, POP_COL, POP_ROW, RUMBLE_WORD, SELECT_WORD, SPECIAL_WORDS, STAGE_WORD, TITLE_WORD, TAP_WORD, NEW_WORD, PAUSE_WORD } from './font'
 import {
@@ -528,8 +528,8 @@ const TITLE_TILE_H = 46
 const TITLE_TILE_GAP = 4
 const TITLE_ROW = 4
 /** Height of the result screen's info strip (coat name, level, what levelling does). */
-const SHOP_INFO_H = 46
-const SHOP_INFO_SHORT = 33
+const SHOP_INFO_H = 38
+const SHOP_INFO_SHORT = 27
 /** Stage tiles plus one for エンドレス. */
 const TITLE_TILES = STAGES.length + 1
 
@@ -927,7 +927,12 @@ function presentView(ctx: CanvasRenderingContext2D, renderer: Renderer, dpr: num
   ctx.fillStyle = NIGHT
   ctx.fillRect(0, 0, frame.cssW, frame.cssH)
   ctx.drawImage(renderer.view, frame.ox, frame.oy, destW, destH)
-  if (!renderer.hd) return
+  if (renderer.hd) presentHd(ctx, renderer, sim, destW, destH)
+  // Plain-font text goes on last, above the HD pass, so it stays sharp.
+  flushPlain(ctx, frame.ox, frame.oy, frame.scale)
+}
+
+function presentHd(ctx: CanvasRenderingContext2D, renderer: Renderer, sim: Sim, destW: number, destH: number): void {
   // 2D-HD finish: in play the full pass (depth of field over the sky and kennel, bloom, light, vignette); menus get light and vignette only, so text stays crisp.
   const playing = !sim.title && sim.outcome === 'play' && !renderer.paused
   const light = sim.title ? 'day' : themeOf(sim)
@@ -3205,16 +3210,15 @@ function paintCoatInfo(ctx: CanvasRenderingContext2D, renderer: Renderer, sim: S
   const maxed = level >= MAX_LEVEL
   const head = `${COAT_NAMES[kind] ?? ''} Lv${level}`
   // Three lines at sizes that stay legible on a phone (8px Japanese turned to mush): name and XP, the next perk, what a level gives.
-  let tx = x + 5
-  tx += drawJP(ctx, head, tx, y + 4, 12, WHITE) + 6
-  if (!maxed) drawJP(ctx, `あと${Math.max(0, xpNeed(level) - (sim.xp[kind] ?? 0))}EXP`, tx, y + 5, 11, SKY_LIGHT)
-  else drawJP(ctx, 'MAX', tx, y + 5, 11, GOLD_LIGHT)
+  // Drawn in the phone's own font on top of the upscaled frame (see queuePlain): name and EXP to go, the next perk, what a level gives.
+  queuePlain(head, x + 5, y + 4, 8, WHITE, 'left', true)
+  queuePlain(maxed ? 'MAX' : `つぎまで あと${Math.max(0, xpNeed(level) - (sim.xp[kind] ?? 0))}EXP`, x + w - 5, y + 5, 7, maxed ? GOLD_LIGHT : SKY_LIGHT, 'right')
   let line: string
-  if (level < PERK_A) line = `Lv${PERK_A}: ${PERK_TEXT[kind] ?? ''}`
-  else if (level < PERK_B) line = `Lv${PERK_B}: 必殺ゲージが早くたまる`
+  if (level < PERK_A) line = `Lv${PERK_A}で: ${PERK_TEXT[kind] ?? ''}`
+  else if (level < PERK_B) line = `Lv${PERK_B}で: 必殺ゲージが早くたまる`
   else line = '全部の力を引き出した!'
-  drawJP(ctx, line, x + 5, y + 19, 11, GOLD_LIGHT)
-  if (h >= SHOP_INFO_H) drawJP(ctx, `Lvごとに 体力・攻撃 +${Math.round(LEVEL_STEP * 100)}%`, x + 5, y + 32, 11, WHITE)
+  queuePlain(line, x + 5, y + 16, 7, GOLD_LIGHT)
+  if (h >= SHOP_INFO_H) queuePlain(`Lvが上がるごとに 体力・攻撃 +${Math.round(LEVEL_STEP * 100)}%`, x + 5, y + 27, 7, WHITE)
 }
 
 /** 宝箱, 30×22, sealed: a wooden chest with gold bands and a lock; it hops while it waits, and its lid flies up when opened. `bottom` is its base line. */
