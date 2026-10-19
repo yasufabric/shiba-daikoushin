@@ -18,6 +18,9 @@ import {
   RECALL_LIFT,
   RECALL_TAP,
   HERO_TAP_Y,
+  CANNON_CHARGE,
+  CANNON_TAP,
+  CANNON_TAP_UP,
   HERO_TAP_R,
   HERO_TAP_LIFT,
 } from './balance'
@@ -363,6 +366,10 @@ canvas.addEventListener('pointerdown', (ev) => {
     }
     if (p.y < FIELD_Y || p.y > FIELD_Y + FIELD_H || p.x < FIELD_X || p.x > FIELD_X + FIELD_W) return
     const local = { x: p.x - FIELD_X, y: p.y - FIELD_Y }
+    if (sim.cannonT >= CANNON_CHARGE && Math.hypot(local.x - FIELD_W / 2, local.y - (FIELD_H - CANNON_TAP_UP)) < CANNON_TAP) {
+      input.cannon = true
+      return
+    }
     if (sim.hero.alive && Math.hypot(sim.hero.x - local.x, sim.hero.y - HERO_TAP_LIFT - local.y) < HERO_TAP_R) {
       input.heroSkill = true
       return
@@ -438,6 +445,12 @@ function battleSounds(): void {
     renderer.shakeUntil = sim.time + 0.3
     renderer.hitstop = 0.05
   }
+  if (sim.cannonAt > soundMark && sim.cannonAt <= sim.time) {
+    synth.strike(5)
+    buzz(60)
+    renderer.shakeUntil = sim.time + 0.4
+    renderer.hitstop = 0.06
+  }
   if (sim.howlAt > soundMark && sim.howlAt <= sim.time) {
     synth.hit(5)
     buzz([40, 30, 40])
@@ -506,6 +519,7 @@ function advance(dt: number): void {
   input.quit = undefined
   input.openChest = undefined
   input.heroSkill = undefined
+  input.cannon = undefined
   input.home = undefined
   if (sim.saveSeq !== savedSeq) {
     savedSeq = sim.saveSeq

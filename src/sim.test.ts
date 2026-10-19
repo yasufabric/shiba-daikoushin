@@ -45,6 +45,8 @@ import {
   WANWAN_T,
   HERO_REVIVE,
   HERO_SKILL_CD,
+  CANNON_CHARGE,
+  CANNON_REACH,
   HERO_SLOT,
   HERO_HP,
   HERO_SKILL_R,
@@ -1167,5 +1169,26 @@ describe('soldiers', () => {
     spawnCat(sim, 0, BREED_POODLE, { x: 90, y: 40 })
     expect(sim.introAt).toBe(at)
     expect(createSim({ tutorial: false, free: true, seenBreeds: sim.seenBreeds }).seenBreeds & (1 << BREED_POODLE)).toBeGreaterThan(0)
+  })
+
+  it('the おやつ砲 charges over time, hits and shoves back the dogs near the house, then starts over', () => {
+    const sim = createSim({ tutorial: false, seed: 11, free: true })
+    for (const c of sim.cats) c.alive = false
+    sim.aliveCats = 0
+    sim.nextCat = 1e9
+    step(sim, 1 / 30, { ...NO_INPUT, cannon: true })
+    expect(sim.cannonAt).toBe(-9)
+    sim.cannonT = CANNON_CHARGE
+    spawnCat(sim, 0, BREED_BULLDOG, { x: 100, y: FIELD_H - 60 })
+    spawnCat(sim, 0, BREED_BULLDOG, { x: 100, y: FIELD_H - CANNON_REACH - 60 })
+    const [near, far] = sim.cats.filter((c) => c.alive)
+    Object.assign(near ?? {}, { hp: 999, maxHp: 999, speed: 0, dps: 0 })
+    Object.assign(far ?? {}, { hp: 999, maxHp: 999, speed: 0, dps: 0 })
+    const y0 = near?.y ?? 0
+    step(sim, 1 / 30, { ...NO_INPUT, cannon: true })
+    expect(near?.hp ?? 999).toBeLessThan(999)
+    expect(near?.y ?? 0).toBeLessThan(y0 - 20)
+    expect(far?.hp).toBe(999)
+    expect(sim.cannonT).toBeLessThan(1)
   })
 })

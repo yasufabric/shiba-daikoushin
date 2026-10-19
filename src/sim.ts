@@ -16,6 +16,10 @@ import {
   HERO_RADIUS,
   HERO_REVIVE,
   HERO_TAP_Y,
+  CANNON_CHARGE,
+  CANNON_REACH,
+  CANNON_HIT,
+  CANNON_PUSH,
   ENDLESS_STAGE,
   ENDLESS_RAMP,
   HERO_SLOT,
@@ -244,6 +248,8 @@ export interface Input {
   hero?: { x: number; y: number }
   /** Free placement: fire the ヒーロー柴's big spin. */
   heroSkill?: boolean
+  /** Free placement: fire the 柴の家's おやつ砲 (when charged). */
+  cannon?: boolean
   /** Pick this card for the next field tap (-1 or left out for no change). */
   pick?: number
   /** 波を早く呼ぶ: send the next wave now for bonus ホネ. */
@@ -359,6 +365,9 @@ export interface Sim {
   rushT: number
   /** ワンワン!! time left: every shiba attacks faster. */
   wanT: number
+  /** おやつ砲 charge in seconds (full at CANNON_CHARGE), and when it last fired. */
+  cannonT: number
+  cannonAt: number
   /** Match time of the boss's last howl (for the rings and the growl), -9 for none. */
   howlAt: number
   /** ヒーロー柴: a steered shiba kept outside the pools. alive=false while it waits to come back (heroT seconds). */
@@ -517,6 +526,8 @@ export function createSim(opts?: SimOptions): Sim {
     sfxStrike: -1,
     rushT: 0,
     wanT: 0,
+    cannonT: 0,
+    cannonAt: -9,
     howlAt: -9,
     hero: makePool(1)[0] as Unit,
     heroT: 0,
@@ -714,6 +725,19 @@ export function mvpOf(sim: Sim): number {
   return best
 }
 
+/** おやつ砲: every dog within CANNON_REACH of the floor takes CANNON_HIT × stage hp and is shoved back up the field. */
+function fireCannon(sim: Sim): void {
+  sim.cannonT = 0
+  sim.cannonAt = sim.time
+  const scale = spec(sim).hp
+  for (const dog of sim.cats) {
+    if (!dog?.alive || dog.fly === 1 || dog.hp <= 0) continue
+    if (dog.y < FIELD_H - CANNON_REACH) continue
+    dog.hp -= CANNON_HIT * (dog.kind === BREED_BOSS ? 1 : scale)
+    if (dog.kind !== BREED_BOSS) dog.y = Math.max(16, dog.y - CANNON_PUSH)
+  }
+}
+
 /** Open the result screen's 宝箱 (if one is waiting) and bank its ホネ. */
 function openChest(sim: Sim): void {
   if (sim.chest !== 1) return
@@ -825,6 +849,8 @@ function boot(sim: Sim): void {
   sim.sfxStrike = -1
   sim.rushT = 0
   sim.wanT = 0
+  sim.cannonT = 0
+  sim.cannonAt = -9
   sim.howlAt = -9
   spawnHero(sim)
   sim.sfxSpecial = -1
@@ -996,6 +1022,7 @@ export function step(sim: Sim, dt: number, input: Input = NO_INPUT): void {
   }
 
   if (input.pick !== undefined && input.pick >= 0 && input.pick < KINDS && (!sim.free || sim.deck.includes(input.pick))) sim.picked = input.pick
+  if (input.cannon && sim.free && sim.cannonT >= CANNON_CHARGE) fireCannon(sim)
   if (input.heroSkill && sim.free && sim.hero.alive && sim.heroSkillT <= 0 && sim.hero.stun <= 0) heroSkill(sim)
   if (input.hero && sim.free && sim.hero.alive) sim.heroUsed = true
   if (input.hero && sim.free && sim.hero.alive) sim.heroGo = { x: Math.max(10, Math.min(FIELD_W - 10, input.hero.x)), y: Math.max(20, Math.min(HERO_TAP_Y, input.hero.y)) }
@@ -1029,6 +1056,7 @@ export function step(sim: Sim, dt: number, input: Input = NO_INPUT): void {
   reap(sim)
   if (sim.rushT > 0) sim.rushT -= tick
   if (sim.wanT > 0) sim.wanT -= tick
+  if (sim.free && sim.cannonT < CANNON_CHARGE) sim.cannonT = Math.min(CANNON_CHARGE, sim.cannonT + tick)
   if (sim.fxT > 0) {
     sim.fxT -= tick
     if (sim.fxT <= 0) sim.fxKind = -1

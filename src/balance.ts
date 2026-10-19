@@ -423,3 +423,12 @@ export const ENDLESS_RAMP = 0.5
 
 /** From this stage (index) on, and in エンドレス, the boss is the dark 黒バーナード. */
 export const BOSS_DARK_FROM = 4
+
+/** おやつ砲 (the 柴の家's cannon, after にゃんこ砲): charges over CANNON_CHARGE s; when full, tapping the house fires a wave up the field to CANNON_REACH (field y from the bottom) that hits every dog for CANNON_HIT × stage hp and shoves it back CANNON_PUSH. */
+export const CANNON_CHARGE = 45
+export const CANNON_REACH = 300
+export const CANNON_HIT = 40
+export const CANNON_PUSH = 40
+/** Taps within this of the house's middle (field coords, measured from the floor up CANNON_TAP_UP) fire it. */
+export const CANNON_TAP = 40
+export const CANNON_TAP_UP = 30
