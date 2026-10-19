@@ -274,6 +274,22 @@ export interface StageSpec {
   bulldogEvery: number
   /** 岩 and 池 on the field: ground units walk around them. */
   rocks: readonly Rock[]
+  /** 柵: wooden fences across the field. Everyone walks around them; dogs that bump into one bite it down. */
+  walls?: readonly Wall[]
+}
+/** Rocks and walls are authored on a 195-wide grid across the field (x) and in field px down it (y); see `gridX`. */
+export interface Wall {
+  x: number
+  y: number
+  w: number
+}
+/** A 柵 takes this much biting (× the stage's dog hp) before it breaks. */
+export const WALL_HP = 700
+/** Half the fence's thickness, in field px. */
+export const WALL_HALF = 8
+/** Authoring grid → field px across. */
+export function gridX(x: number): number {
+  return (x * FIELD_W) / 195
 }
 export interface Rock {
   x: number
@@ -287,42 +303,42 @@ export const STAGES: readonly StageSpec[] = [
   { count: 90, hp: 1, dps: 1, dachsEvery: 7, poodleEvery: 9, pomEvery: 0, goldenEvery: 14, bulldogEvery: 8, rocks: [
       { x: 58, y: 230, r: 10 },
       { x: 140, y: 300, r: 10 },
-    ] },
+    ], walls: [{ x: 97, y: 370, w: 50 }] },
   { count: 110, hp: 1.2, dps: 1.15, dachsEvery: 5, poodleEvery: 7, pomEvery: 0, goldenEvery: 9, bulldogEvery: 7, rocks: [
       { x: 97, y: 210, r: 22, pond: true },
       { x: 38, y: 330, r: 10 },
       { x: 158, y: 340, r: 10 },
-    ] },
+    ], walls: [{ x: 40, y: 270, w: 44 }, { x: 155, y: 270, w: 44 }] },
   { count: 130, hp: 1.5, dps: 1.35, dachsEvery: 4, poodleEvery: 6, pomEvery: 11, goldenEvery: 8, bulldogEvery: 6, rocks: [
       { x: 48, y: 190, r: 20, pond: true },
       { x: 148, y: 260, r: 20, pond: true },
       { x: 97, y: 350, r: 10 },
-    ] },
+    ], walls: [{ x: 52, y: 320, w: 50 }] },
   { count: 150, hp: 1.9, dps: 1.6, dachsEvery: 4, poodleEvery: 5, pomEvery: 9, goldenEvery: 6, bulldogEvery: 5, rocks: [
       { x: 97, y: 250, r: 26, pond: true },
       { x: 34, y: 180, r: 10 },
       { x: 160, y: 180, r: 10 },
       { x: 48, y: 350, r: 10 },
       { x: 146, y: 350, r: 10 },
-    ] },
+    ], walls: [{ x: 40, y: 310, w: 40 }, { x: 155, y: 310, w: 40 }] },
   { count: 160, hp: 2.15, dps: 1.7, dachsEvery: 3, poodleEvery: 4, pomEvery: 8, goldenEvery: 6, bulldogEvery: 5, rocks: [
       { x: 40, y: 220, r: 22, pond: true },
       { x: 154, y: 220, r: 22, pond: true },
       { x: 97, y: 320, r: 12 },
-    ] },
+    ], walls: [{ x: 97, y: 220, w: 30 }] },
   { count: 170, hp: 2.45, dps: 1.85, dachsEvery: 3, poodleEvery: 3, pomEvery: 7, goldenEvery: 5, bulldogEvery: 4, rocks: [
       { x: 30, y: 170, r: 10 },
       { x: 70, y: 260, r: 10 },
       { x: 124, y: 260, r: 10 },
       { x: 164, y: 170, r: 10 },
       { x: 97, y: 360, r: 16, pond: true },
-    ] },
+    ], walls: [{ x: 40, y: 320, w: 40 }, { x: 155, y: 320, w: 40 }] },
   { count: 190, hp: 2.8, dps: 2, dachsEvery: 3, poodleEvery: 3, pomEvery: 6, goldenEvery: 4, bulldogEvery: 4, rocks: [
       { x: 97, y: 200, r: 30, pond: true },
       { x: 30, y: 300, r: 18, pond: true },
       { x: 164, y: 300, r: 18, pond: true },
       { x: 97, y: 370, r: 10 },
-    ] },
+    ], walls: [{ x: 97, y: 300, w: 56 }] },
 ]
 /** Home HP left (share of full) for 3 and 2 stars at a win; any win is at least 1. */
 export const STAR3_AT = 0.7
@@ -422,7 +438,7 @@ export const HERO_SLOT = KINDS
 export const ENDLESS_STAGE: StageSpec = { count: 999999, hp: 2.4, dps: 1.8, dachsEvery: 3, poodleEvery: 3, pomEvery: 6, goldenEvery: 4, bulldogEvery: 4, rocks: [
   { x: 60, y: 230, r: 12 },
   { x: 134, y: 230, r: 12 },
-] }
+], walls: [{ x: 97, y: 330, w: 56 }] }
 export const ENDLESS_RAMP = 0.5
 
 /** From this stage (index) on, and in エンドレス, the boss is the dark 黒バーナード. */

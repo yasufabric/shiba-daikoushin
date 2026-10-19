@@ -4,7 +4,6 @@ import {
   BONE_RATE,
   DOG_COUNT,
   STAGES,
-  type Rock,
   STAR2_AT,
   STAR3_AT,
   HOME_HP,
@@ -216,6 +215,9 @@ import {
   RUSH_TIME,
   SPECIAL_NEED,
   SPECIAL_GAP,
+  WALL_HP,
+  WALL_HALF,
+  gridX,
   PEROPERO_HEAL,
   SPEED_SESAME,
   STEP_SESAME,
@@ -392,6 +394,9 @@ export interface Sim {
   wanT: number
   /** Seconds before another special may fire (SPECIAL_GAP after each one lands), so specials never chain. */
   spGapT: number
+  /** 柵 health, one per wall of the stage (0: broken), and when each was last bitten. */
+  wallHp: number[]
+  wallHitAt: number[]
   /** おやつ砲 charge in seconds (full at CANNON_CHARGE), and when it last fired. */
   cannonT: number
   cannonAt: number
@@ -559,6 +564,8 @@ export function createSim(opts?: SimOptions): Sim {
     rushT: 0,
     wanT: 0,
     spGapT: 0,
+    wallHp: [],
+    wallHitAt: [],
     cannonT: 0,
     cannonAt: -9,
     howlAt: -9,
@@ -899,6 +906,9 @@ function boot(sim: Sim): void {
   sim.rushT = 0
   sim.wanT = 0
   sim.spGapT = 0
+  const walls = spec(sim).walls ?? []
+  sim.wallHp = walls.map(() => WALL_HP * spec(sim).hp)
+  sim.wallHitAt = walls.map(() => -9)
   sim.cannonT = 0
   sim.cannonAt = -9
   sim.howlAt = -9
@@ -1492,11 +1502,17 @@ function stepToward(unit: Unit, tx: number, ty: number, dist: number): void {
   walkAround(unit, go)
 }
 
-/** Rocks of the stage being stepped; set by moveFree. */
-let activeRocks: readonly Rock[] = []
+/** Rocks and walls of the stage being stepped, in field px; set by moveFree. */
+let activeRocks: { x: number; y: number; r: number }[] = []
+let activeWalls: { x: number; y: number; hw: number; i: number }[] = []
+/** The wall the last walkAround pushed the unit off (-1: none), so a dog knows what is in its way. */
+let touchedWall = -1
+/** Shibas slide along a fence to its end; dogs (slideWalls false) just stop at it and bite. */
+let slideWalls = true
 
-/** Push a unit out of any rock, sliding it along the edge so it walks around instead of sticking. */
+/** Push a unit out of any rock or standing wall, sliding it along the edge so it walks around instead of sticking. */
 function walkAround(unit: Unit, step: number): void {
+  touchedWall = -1
   for (const rock of activeRocks) {
     const ox = unit.x - rock.x
     const oy = unit.y - rock.y
@@ -1509,6 +1525,27 @@ function walkAround(unit: Unit, step: number): void {
     const side = ox < 0 ? -1 : 1
     unit.x = rock.x + nx * gap - ny * side * step * 0.6
     unit.y = rock.y + ny * gap + nx * side * step * 0.6
+  }
+  for (const wall of activeWalls) {
+    const gap = 7
+    const cx = Math.max(wall.x - wall.hw, Math.min(wall.x + wall.hw, unit.x))
+    const ox = unit.x - cx
+    const oy = unit.y - wall.y
+    if (Math.abs(ox) < 0.5) {
+      // Over or under the fence: hold at its face and slide toward the nearer end.
+      if (Math.abs(oy) >= WALL_HALF + gap) continue
+      unit.y = wall.y + (oy < 0 ? -1 : 1) * (WALL_HALF + gap)
+      if (slideWalls) unit.x += (unit.x < wall.x ? -1 : 1) * step * 0.8
+      touchedWall = wall.i
+      continue
+    }
+    // Past an end: round it like a post.
+    const dy = Math.max(0, Math.abs(oy) - WALL_HALF) * Math.sign(oy)
+    const d = Math.hypot(ox, dy)
+    if (d >= gap) continue
+    const k = gap / Math.max(0.5, d)
+    unit.x = cx + ox * k
+    unit.y = wall.y + Math.sign(oy) * WALL_HALF + dy * k
   }
 }
 
@@ -1695,8 +1732,30 @@ function throwDisc(sim: Sim, shiba: Unit, foe: Unit): void {
   shiba.bitAt = sim.time
 }
 
+/** A dog that the last step left pressed against a standing 柵 bites it. True if it did (or is winding up to). */
+function biteWall(sim: Sim, dog: Unit, beat: number): boolean {
+  const w = touchedWall
+  if (w < 0 || (sim.wallHp[w] ?? 0) <= 0) return false
+  dog.bite -= beat
+  if (dog.bite <= 0) {
+    dog.bite += BITE_EVERY
+    sim.wallHp[w] = Math.max(0, (sim.wallHp[w] ?? 0) - dog.dps * BITE_EVERY)
+    sim.wallHitAt[w] = sim.time
+    dog.bitAt = sim.time
+    dog.aimX = dog.x
+    dog.aimY = dog.y + 10
+  }
+  return true
+}
+
 function moveFree(sim: Sim, rawDt: number): void {
-  activeRocks = spec(sim).rocks
+  const st = spec(sim)
+  // Rocks and walls are authored on a 195-wide grid; the drawn rock is 2r field px wide.
+  activeRocks = st.rocks.map((r) => ({ x: gridX(r.x), y: r.y, r: r.r * 1.6 }))
+  activeWalls = []
+  ;(st.walls ?? []).forEach((w, i) => {
+    if ((sim.wallHp[i] ?? 0) > 0) activeWalls.push({ x: gridX(w.x), y: w.y, hw: gridX(w.w) / 2, i })
+  })
   // Movement runs slower; bites keep their beat.
   const dt = rawDt * FREE_PACE
   const beat = rawDt
@@ -1799,6 +1858,7 @@ function moveFree(sim: Sim, rawDt: number): void {
       }
     }
   }
+  slideWalls = false
   for (const dog of sim.cats) {
     if (!dog?.alive || dog.fly === 1 || dog.hp <= 0) continue
     if (dog.stun > 0) {
@@ -1826,6 +1886,7 @@ function moveFree(sim: Sim, rawDt: number): void {
         const tx = turn ? homeX : dog.x
         const ty = turn ? homeY : FIELD_H
         stepToward(dog, tx, ty, Math.min(d - FREE_HOME_REACH * 0.9, dog.speed * dt))
+        if (biteWall(sim, dog, beat)) continue
         dog.bite = BITE_EVERY * 0.5
       } else {
         dog.bite -= beat
@@ -1842,6 +1903,7 @@ function moveFree(sim: Sim, rawDt: number): void {
     const reach = poodle ? POODLE_RANGE : FREE_REACH
     if (d > reach + 4) {
       stepToward(dog, foe.x, foe.y, Math.min(d - reach * 0.9, dog.speed * dt))
+      biteWall(sim, dog, beat)
       continue
     }
     const every = poodle ? POODLE_EVERY : BITE_EVERY
@@ -1855,6 +1917,7 @@ function moveFree(sim: Sim, rawDt: number): void {
       dog.aimY = foe.y
     }
   }
+  slideWalls = true
   if (sim.hero.alive && sim.hero.hp <= 0) {
     sim.hero.alive = false
     sim.heroT = HERO_REVIVE
@@ -1862,6 +1925,11 @@ function moveFree(sim: Sim, rawDt: number): void {
   }
   spread(sim.shibas, rawDt)
   spread(sim.cats, rawDt)
+  // Spreading must not shove anyone through a rock or a fence.
+  slideWalls = false
+  for (const u of sim.shibas) if (u?.alive) walkAround(u, 0)
+  for (const u of sim.cats) if (u?.alive && u.fly !== 1) walkAround(u, 0)
+  slideWalls = true
   for (const u of sim.shibas) {
     if (!u?.alive) continue
     if (u.y < FREE_SHIBA_TOP) u.y = FREE_SHIBA_TOP
