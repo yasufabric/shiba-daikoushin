@@ -20,7 +20,7 @@ import {
   HERO_TAP_Y,
 } from './balance'
 import { createSim, dogsLeft, fillMarch, spawnCat, spawnShiba, NO_INPUT, step, type Input, type Outcome } from './sim'
-import { createRenderer, draw, muteTarget, screenToWorld, shopTarget, titleTarget, type ScreenInsets } from './render'
+import { createRenderer, draw, muteTarget, speedTarget, screenToWorld, shopTarget, titleTarget, type ScreenInsets } from './render'
 
 const canvasEl = document.querySelector<HTMLCanvasElement>('#game')
 if (!canvasEl) throw new Error('canvas unavailable')
@@ -112,6 +112,14 @@ let placedTop = -1
 let placedLeft = -1
 const insets: ScreenInsets = { top: 0, right: 0, bottom: 0, left: 0 }
 let timeScale = 1
+const SPEED_KEY = 'shiba-daikoushin-speed'
+/** Player's 2× toggle, on top of the dev scale. Saved. */
+let fast = false
+try {
+  fast = localStorage.getItem(SPEED_KEY) === '1'
+} catch {
+  // Storage blocked: start at 1×.
+}
 let tutorialStored = seenTutorial()
 const frameDts = new Float64Array(90)
 frameDts.fill(1 / 60)
@@ -279,6 +287,16 @@ canvas.addEventListener('pointerdown', (ev) => {
     synth.tap()
     return
   }
+  if (!sim.title && sim.outcome === 'play' && speedTarget(p.x, p.y)) {
+    fast = !fast
+    try {
+      localStorage.setItem(SPEED_KEY, fast ? '1' : '0')
+    } catch {
+      // Not saved; the toggle still works for now.
+    }
+    synth.tap()
+    return
+  }
   if (sim.title) {
     const stage = titleTarget(p.x, p.y)
     if (stage >= 0) input.pickStage = stage
@@ -392,7 +410,7 @@ function playSounds(before: Outcome): void {
 }
 
 function advance(dt: number): void {
-  const budget = Math.min(dt * timeScale, 0.8)
+  const budget = Math.min(dt * timeScale * (fast && sim.outcome === 'play' && !sim.title ? 2 : 1), 0.8)
   let left = budget
   let first = true
   let steps = 0
@@ -452,6 +470,7 @@ function frame(now: number): void {
   } else {
     advance(dt)
   }
+  renderer.fast = fast
   renderer.muted = synth.isMuted()
   if (sim.heroUsed && !heroSaved) {
     heroSaved = true
