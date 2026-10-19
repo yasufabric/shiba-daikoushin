@@ -8,6 +8,7 @@ import {
   STAR2_AT,
   STAR3_AT,
   HOME_HP,
+  COAT_UNLOCK,
   HERO_HP,
   HERO_SPEED,
   HERO_EVERY,
@@ -272,6 +273,8 @@ export interface Sim {
   title: boolean
   /** The coats brought to a match, in dock order: DECK_SIZE of the roster. */
   deck: number[]
+  /** A coat this result unlocked (shown NEW! on the result screen), or -1. */
+  newCoat: number
   /** Current stage index (0-based). */
   stage: number
   /** Best stars per stage, 0 = not cleared. Kept across matches. */
@@ -420,6 +423,7 @@ export function createSim(opts?: SimOptions): Sim {
     saveSeq: 0,
     title: opts?.title === true,
     deck: [...DEFAULT_DECK],
+    newCoat: -1,
     stage: Math.min(STAGES.length - 1, Math.max(0, Math.floor(opts?.stage ?? 0))),
     best: STAGES.map((_, i) => Math.min(3, Math.max(0, Math.floor(opts?.best?.[i] ?? 0)))),
     stars: 0,
@@ -460,7 +464,10 @@ export function createSim(opts?: SimOptions): Sim {
     laneSN: new Int16Array(LANE_COUNT),
     laneCN: new Int16Array(LANE_COUNT),
   }
-  if (opts?.free === true) sim.deck = cleanDeck(opts?.deck)
+  if (opts?.free === true) {
+    sim.deck = cleanDeck(opts?.deck)
+    if (!sim.deck.every((k) => coatOpen(sim, k))) sim.deck = [...DEFAULT_DECK]
+  }
   sim.picked = sim.deck[0] ?? KIND_TAN
   boot(sim)
   return sim
@@ -475,6 +482,12 @@ function cleanDeck(deck: readonly number[] | undefined): number[] {
     seen.add(k)
   }
   return [...deck]
+}
+
+/** Is this coat unlocked? Lanes mode and coats with no unlock stage always are. */
+export function coatOpen(sim: Sim, kind: number): boolean {
+  const need = COAT_UNLOCK[kind] ?? -1
+  return !sim.free || need < 0 || (sim.best[need] ?? 0) > 0
 }
 
 /** A stage is open once the one before it has been cleared. */
@@ -503,7 +516,7 @@ export function toggleDeck(sim: Sim, kind: number): boolean {
   const at = sim.deck.indexOf(kind)
   if (at >= 0) {
     sim.deck.splice(at, 1)
-  } else if (sim.deck.length < DECK_SIZE) {
+  } else if (sim.deck.length < DECK_SIZE && coatOpen(sim, kind)) {
     sim.deck.push(kind)
   } else {
     return false
@@ -603,6 +616,7 @@ function stepHero(sim: Sim, dt: number, beat: number): void {
 }
 
 function boot(sim: Sim): void {
+  sim.newCoat = -1
   sim.time = 0
   sim.bones = START_BONES
   sim.aliveShibas = 0
@@ -874,7 +888,9 @@ function pay(sim: Sim): void {
   if (sim.outcome === 'won') {
     const left = sim.homeHp / HOME_HP
     sim.stars = left >= STAR3_AT ? 3 : left >= STAR2_AT ? 2 : 1
+    const firstClear = (sim.best[sim.stage] ?? 0) === 0
     sim.best[sim.stage] = Math.max(sim.best[sim.stage] ?? 0, sim.stars)
+    if (firstClear) sim.newCoat = COAT_UNLOCK.findIndex((need) => need === sim.stage)
   } else {
     sim.stars = 0
   }
@@ -899,7 +915,7 @@ export function power(sim: Sim, kind: number): number {
 }
 
 export function buyLevel(sim: Sim, kind: number): boolean {
-  if (kind < 0 || kind >= KINDS) return false
+  if (kind < 0 || kind >= KINDS || !coatOpen(sim, kind)) return false
   const level = sim.levels[kind] ?? 1
   if (level >= MAX_LEVEL) return false
   const cost = levelCost(level)

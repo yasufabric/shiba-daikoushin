@@ -32,6 +32,7 @@ import {
   FIELD_X,
   FIELD_Y,
   FREE_ZONE_Y,
+  COAT_UNLOCK,
   HEAL_RADIUS,
   BANNER_HOLD,
   FLOAT_TIME,
@@ -68,7 +69,7 @@ import {
   MAX_SHIBAS,
   PANEL_Y,
 } from './balance'
-import { BANNER_POP, BANNER_REST, CLEAR_WORD, glyphBit, LEVEL_WORD, letterBit, LOSE_WORD, START_WORD, POP_COL, POP_ROW, RUMBLE_WORD, SELECT_WORD, SPECIAL_WORDS, STAGE_WORD, TITLE_WORD, TAP_WORD } from './font'
+import { BANNER_POP, BANNER_REST, CLEAR_WORD, glyphBit, LEVEL_WORD, letterBit, LOSE_WORD, START_WORD, POP_COL, POP_ROW, RUMBLE_WORD, SELECT_WORD, SPECIAL_WORDS, STAGE_WORD, TITLE_WORD, TAP_WORD, NEW_WORD } from './font'
 import {
   BOSS_H,
   BOSS_W,
@@ -105,7 +106,7 @@ import {
   WHITE_DARK,
   WHITE_MID,
 } from './palette'
-import { canCall, costOf, deckReady, stageOpen, spec, dogsLeft, levelCost, type Outcome, type Sim, type Unit } from './sim'
+import { canCall, costOf, deckReady, stageOpen, coatOpen, spec, dogsLeft, levelCost, type Outcome, type Sim, type Unit } from './sim'
 import { createSheets, type Sheets } from './sprites'
 
 const BUCKETS = 96
@@ -2408,12 +2409,35 @@ function paintShop(ctx: CanvasRenderingContext2D, renderer: Renderer, sim: Sim):
     ctx.fillRect(x + w - 1, y, 1, 1)
     ctx.fillRect(x, y + h - 1, 1, 1)
     ctx.fillRect(x + w - 1, y + h - 1, 1, 1)
+    if (!coatOpen(sim, kind)) {
+      // Locked: a padlock where the face goes, and which stage to clear in the buy zone.
+      ctx.fillStyle = NIGHT_1
+      ctx.fillRect(x + 4, y + 4, pick - 8, h - 8)
+      drawLock(ctx, x + (pick >> 1) - 5, y + (h >> 1) - 10)
+      // The stage to clear: its number on a dim tile with a star, like the title's stage tiles.
+      const tw = 26
+      const tx = x + pick + ((w - pick - tw) >> 1)
+      const ty0 = y + (h >> 1) - 18
+      ctx.fillStyle = LINE
+      ctx.fillRect(tx, ty0, tw, 34)
+      ctx.fillStyle = NIGHT_2
+      ctx.fillRect(tx + 1, ty0 + 1, tw - 2, 32)
+      const n = (COAT_UNLOCK[kind] ?? 0) + 1
+      drawNumber(ctx, renderer, n, tx + ((tw - digitCount(n) * 10) >> 1), ty0 + 4, false)
+      drawMiniStar(ctx, tx + 9, ty0 + 22, false)
+      continue
+    }
     // The portrait zone: a lit stage under the face, and the deck badge below it.
     ctx.fillStyle = inDeck ? NIGHT_3 : NIGHT_2
     ctx.fillRect(x + 4, y + 4, pick - 8, HERO_PX + 4)
     const blink = inDeck && (Math.floor(sim.time * 2 + kind) & 1) === 1
     ctx.drawImage(renderer.sheets.hero, heroCell(kind, blink ? 'blink' : 'open') * HERO_PX, 0, HERO_PX, HERO_PX, x + 4 + ((pick - 8 - HERO_PX) >> 1), y + 6, HERO_PX, HERO_PX)
     drawRoleIcon(ctx, kind, x + pick - 15, y + 8)
+    if (sim.newCoat === kind) {
+      // Just unlocked: a blinking NEW! over the portrait.
+      const c = GOLD_CYCLE[Math.floor(sim.time * 8) & 3] ?? GOLD
+      for (let i = 0; i < NEW_WORD.length; i++) drawLetter(ctx, NEW_WORD[i] ?? '', x + 6 + i * 9, y + 2, 1, c)
+    }
     if (sim.free) {
       const bxx = x + 4
       const byy = y + HERO_PX + 12

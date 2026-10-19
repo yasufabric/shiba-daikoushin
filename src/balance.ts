@@ -362,3 +362,6 @@ export const HERO_RADIUS = 30
 export const HERO_REVIVE = 16
 /** Field taps above this y (below FREE_ZONE_Y) steer the hero instead of deploying. */
 export const HERO_TAP_Y = 420
+
+/** にゃんこ-style unlocks: a coat joins once this stage (index) has a star; -1 is open from the start. ぶち柴 after stage 2, どっしり柴 after stage 4. */
+export const COAT_UNLOCK = [-1, -1, -1, -1, 1, 3] as const
