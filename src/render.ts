@@ -1,4 +1,4 @@
-import { FUR_BLACK, FUR_BUCHI, FUR_CREAM, FUR_GRAY, FUR_KINAKO, FUR_RED, FUR_SESAME, heroCell, pawArt } from './art'
+import { FUR_BLACK, FUR_BUCHI, FUR_CREAM, FUR_GRAY, FUR_KINAKO, FUR_RED, FUR_SESAME, HERO_REWARD, heroCell, pawArt } from './art'
 import {
   ATTACK_RANGE,
   BONE_X,
@@ -43,6 +43,7 @@ import {
   KIND_BIG,
   KIND_CHEER,
   CHEER_RADIUS,
+  HERO_SLOT,
   HERO_SKILL_R,
   HERO_SKILL_CD,
   BOSS_HOWL_R,
@@ -2631,7 +2632,7 @@ function drawLetter(
 function shopLayout(): { compact: boolean; cellTop: number; startY: number; cellH: number } {
   const room = frame.internalH - frame.topDy
   // Seven coats need four rows of cells, so the header goes compact and the cells shrink to fit above START.
-  const rows = Math.ceil(KINDS / 2)
+  const rows = Math.ceil((KINDS + 1) / 2)
   const compact = room < 372 || rows > 3
   const bh = at(START_H)
   const cellTop = compact ? 74 : at(SHOP_Y0)
@@ -2688,14 +2689,15 @@ function paintShop(ctx: CanvasRenderingContext2D, renderer: Renderer, sim: Sim):
   drawNumber(ctx, renderer, sim.purse, pxl + 14, py(purseY), true)
   paintHomeButton(ctx, px(4), py(4))
   paintMute(ctx, renderer, py(4))
-  const shown = sim.free ? KINDS : 4
+  const shown = sim.free ? KINDS + 1 : 4
   for (let kind = 0; kind < shown; kind++) {
     const level = sim.levels[kind] ?? 1
     const maxed = level >= MAX_LEVEL
     const cost = levelCost(level)
     const can = !maxed && sim.purse >= cost
-    const slot = sim.deck.indexOf(kind)
-    const inDeck = !sim.free || slot >= 0
+    const isHero = kind === HERO_SLOT
+    const slot = isHero ? -1 : sim.deck.indexOf(kind)
+    const inDeck = !sim.free || slot >= 0 || isHero
     const x = px(at(SHOP_X0 + (kind % 2) * (SHOP_CELL_W + SHOP_GAP)))
     const y = py(lay.cellTop + Math.floor(kind / 2) * (lay.cellH + at(SHOP_GAP)))
     const w = at(SHOP_CELL_W)
@@ -2732,14 +2734,21 @@ function paintShop(ctx: CanvasRenderingContext2D, renderer: Renderer, sim: Sim):
     ctx.fillStyle = inDeck ? NIGHT_3 : NIGHT_2
     ctx.fillRect(x + 4, y + 4, pick - 8, HERO_PX + 4)
     const blink = inDeck && (Math.floor(shopClock * 2 + kind) & 1) === 1
-    ctx.drawImage(renderer.sheets.hero, heroCell(kind, blink ? 'blink' : 'open') * HERO_PX, 0, HERO_PX, HERO_PX, x + 4 + ((pick - 8 - HERO_PX) >> 1), y + 6, HERO_PX, HERO_PX)
-    drawRoleIcon(ctx, kind, x + pick - 15, y + 8)
+    const face = isHero ? HERO_REWARD : heroCell(kind, blink ? 'blink' : 'open')
+    ctx.drawImage(renderer.sheets.hero, face * HERO_PX, 0, HERO_PX, HERO_PX, x + 4 + ((pick - 8 - HERO_PX) >> 1), y + 6, HERO_PX, HERO_PX)
+    if (isHero) drawCrown(ctx, x + (pick >> 1), y + 2, GOLD, GOLD_LIGHT)
+    else drawRoleIcon(ctx, kind, x + pick - 15, y + 8)
     if (sim.newCoat === kind) {
       // Just unlocked: a blinking NEW! over the portrait.
       const c = GOLD_CYCLE[Math.floor(shopClock * 8) & 3] ?? GOLD
       for (let i = 0; i < NEW_WORD.length; i++) drawLetter(ctx, NEW_WORD[i] ?? '', x + 6 + i * 9, y + 2, 1, c)
     }
-    if (sim.free) {
+    if (isHero) {
+      // The hero is always out: its badge just says HERO.
+      const word = 'HERO'
+      const hy = y + h - 17
+      for (let i = 0; i < word.length; i++) drawLetter(ctx, word[i] ?? '', x + ((pick - word.length * 9) >> 1) + i * 9, hy, 1, GOLD_LIGHT)
+    } else if (sim.free) {
       const bxx = x + 4
       const byy = y + HERO_PX + 12
       const bww = pick - 8
@@ -2840,7 +2849,7 @@ function paintShop(ctx: CanvasRenderingContext2D, renderer: Renderer, sim: Sim):
   const openAge = wall - renderer.chestOpenAt
   if (sim.chest === 2 && openAge >= 0 && openAge < 1.4) {
     const cx = bx + (bw >> 1)
-    if (openAge < 0.5) paintChest(ctx, cx, by - 4, wall, true)
+    if (openAge < 0.5) paintChest(ctx, cx, by + bh, wall, true)
     // Bones fly out in an arc, then +N rises.
     for (let k = 0; k < 8; k++) {
       const a = -Math.PI / 2 + (k - 3.5) * 0.32

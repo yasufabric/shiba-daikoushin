@@ -16,6 +16,7 @@ import {
   HERO_RADIUS,
   HERO_REVIVE,
   HERO_TAP_Y,
+  HERO_SLOT,
   CHEST_BASE,
   CHEST_STAGE,
   CHEST_STAR,
@@ -460,7 +461,7 @@ export function createSim(opts?: SimOptions): Sim {
     free: opts?.free === true,
     picked: KIND_TAN,
     recharge: Array.from({ length: KINDS }, () => 0),
-    levels: Array.from({ length: KINDS }, (_, i) => Math.min(MAX_LEVEL, Math.max(1, Math.floor(opts?.levels?.[i] ?? 1)))),
+    levels: Array.from({ length: KINDS + 1 }, (_, i) => Math.min(MAX_LEVEL, Math.max(1, Math.floor(opts?.levels?.[i] ?? 1)))),
     purse: Math.max(0, Math.floor(opts?.purse ?? 0)),
     earned: 0,
     saveSeq: 0,
@@ -611,8 +612,8 @@ function spawnHero(sim: Sim): void {
   h.alive = sim.free && sim.heroOn
   h.x = FIELD_W / 2
   h.y = FREE_ZONE_Y - 24
-  h.hp = HERO_HP
-  h.maxHp = HERO_HP
+  h.hp = Math.round(HERO_HP * power(sim, HERO_SLOT))
+  h.maxHp = h.hp
   h.speed = HERO_SPEED
   h.cd = 0
   h.bitAt = -9
@@ -634,7 +635,7 @@ function heroSkill(sim: Sim): void {
   sim.heroUsed = true
   for (const dog of sim.cats) {
     if (!dog?.alive || dog.fly === 1 || dog.hp <= 0) continue
-    if (Math.hypot(dog.x - h.x, dog.y - h.y) <= HERO_SKILL_R) dog.hp -= HERO_SKILL_HIT * (dog.kind === BREED_BOSS ? 1 : spec(sim).hp)
+    if (Math.hypot(dog.x - h.x, dog.y - h.y) <= HERO_SKILL_R) dog.hp -= HERO_SKILL_HIT * power(sim, HERO_SLOT) * (dog.kind === BREED_BOSS ? 1 : spec(sim).hp)
   }
 }
 
@@ -723,7 +724,7 @@ function stepHero(sim: Sim, dt: number, beat: number): void {
     for (const dog of sim.cats) {
       if (!dog?.alive || dog.fly === 1 || dog.hp <= 0) continue
       if (Math.hypot(dog.x - h.x, dog.y - h.y) <= HERO_RADIUS) {
-        dog.hp -= HERO_HIT
+        dog.hp -= HERO_HIT * power(sim, HERO_SLOT)
         any = true
       }
     }
@@ -1055,7 +1056,7 @@ export function power(sim: Sim, kind: number): number {
 }
 
 export function buyLevel(sim: Sim, kind: number): boolean {
-  if (kind < 0 || kind >= KINDS || !coatOpen(sim, kind)) return false
+  if (kind < 0 || kind > HERO_SLOT || (kind === HERO_SLOT && !sim.free) || !coatOpen(sim, kind)) return false
   const level = sim.levels[kind] ?? 1
   if (level >= MAX_LEVEL) return false
   const cost = levelCost(level)

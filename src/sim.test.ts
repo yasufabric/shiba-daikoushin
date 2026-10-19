@@ -45,6 +45,8 @@ import {
   WANWAN_T,
   HERO_REVIVE,
   HERO_SKILL_CD,
+  HERO_SLOT,
+  HERO_HP,
   HERO_SKILL_R,
   HERO_HIT,
   HERO_RADIUS,
@@ -1118,5 +1120,17 @@ describe('soldiers', () => {
     step(sim, 1 / 30, { ...NO_INPUT, restart: true })
     expect(sim.outcome).toBe('play')
     expect(sim.chest).toBe(0)
+  })
+
+  it('buys ヒーロー柴 levels on the result screen, and a stronger hero comes out next match', () => {
+    const sim = createSim({ tutorial: false, seed: 4, free: true, hero: true, purse: 9999 })
+    expect(sim.hero.maxHp).toBe(HERO_HP)
+    expect(buyLevel(sim, HERO_SLOT)).toBe(true)
+    expect(sim.levels[HERO_SLOT]).toBe(2)
+    sim.outcome = 'lost'
+    sim.rewardT = 0
+    step(sim, 1 / 30, { ...NO_INPUT, restart: true })
+    expect(sim.hero.maxHp).toBeGreaterThan(HERO_HP)
+    expect(buyLevel(createSim({ tutorial: false, purse: 9999 }), HERO_SLOT)).toBe(false)
   })
 })

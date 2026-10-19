@@ -334,7 +334,7 @@ canvas.addEventListener('pointerdown', (ev) => {
   }
   if (sim.outcome !== 'play') {
     if (sim.rewardT > 0) return
-    const hit = shopTarget(p.x, p.y, sim.free ? KINDS : 4)
+    const hit = shopTarget(p.x, p.y, sim.free ? KINDS + 1 : 4)
     if (hit.type === 'start') {
       if (sim.chest === 1) input.openChest = true
       else input.restart = true
