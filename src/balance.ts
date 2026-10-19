@@ -194,6 +194,8 @@ export const FIELD_Y = 56
 export const FIELD_W = 366
 export const FIELD_H = 608
 export const PANEL_Y = 676
+/** Free placement: dogs walk out this far below the old spawn rows, so the HUD band at the top of the field (STAGE n, dogs left, the wave warning) stays clear. Field px (20 internal px). */
+export const HUD_DROP = 40
 
 /** Five marching paths. They steer the sim; the field draws no lane stripes. */
 export const LANE_COUNT = 5
@@ -303,6 +305,8 @@ export const CARD_XS = [CARD_X0, CARD_X1, CARD_X2, CARD_X3] as const
 export const RECALL_TAP = 18
 export const RECALL_LIFT = 10
 export const RECALL_PACE = 2.2
+/** Recall needs a press held this long (s) on the shiba; a quicker tap there deploys as usual. */
+export const RECALL_HOLD = 0.3
 
 /**
  * ステージ: the same yard, but each walk gets harder. Counts, dog toughness and the breed mix change.

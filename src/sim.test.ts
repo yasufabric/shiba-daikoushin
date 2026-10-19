@@ -78,6 +78,7 @@ import {
   gridX,
   BREACH,
   SPLASH_CHARGE,
+  HUD_DROP,
   patternSize,
   CLASH_RAMP,
   CLASH_RAMP_FROM,
@@ -128,6 +129,7 @@ import {
   castSkill,
   casterOf,
   spec,
+  waveAhead,
   type Input,
   type Unit,
   type Sim,
@@ -210,7 +212,7 @@ describe('deploy', () => {
     expect(sim.recharge[KIND_TAN]).toBeCloseTo(RECHARGE[KIND_TAN] - 1 / 30, 3)
     step(sim, 1 / 30, { card: KIND_TAN, lane: 1, restart: false })
     expect(sim.aliveShibas).toBe(after)
-    expect(sim.deny0).toBeGreaterThan(0)
+    expect(sim.deny[0]).toBeGreaterThan(0)
     step(sim, 1 / 30, { card: KIND_BLACK, lane: 1, restart: false })
     expect(sim.aliveShibas).toBe(after + 1)
     play(sim, RECHARGE[KIND_TAN], () => NO_INPUT)
@@ -225,7 +227,7 @@ describe('deploy', () => {
     sim.bones = 0
     step(sim, 1 / 30, { card: 0, restart: false })
     expect(sim.aliveShibas).toBe(START_SHIBAS)
-    expect(sim.deny0).toBeGreaterThan(0)
+    expect(sim.deny[0]).toBeGreaterThan(0)
     expect(sim.sfxDeploy).toBe(0)
   })
 })
@@ -1508,5 +1510,59 @@ describe('skills (free placement)', () => {
     expect(flagged.sim.flags.length).toBe(1)
     play(flagged.sim, FLAG_T, () => NO_INPUT)
     expect(flagged.sim.flags.length).toBe(0)
+  })
+})
+
+describe('ui polish (free placement)', () => {
+  it('shakes any coat\'s card on a denied tap, not only the first four', () => {
+    const sim = createSim({ tutorial: false, seed: 5, free: true, best: [3, 3, 3, 3, 3, 3, 3, 3] })
+    sim.deck = [KIND_TAN, KIND_DISC, KIND_BIG, KIND_CHEER]
+    step(sim, 1 / 30, { card: KIND_DISC, at: { x: 180, y: 520 }, restart: false })
+    expect(sim.recharge[KIND_DISC]).toBeGreaterThan(0)
+    expect(sim.deny[KIND_DISC]).toBe(0)
+    step(sim, 1 / 30, { card: KIND_DISC, at: { x: 120, y: 520 }, restart: false })
+    expect(sim.deny[KIND_DISC]).toBeGreaterThan(0)
+    expect(sim.deny[KIND_TAN]).toBe(0)
+  })
+
+  it('walks every dog out below the HUD band', () => {
+    for (const stage of [0, 3, 7]) {
+      const sim = createSim({ tutorial: false, seed: 9, free: true, stage, best: [3, 3, 3, 3, 3, 3, 3, 3] })
+      const was = sim.cats.map((u) => u.alive)
+      let seen = 0
+      for (let i = 0; i < 30 * 140 && sim.outcome === 'play'; i++) {
+        step(sim, 1 / 30, NO_INPUT)
+        sim.homeHp = HOME_HP
+        sim.cats.forEach((u, k) => {
+          if (u.alive && !was[k]) {
+            seen += 1
+            expect(u.y).toBeGreaterThanOrEqual(HUD_DROP)
+          }
+          was[k] = u.alive
+        })
+      }
+      expect(seen).toBeGreaterThan(20)
+    }
+  })
+
+  it('tells the HUD what the next wave is and when the boss comes with it', () => {
+    const sim = createSim({ tutorial: false, seed: 4, free: true })
+    expect(waveAhead(sim)?.at).toBe(sim.nextCat)
+    let named = 0
+    let boss = false
+    for (let i = 0; i < 30 * 400 && sim.outcome === 'play' && !sim.boss; i++) {
+      const w = waveAhead(sim)
+      if (w && w.kind !== WAVE_MIXED) {
+        named += 1
+        expect(w.kind).toBe(sim.planKind)
+      }
+      if (w?.boss) boss = true
+      step(sim, 1 / 30, NO_INPUT)
+      sim.homeHp = HOME_HP
+    }
+    expect(named).toBeGreaterThan(0)
+    expect(boss).toBe(true)
+    expect(sim.boss).toBe(true)
+    expect(waveAhead(sim)).toBe(null)
   })
 })
