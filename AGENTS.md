@@ -245,3 +245,6 @@ After にゃんこ砲. `sim.cannonT` charges to `CANNON_CHARGE` s; a sky-blue ba
 
 ## Empty start
 Free placement no longer opens with five 赤 on the field (play-test: not wanted); the player sends the first shibas. ?lanes keeps them.
+
+## Specials, round two
+Play-test: specials were too strong, too alike, and food names felt off. Names are now shiba things (`SPECIAL_WORDS`): シバダッシュ!! (赤, rush 2.5 s), シバドリル!! (黒, one big hit on the toughest dog on the field, the 柴ドリル shake), トオボエ!! (胡麻, a howl: tiny hit, short shove, 1.2 s stun on all), ペロペロ!! (白, half health back, +150 house), ブンブン!! (ぶち, tail-wag sweep of the front row, 90), ドスン!! (どっしり, thud on the thickest knot, 95, 1.5 s stun), ワンワン!! (応援, 4 s of 1.5× attacks). Gauges need about 1.4× the damage they used to (`SPECIAL_NEED`). New katakana glyphs live in `font.ts`.

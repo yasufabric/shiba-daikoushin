@@ -470,16 +470,16 @@ describe('free placement roles', () => {
     expect(taken).toBeLessThan(20 * 4 * 0.8)
   })
 
-  it('drops 「ジャーキー!!」 on the dogs nearest the house and notes each hit', () => {
+  it('aims 「シバドリル!!」 at the toughest dogs on the field and notes each hit', () => {
     const sim = emptyField()
     const dogs = sim.cats.slice(0, JERKY_TARGETS + 3)
-    dogs.forEach((dog, k) => Object.assign(dog, { alive: true, fly: 0, kind: BREED_BULLDOG, hp: 999, maxHp: 999, dps: 0, speed: 0, x: 20 + k * 25, y: 100 + k * 30 }))
+    dogs.forEach((dog, k) => Object.assign(dog, { alive: true, fly: 0, kind: BREED_BULLDOG, hp: 500 + k * 100, maxHp: 999, dps: 0, speed: 0, x: 20 + k * 25, y: 100 + k * 30 }))
     sim.aliveCats = dogs.length
+    const before = dogs.map((d) => d.hp)
     strikeSpecial(sim, KIND_BLACK)
-    const hit = dogs.filter((d) => d.hp < 999)
+    const hit = dogs.filter((d, k) => d.hp < (before[k] ?? 0))
     expect(hit.length).toBe(JERKY_TARGETS)
-    const lowestHitY = Math.min(...hit.map((d) => d.y))
-    for (const d of dogs) if (d.hp === 999) expect(d.y).toBeLessThan(lowestHitY)
+    expect(hit.includes(dogs[dogs.length - 1] as (typeof dogs)[number])).toBe(true)
     expect(sim.fxHits.length).toBe(JERKY_TARGETS)
   })
 
