@@ -6,6 +6,7 @@ import {
   crowdArt,
   heroArt,
   bossArt,
+  bossDarkArt,
   homeArt,
   pawArt,
   rot90,
@@ -20,6 +21,7 @@ export interface Sheets {
   catFlash: HTMLCanvasElement
   /** Boss walk frames, then the same frames as a white hit flash. */
   boss: HTMLCanvasElement
+  bossDark: HTMLCanvasElement
   hero: HTMLCanvasElement
   bone: HTMLCanvasElement
   paw: HTMLCanvasElement
@@ -74,11 +76,11 @@ function bakeBreeds(flash: boolean): HTMLCanvasElement {
   return el
 }
 
-function bakeBoss(): HTMLCanvasElement {
-  const size = bossArt[0]?.w ?? 48
-  const { canvas: el, ctx } = canvas(bossArt.length * size, size * 2)
-  for (let i = 0; i < bossArt.length; i++) {
-    const seal = bossArt[i]
+function bakeBoss(art: readonly Seal[]): HTMLCanvasElement {
+  const size = art[0]?.w ?? 48
+  const { canvas: el, ctx } = canvas(art.length * size, size * 2)
+  for (let i = 0; i < art.length; i++) {
+    const seal = art[i]
     if (!seal) continue
     blit(ctx, seal, i * size, 0, false)
     blit(ctx, seal, i * size, size, true)
@@ -122,7 +124,8 @@ export function createSheets(): Sheets {
     crowdFlash,
     cat: bakeBreeds(false),
     catFlash: bakeBreeds(true),
-    boss: bakeBoss(),
+    boss: bakeBoss(bossArt),
+    bossDark: bakeBoss(bossDarkArt),
     hero,
     bone: bakeOne(boneArt),
     paw: bakeOne(pawArt),
