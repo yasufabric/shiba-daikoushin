@@ -47,7 +47,7 @@ export const DACHS_EVERY = 5
 export const GOLDEN_EVERY = 9
 /** In a clash wave, every Nth dog is a ブルドッグ; N shrinks as the match runs on. */
 export const BULLDOG_EVERY = 7
-/** 柴の家 at the bottom of the field. Cats that reach it bite it; at 0 the match is lost. */
+/** 柴の家 at the bottom of the field. Dogs that reach it hit it (free placement: once, see BREACH); at 0 the match is lost. */
 export const HOME_HP = 1500
 /** How far above the field floor a cat must be to bite the home. */
 export const HOME_REACH = 40
@@ -59,10 +59,26 @@ export const WAVE_MIXED = 0
 export const WAVE_SWARM = 1
 export const WAVE_WALL = 2
 export const WAVE_PINCER = 3
-/** Dogs per pattern: 8 quick チワワ from one side, 4 ブルドッグ shoulder to shoulder, 6 コーギー split to both edges. */
+/** Most dogs per pattern: quick チワワ from one side, ブルドッグ shoulder to shoulder, コーギー split to both edges. Early stages send fewer (see `patternSize`). */
 export const SWARM_COUNT = 10
 export const WALL_COUNT = 5
 export const PINCER_COUNT = 8
+/** Dogs in a pattern wave on this stage (0-based): swarm 4+stage, pincer 4+stage, wall 2+stage/2, each up to its cap. */
+export function patternSize(kind: number, stage: number): number {
+  if (kind === WAVE_SWARM) return Math.min(SWARM_COUNT, 4 + stage)
+  if (kind === WAVE_PINCER) return Math.min(PINCER_COUNT, 4 + stage)
+  if (kind === WAVE_WALL) return Math.min(WALL_COUNT, 2 + (stage >> 1))
+  return 0
+}
+/** The clash ramps in: for its first CLASH_RAMP s every wave is cut to between CLASH_RAMP_FROM and full size. */
+export const CLASH_RAMP = 60
+export const CLASH_RAMP_FROM = 0.4
+/** A dog that reaches the 柴の家 in free placement lands one breach hit (this share of HOME_HP) and leaves the field. Order: the breeds, then the boss. */
+export const BREACH = [0.04, 0.04, 0.1, 0.04, 0.1, 0.04, 0.04, 0.3] as const
+/** Free placement: a dog heading for a shiba that already has this many dogs at its side gives up on shibas and slips by for the house, so a thin line leaks a little at a time instead of holding until it breaks. */
+export const CROWD_CAP = 2
+/** 黒, the tank, holds this many. */
+export const CROWD_CAP_TANK = 3
 
 export const COST_TAN = 34
 export const COST_BLACK = 90
@@ -114,6 +130,8 @@ export const HEAVY_HIT = 180
 
 /** Specials fire on their own once a coat has dealt this much damage (白: healed this much). Order: 赤, 黒, 胡麻, 白. */
 export const SPECIAL_NEED = [1750, 1400, 2400, 1600, 2100, 1750, 1100] as const
+/** Splash and pass-through hits (胡麻's ball, どっしり's stomp, ぶち's disc) fill the gauge at this share; only the dog aimed at counts in full. */
+export const SPLASH_CHARGE = 0.3
 /** After a special lands, no other special fires for this many seconds (play-test round 4: specials still too strong, they chained). */
 export const SPECIAL_GAP = 7
 /** ペロペロ!! in free placement gives back this share of each shiba's health. */
@@ -127,16 +145,18 @@ export const RUSH_TIME = 2
 export const JERKY_HIT = 80
 export const JERKY_DEPTH = 3
 /** 白「ササミ!!」: every shiba back to full, and the 柴の家 mended by this much. */
-export const SASAMI_HOME = 150
+export const SASAMI_HOME = 75
 /** 胡麻「チーズ!!」: a field-wide shockwave that also shoves cats back. */
 export const CHEESE_HIT = 26
 export const CHEESE_PUSH = 60
 /** Free placement 胡麻「チーズ!!」is crowd control: light damage, a big shove, and every dog but the boss freezes. */
 export const CHEESE_FREE_HIT = 6
-export const CHEESE_FREE_PUSH = 50
+export const CHEESE_FREE_PUSH = 30
 export const CHEESE_STUN = 0.8
 /** Free placement 黒「ジャーキー!!」is a few heavy single hits on the dogs nearest the 柴の家 (per FREE_DOG_HP). */
 export const JERKY_FREE_HIT = 130
+/** シバドリル on the boss lands this share. */
+export const JERKY_BOSS = 0.5
 
 export const VIEW_W = 390
 export const VIEW_H = 844
@@ -260,7 +280,8 @@ export const RECALL_PACE = 2.2
 
 /**
  * ステージ: the same yard, but each walk gets harder. Counts, dog toughness and the breed mix change.
- * Stage 2 matches the old default toughness. `*Every` is how often the horde sends that breed (0 = never).
+ * `*Every` is how often the horde sends that breed (0 = never). Tuned with `tools/bot.ts`: the numbers are not monotonic on purpose,
+ * because the deck grows (stage 1 has 赤+黒 only, stage 2 adds 胡麻, stage 3 白) and fences and ponds change how hard a field is.
  */
 export interface StageSpec {
   /** Dogs before the boss. */
@@ -301,41 +322,41 @@ export interface Rock {
   pond?: boolean
 }
 export const STAGES: readonly StageSpec[] = [
-  { count: 70, hp: 0.85, dps: 0.85, dachsEvery: 0, poodleEvery: 0, pomEvery: 0, goldenEvery: 0, bulldogEvery: 9, rocks: [] },
-  { count: 90, hp: 1, dps: 1, dachsEvery: 7, poodleEvery: 9, pomEvery: 0, goldenEvery: 14, bulldogEvery: 8, rocks: [
+  { count: 75, hp: 1.35, dps: 1.35, dachsEvery: 0, poodleEvery: 0, pomEvery: 0, goldenEvery: 0, bulldogEvery: 9, rocks: [] },
+  { count: 150, hp: 2.7, dps: 2.1, dachsEvery: 7, poodleEvery: 9, pomEvery: 0, goldenEvery: 14, bulldogEvery: 8, rocks: [
       { x: 58, y: 230, r: 10 },
       { x: 140, y: 300, r: 10 },
     ], walls: [{ x: 97, y: 370, w: 50 }] },
-  { count: 110, hp: 1.2, dps: 1.15, dachsEvery: 5, poodleEvery: 7, pomEvery: 0, goldenEvery: 9, bulldogEvery: 7, rocks: [
+  { count: 150, hp: 2.5, dps: 1.8, dachsEvery: 5, poodleEvery: 7, pomEvery: 0, goldenEvery: 9, bulldogEvery: 7, rocks: [
       { x: 97, y: 210, r: 22, pond: true },
       { x: 38, y: 330, r: 10 },
       { x: 158, y: 340, r: 10 },
     ], walls: [{ x: 40, y: 270, w: 44 }, { x: 155, y: 270, w: 44 }] },
-  { count: 130, hp: 1.5, dps: 1.35, dachsEvery: 4, poodleEvery: 6, pomEvery: 11, goldenEvery: 8, bulldogEvery: 6, rocks: [
+  { count: 150, hp: 2.6, dps: 1.8, dachsEvery: 4, poodleEvery: 6, pomEvery: 11, goldenEvery: 8, bulldogEvery: 6, rocks: [
       { x: 48, y: 190, r: 20, pond: true },
       { x: 148, y: 260, r: 20, pond: true },
       { x: 97, y: 350, r: 10 },
     ], walls: [{ x: 52, y: 320, w: 50 }] },
-  { count: 150, hp: 1.9, dps: 1.6, dachsEvery: 4, poodleEvery: 5, pomEvery: 9, goldenEvery: 6, bulldogEvery: 5, rocks: [
+  { count: 160, hp: 2.8, dps: 1.9, dachsEvery: 4, poodleEvery: 5, pomEvery: 9, goldenEvery: 6, bulldogEvery: 5, rocks: [
       { x: 97, y: 250, r: 26, pond: true },
       { x: 34, y: 180, r: 10 },
       { x: 160, y: 180, r: 10 },
       { x: 48, y: 350, r: 10 },
       { x: 146, y: 350, r: 10 },
     ], walls: [{ x: 40, y: 310, w: 40 }, { x: 155, y: 310, w: 40 }] },
-  { count: 160, hp: 2.15, dps: 1.7, dachsEvery: 3, poodleEvery: 4, pomEvery: 8, goldenEvery: 6, bulldogEvery: 5, rocks: [
+  { count: 170, hp: 3, dps: 2, dachsEvery: 3, poodleEvery: 4, pomEvery: 8, goldenEvery: 6, bulldogEvery: 5, rocks: [
       { x: 40, y: 220, r: 22, pond: true },
       { x: 154, y: 220, r: 22, pond: true },
       { x: 97, y: 320, r: 12 },
     ], walls: [{ x: 97, y: 220, w: 30 }] },
-  { count: 170, hp: 2.45, dps: 1.85, dachsEvery: 3, poodleEvery: 3, pomEvery: 7, goldenEvery: 5, bulldogEvery: 4, rocks: [
+  { count: 180, hp: 3.2, dps: 2.1, dachsEvery: 3, poodleEvery: 3, pomEvery: 7, goldenEvery: 5, bulldogEvery: 4, rocks: [
       { x: 30, y: 170, r: 10 },
       { x: 70, y: 260, r: 10 },
       { x: 124, y: 260, r: 10 },
       { x: 164, y: 170, r: 10 },
       { x: 97, y: 360, r: 16, pond: true },
     ], walls: [{ x: 40, y: 320, w: 40 }, { x: 155, y: 320, w: 40 }] },
-  { count: 190, hp: 2.8, dps: 2, dachsEvery: 3, poodleEvery: 3, pomEvery: 6, goldenEvery: 4, bulldogEvery: 4, rocks: [
+  { count: 190, hp: 3.5, dps: 2.2, dachsEvery: 3, poodleEvery: 3, pomEvery: 6, goldenEvery: 4, bulldogEvery: 4, rocks: [
       { x: 97, y: 200, r: 30, pond: true },
       { x: 30, y: 300, r: 18, pond: true },
       { x: 164, y: 300, r: 18, pond: true },
@@ -391,8 +412,8 @@ export const HERO_REVIVE = 16
 /** Field taps above this y (below FREE_ZONE_Y) steer the hero instead of deploying. */
 export const HERO_TAP_Y = 420
 
-/** にゃんこ-style unlocks: a coat joins once this stage (index) has a star; -1 is open from the start. Only 赤柴 starts; each stage cleared brings the next coat (黒 after stage 1, 胡麻 after 2, 白 after 3, ぶち after 4, どっしり after 5, 応援 after 6). */
-export const COAT_UNLOCK = [-1, 0, 1, 2, 3, 4, 5] as const
+/** にゃんこ-style unlocks: a coat joins once this stage (index) has a star; -1 is open from the start. 赤柴 and 黒柴 start (a new player needs a tank); each stage cleared brings the next coat (胡麻 after stage 1, 白 after 2, ぶち after 3, どっしり after 4, 応援 after 5). */
+export const COAT_UNLOCK = [-1, -1, 0, 1, 2, 3, 4] as const
 
 /** 応援柴 stats. It trails the nearest shiba; every shiba within CHEER_RADIUS attacks CHEER_HASTE× as often. Its gauge fills CHEER_CHARGE per second while it has a shiba in range. */
 export const HP_CHEER = 70
@@ -465,7 +486,7 @@ export const XP_WIN = 1.5
 export const XP_NEED_BASE = 300
 export const XP_NEED_EXP = 1.5
 /** おやつ: feeding a coat on the result screen trades ホネ for XP (FEED_COST × level ホネ for FEED_SHARE of the level's need). */
-export const FEED_COST = 50
+export const FEED_COST = 80
 export const FEED_SHARE = 0.3
 /** Levels that unlock a coat's perks: PERK_A its own trick, PERK_B a faster special gauge (PERK_B_CHARGE×). */
 export const PERK_A = 5
@@ -475,6 +496,8 @@ export const PERK_B_CHARGE = 1.3
 export const PERK_TAN_HASTE = 1.25
 export const PERK_BLACK_PUSH = 16
 export const PERK_WIDE = 1.3
+/** 胡麻's wider splash. Smaller than PERK_WIDE: a 1.3× radius (1.7× the area) made Lv5 a cliff on every later stage. */
+export const PERK_SPLASH = 1.12
 export const PERK_DISC_RANGE = 1.25
 export const PERK_BIG_STUN = 0.5
 

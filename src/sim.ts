@@ -51,9 +51,14 @@ import {
   WAVE_SWARM,
   WAVE_WALL,
   WAVE_PINCER,
-  SWARM_COUNT,
-  WALL_COUNT,
-  PINCER_COUNT,
+  patternSize,
+  CLASH_RAMP,
+  CLASH_RAMP_FROM,
+  BREACH,
+  SPLASH_CHARGE,
+  JERKY_BOSS,
+  CROWD_CAP,
+  CROWD_CAP_TANK,
   CALL_BONE,
   CLASH_AT,
   COST_BLACK,
@@ -204,6 +209,7 @@ import {
   PERK_TAN_HASTE,
   PERK_BLACK_PUSH,
   PERK_WIDE,
+  PERK_SPLASH,
   PERK_DISC_RANGE,
   PERK_BIG_STUN,
   LOSS_PAY,
@@ -256,6 +262,9 @@ export interface Unit {
   recall: boolean
   /** Match time this unit last took a hit, for the white flash and the jolt. */
   hurtAt: number
+  /** Free placement. Shibas: dogs at its side this step. Dogs: passing by, past a crowded shiba, for the 柴の家. */
+  crowd: number
+  pass: boolean
 }
 
 export interface Input {
@@ -425,11 +434,21 @@ export interface Sim {
   planCount: number
   /** Clash-wave dogs sent so far; every stage-set bulldogEvery-th is a ブルドッグ. */
   horde: number
+  /** Free placement: the latest breaches of the 柴の家 (where and when a dog hit it and left), newest last, for the puff. */
+  breaches: Breach[]
   sfxDeploy: number
   laneS: Int16Array[]
   laneC: Int16Array[]
   laneSN: Int16Array
   laneCN: Int16Array
+}
+
+export interface Breach {
+  x: number
+  y: number
+  at: number
+  /** A ブルドッグ, ゴールデン or the boss: a bigger puff. */
+  big: boolean
 }
 
 export interface SimOptions {
@@ -489,6 +508,8 @@ function makePool(max: number): Unit[] {
       stun: 0,
       recall: false,
       hurtAt: -9,
+      crowd: 0,
+      pass: false,
     })
   }
   return units
@@ -581,6 +602,7 @@ export function createSim(opts?: SimOptions): Sim {
     sfxSpecial: -1,
     seq: 0,
     horde: 0,
+    breaches: [],
     sfxDeploy: 0,
     laneS: Array.from({ length: LANE_COUNT }, () => new Int16Array(MAX_SHIBAS)),
     laneC: Array.from({ length: LANE_COUNT }, () => new Int16Array(MAX_CATS)),
@@ -917,6 +939,7 @@ function boot(sim: Sim): void {
   sim.sfxSpecial = -1
   sim.seq = 0
   sim.horde = 0
+  sim.breaches = []
   sim.sfxDeploy = 0
   clear(sim.shibas)
   clear(sim.cats)
@@ -1006,6 +1029,7 @@ export function spawnCat(sim: Sim, lane: number, breed: number, at?: { x: number
   unit.mendAt = -9
   unit.stun = 0
   unit.hurtAt = -9
+  unit.pass = false
   unit.y = 22 + (lane % 4) * 16
   unit.x = laneW * (lane + 0.5) + ((sim.aliveCats * 7 + lane * 5) % 17) - 8
   if (at) {
@@ -1366,7 +1390,7 @@ function spawnWave(sim: Sim): void {
     planNext(sim)
     return
   }
-  const size = horde ? 5 + Math.floor((sim.time - CLASH_AT) / 18) : TRICKLE_COUNT
+  const size = horde ? Math.max(1, Math.round((5 + Math.floor((sim.time - CLASH_AT) / 18)) * (sim.free ? clashRamp(sim.time) : 1))) : TRICKLE_COUNT
   const st = spec(sim)
   const every = Math.max(4, st.bulldogEvery - Math.floor(Math.max(0, sim.time - CLASH_AT) / 30))
   const count = Math.min(size, sim.toSend)
@@ -1400,7 +1424,16 @@ function planNext(sim: Sim): void {
   if (kind === sim.planKind) kind = kind === WAVE_PINCER ? WAVE_SWARM : kind + 1
   sim.planKind = kind
   sim.planSide = (sim.seed >>> 17) % 3
-  sim.planCount = kind === WAVE_SWARM ? SWARM_COUNT : kind === WAVE_WALL ? WALL_COUNT : kind === WAVE_PINCER ? PINCER_COUNT : 0
+  // Sized for when it will land, one wave from now.
+  const at = sim.time + WAVE_EVERY * FREE_WAVE_SLOW
+  const full = patternSize(kind, Math.min(sim.stage, STAGES.length))
+  sim.planCount = full > 0 ? Math.max(kind === WAVE_PINCER ? 2 : 1, Math.round(full * clashRamp(at))) : 0
+}
+
+/** Share of full wave size at this match time: the clash ramps from CLASH_RAMP_FROM up to 1 over its first CLASH_RAMP s. */
+export function clashRamp(time: number): number {
+  const t = Math.max(0, Math.min(1, (time - CLASH_AT) / CLASH_RAMP))
+  return CLASH_RAMP_FROM + (1 - CLASH_RAMP_FROM) * t
 }
 
 /** One announced wave: チワワ swarm from one side, ブルドッグ wall across the field, or コーギー pincer on both edges. */
@@ -1702,7 +1735,7 @@ function spreadFoes(sim: Sim, dt: number): void {
   for (const a of sim.shibas) {
     if (!a?.alive || a.hp <= 0) continue
     for (const b of sim.cats) {
-      if (!b?.alive || b.fly === 1 || b.hp <= 0) continue
+      if (!b?.alive || b.fly === 1 || b.hp <= 0 || b.pass) continue
       const dx = b.x - a.x
       const dy = b.y - a.y
       const d2 = dx * dx + dy * dy
@@ -1749,7 +1782,7 @@ function throwDisc(sim: Sim, shiba: Unit, foe: Unit): void {
     const ry = dog.y - shiba.y
     const along = rx * ux + ry * uy
     if (along < 0 || along > DISC_RANGE * (perk(sim, KIND_DISC, PERK_A) ? PERK_DISC_RANGE : 1)) continue
-    if (Math.abs(rx * uy - ry * ux) <= DISC_WIDTH) hurt(sim, dog, hit, KIND_DISC)
+    if (Math.abs(rx * uy - ry * ux) <= DISC_WIDTH) hurt(sim, dog, hit, KIND_DISC, dog === foe)
   }
   shiba.aimX = shiba.x + ux * DISC_RANGE
   shiba.aimY = shiba.y + uy * DISC_RANGE
@@ -1770,6 +1803,29 @@ function biteWall(sim: Sim, dog: Unit, beat: number): boolean {
     dog.aimY = dog.y + 10
   }
   return true
+}
+
+/** Free placement: a dog at the 柴の家 door lands one breach hit and leaves the field (no kill, no pay). */
+function breach(sim: Sim, dog: Unit): void {
+  const share = BREACH[dog.kind === BREED_BOSS ? BREACH.length - 1 : dog.kind] ?? BREACH[0]
+  sim.homeHp -= HOME_HP * share
+  sim.breaches.push({ x: dog.x, y: dog.y, at: sim.time, big: share >= 0.1 })
+  if (sim.breaches.length > 8) sim.breaches.shift()
+  dog.alive = false
+  dog.hp = 0
+  sim.aliveCats -= 1
+}
+
+/** How many dogs stand at each shiba's side (in bite reach), for CROWD_CAP. */
+function countCrowds(sim: Sim): void {
+  for (const u of sim.shibas) {
+    if (!u?.alive) continue
+    u.crowd = 0
+    for (const dog of sim.cats) {
+      if (!dog?.alive || dog.fly === 1 || dog.hp <= 0 || dog.pass || dog.kind === BREED_POODLE) continue
+      if (Math.hypot(dog.x - u.x, dog.y - u.y) <= FREE_REACH + 6) u.crowd += 1
+    }
+  }
 }
 
 function moveFree(sim: Sim, rawDt: number): void {
@@ -1850,7 +1906,7 @@ function moveFree(sim: Sim, rawDt: number): void {
         for (const dog of sim.cats) {
           if (!dog?.alive || dog.fly === 1 || dog.hp <= 0) continue
           if (Math.hypot(dog.x - shiba.x, dog.y - shiba.y) > BIG_RADIUS) continue
-          hurt(sim, dog, hit, KIND_BIG)
+          hurt(sim, dog, hit, KIND_BIG, dog === foe)
           if (perk(sim, KIND_BIG, PERK_A) && dog.kind !== BREED_BOSS) dog.stun = Math.max(dog.stun, PERK_BIG_STUN)
         }
         shiba.aimX = foe.x
@@ -1864,7 +1920,7 @@ function moveFree(sim: Sim, rawDt: number): void {
         const hit = BARK_HIT * power(sim, KIND_SESAME)
         for (const dog of sim.cats) {
           if (!dog?.alive || dog.fly === 1 || dog.hp <= 0) continue
-          if (Math.hypot(dog.x - foe.x, dog.y - foe.y) <= BARK_SPLASH * (perk(sim, KIND_SESAME, PERK_A) ? PERK_WIDE : 1)) hurt(sim, dog, hit, KIND_SESAME)
+          if (Math.hypot(dog.x - foe.x, dog.y - foe.y) <= BARK_SPLASH * (perk(sim, KIND_SESAME, PERK_A) ? PERK_SPLASH : 1)) hurt(sim, dog, hit, KIND_SESAME, dog === foe)
         }
         shiba.aimX = foe.x
         shiba.aimY = foe.y
@@ -1883,6 +1939,7 @@ function moveFree(sim: Sim, rawDt: number): void {
     }
   }
   slideWalls = false
+  countCrowds(sim)
   for (const dog of sim.cats) {
     if (!dog?.alive || dog.fly === 1 || dog.hp <= 0) continue
     if (dog.stun > 0) {
@@ -1897,7 +1954,12 @@ function moveFree(sim: Sim, rawDt: number): void {
       }
     }
     if (dog.kind === BREED_POM && pomFree(sim, dog, dt, beat)) continue
-    let foe = nearestTaunt(sim.shibas, dog, FREE_SIGHT_DOG)
+    let foe = dog.pass ? undefined : nearestTaunt(sim.shibas, dog, FREE_SIGHT_DOG)
+    // Every shiba it could bite is already ringed: it gives up on them and slips by for the house.
+    if (foe && dog.kind !== BREED_POODLE && dog.kind !== BREED_BOSS && foe.crowd >= (foe.kind === KIND_BLACK ? CROWD_CAP_TANK : CROWD_CAP) && Math.hypot(foe.x - dog.x, foe.y - dog.y) > FREE_REACH + 6) {
+      dog.pass = true
+      foe = undefined
+    }
     if (sim.hero.alive) {
       const dh = Math.hypot(sim.hero.x - dog.x, sim.hero.y - dog.y)
       if (dh <= FREE_SIGHT_DOG && (!foe || dh < Math.hypot(foe.x - dog.x, foe.y - dog.y))) foe = sim.hero
@@ -1913,12 +1975,7 @@ function moveFree(sim: Sim, rawDt: number): void {
         if (biteWall(sim, dog, beat)) continue
         dog.bite = BITE_EVERY * 0.5
       } else {
-        dog.bite -= beat
-        if (dog.bite <= 0) {
-          dog.bite += BITE_EVERY
-          sim.homeHp -= dog.dps * BITE_EVERY
-          dog.bitAt = sim.time
-        }
+        breach(sim, dog)
       }
       continue
     }
@@ -2026,13 +2083,13 @@ function moveLane(sim: Sim, lane: number, dt: number): void {
   }
 }
 
-/** Damage a cat and fill that coat's special gauge with what landed. */
-function hurt(sim: Sim, cat: Unit, rawAmount: number, kind: number): number {
+/** Damage a cat and fill that coat's special gauge with what landed. `primary` false is a splash or pass-through hit: full damage, but it fills the gauge only at SPLASH_CHARGE. */
+function hurt(sim: Sim, cat: Unit, rawAmount: number, kind: number, primary = true): number {
   const amount = cat.kind === BREED_GOLDEN ? Math.max(rawAmount / 3, rawAmount - GOLDEN_ARMOR) : rawAmount
   const landed = Math.min(Math.max(0, cat.hp), amount)
   cat.hp -= amount
   cat.hurtAt = sim.time
-  sim.charge[kind] = (sim.charge[kind] ?? 0) + landed * (perk(sim, kind, PERK_B) ? PERK_B_CHARGE : 1)
+  sim.charge[kind] = (sim.charge[kind] ?? 0) + landed * (primary ? 1 : SPLASH_CHARGE) * (perk(sim, kind, PERK_B) ? PERK_B_CHARGE : 1)
   sim.dealt[kind] = (sim.dealt[kind] ?? 0) + landed
   return landed
 }
@@ -2123,9 +2180,10 @@ export function strikeSpecial(sim: Sim, kind: number): void {
     // シバドリル!!: the toughest dog on the field (the boss, a ブルドッグ…), not just the nearest.
     const targets = cats.filter((c) => c?.alive && c.fly !== 1 && c.hp > 0).sort((a, b) => b.hp - a.hp).slice(0, JERKY_TARGETS)
     for (const cat of targets) {
-      const hit = Math.min(Math.max(0, cat.hp), JERKY_FREE_HIT * scale)
+      const full = JERKY_FREE_HIT * scale * (cat.kind === BREED_BOSS ? JERKY_BOSS : 1)
+      const hit = Math.min(Math.max(0, cat.hp), full)
       dealt += hit
-      cat.hp -= JERKY_FREE_HIT * scale
+      cat.hp -= full
       note(cat, hit, false)
     }
   } else if (kind === KIND_BLACK) {

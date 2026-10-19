@@ -499,6 +499,7 @@ export function draw(
   if (sim.free) paintRoles(g, sim)
   if (sim.free) paintAttacks(g, sim)
   paintBiteSparks(g, sim)
+  if (sim.free) paintBreaches(g, sim)
   paintHpBars(g, sim)
   paintBossBar(g, sim)
   paintHomeBar(g, renderer, sim)
@@ -1510,6 +1511,45 @@ function paintBiteSparks(ctx: CanvasRenderingContext2D, sim: Sim): void {
       ctx.fillStyle = age < 0.12 ? WHITE : DANGER
       ctx.fillRect(bx + i, by + i, 2, 2)
       ctx.fillRect(bx + i, by - i, 2, 2)
+    }
+  }
+}
+
+/** A dog that breached the 柴の家 is gone: its bite slash stays where it was, and a sealed dust puff bursts out (bigger for ブルドッグ, ゴールデン and the boss). */
+const BREACH_TIME = 0.5
+function paintBreaches(ctx: CanvasRenderingContext2D, sim: Sim): void {
+  for (const b of sim.breaches) {
+    const age = sim.time - b.at
+    if (age < 0 || age >= BREACH_TIME) continue
+    const bx = px(at(FIELD_X + b.x))
+    const by = fpy(b.y) - (CAT_PX >> 1)
+    const t = age / BREACH_TIME
+    const n = b.big ? 8 : 6
+    const reach = (b.big ? 6 : 4) + Math.round(t * (b.big ? 14 : 9))
+    const size = t < 0.6 ? 3 : 2
+    const fill = t < 0.3 ? WHITE : t < 0.65 ? WHITE_MID : WHITE_DARK
+    for (let k = 0; k < n; k++) {
+      const a = (k / n) * Math.PI * 2 + 0.4
+      const dx = bx + Math.round(Math.cos(a) * reach)
+      const dy = by + Math.round(Math.sin(a) * reach * 0.7) - Math.round(t * 4)
+      ctx.fillStyle = LINE
+      ctx.fillRect(dx - 1, dy - 1, size + 2, size + 2)
+      ctx.fillStyle = fill
+      ctx.fillRect(dx, dy, size, size)
+    }
+    if (age >= 0.3) continue
+    // The same red crossed slash a dog's bite shows, where it hit the house.
+    const r = age < 0.12 ? 6 : 4
+    const sy = fpy(b.y) + 2
+    for (let i = -r; i <= r; i++) {
+      ctx.fillStyle = LINE
+      ctx.fillRect(bx + i - 1, sy + i - 1, 3, 3)
+      ctx.fillRect(bx + i - 1, sy - i - 1, 3, 3)
+    }
+    for (let i = -r; i <= r; i++) {
+      ctx.fillStyle = age < 0.12 ? WHITE : DANGER
+      ctx.fillRect(bx + i, sy + i, 2, 2)
+      ctx.fillRect(bx + i, sy - i, 2, 2)
     }
   }
 }
