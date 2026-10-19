@@ -225,3 +225,6 @@ The hero levels up like a coat: the result screen's eighth cell (`HERO_SLOT` = `
 
 ## エンドレス
 The stage after the last (`sim.stage === STAGES.length`, `isEndless`) opens once stage 8 has a star; its title tile shows ∞ (`drawInfinity`) over the best score. `spec` returns `ENDLESS_STAGE` (count 999999, so no boss), and `ramp(sim)` makes every new dog `ENDLESS_RAMP` × tougher and harder-biting per 100 s of match time. The HUD shows dogs beaten instead of dogs left and ∞ instead of STAGE n. A loss records `sim.endlessBest` (saved as `endless`) and `endlessRecord`; the result screen shows SCORE n (+ NEW!) in place of stars.
+
+## New rival card
+`sim.seenBreeds` (saved as `seen`; チワワ, コーギー and ブルドッグ count as met from the start) gets a bit the first time `spawnCat` makes a breed. That spawn sets `introBreed`/`introAt`, and `paintIntro` slides a card in under the HUD with the dog at 2× and a blinking NEW! for 2.6 s. The boss never gets one (it has its entrance).

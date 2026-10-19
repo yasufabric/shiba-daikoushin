@@ -484,6 +484,7 @@ export function draw(
   g.restore()
   paintSpecialField(g, renderer, sim)
   paintCall(g, renderer, sim)
+  paintIntro(g, renderer, sim)
   paintDamage(g, renderer, sim)
   paintCutIn(g, renderer, sim)
   g.restore()
@@ -1024,6 +1025,25 @@ function paintCastle(ctx: CanvasRenderingContext2D, renderer: Renderer, sim: Sim
 }
 
 /** 波を早く呼ぶ: a gold pill under the wave bar with chevrons and the ホネ the skip would pay. */
+/** A rival breed met for the first time: a card slides in under the HUD with the dog at 2× and a blinking NEW!, then slides away. */
+function paintIntro(ctx: CanvasRenderingContext2D, renderer: Renderer, sim: Sim): void {
+  const age = sim.time - sim.introAt
+  if (sim.introBreed < 0 || age < 0 || age > 2.6) return
+  const w = 104
+  const h = 50
+  const slide = age < 0.25 ? Math.round((1 - age / 0.25) * (w + 10)) : age > 2.3 ? Math.round(((age - 2.3) / 0.3) * (w + 10)) : 0
+  const x = ((frame.internalW - w) >> 1) + slide
+  const y = py(at(FIELD_Y)) + 34
+  ctx.fillStyle = LINE
+  ctx.fillRect(x, y, w, h)
+  ctx.fillStyle = NIGHT_1
+  ctx.fillRect(x + 1, y + 1, w - 2, h - 2)
+  frameRect(ctx, x + 1, y + 1, w - 2, h - 2, DANGER)
+  ctx.drawImage(renderer.sheets.cat, 0, sim.introBreed * 4 * CAT_PX, CAT_PX, CAT_PX, x + 6, y + 5, CAT_PX * 2, CAT_PX * 2)
+  const c = (Math.floor(sim.time * 8) & 1) === 0 ? DANGER : DANGER_LIGHT
+  for (let i = 0; i < NEW_WORD.length; i++) drawLetter(ctx, NEW_WORD[i] ?? '', x + 54 + i * 11, y + 20, 1, c)
+}
+
 function paintCall(ctx: CanvasRenderingContext2D, renderer: Renderer, sim: Sim): void {
   if (!sim.free || sim.boss || sim.toSend <= 0 || sim.tutorial) return
   const on = canCall(sim)
