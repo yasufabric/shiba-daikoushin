@@ -103,6 +103,16 @@ export function queuePlain(text: string, x: number, y: number, size: number, col
   plain.push({ text, x, y, size, color, align, bold, outline })
 }
 
+let measure: CanvasRenderingContext2D | null = null
+
+/** Width in internal px of `text` as queuePlain will draw it (measured at 4× for a steadier number). */
+export function plainWidth(text: string, size: number, bold = false): number {
+  if (!measure) measure = document.createElement('canvas').getContext('2d')
+  if (!measure) return text.length * size
+  measure.font = `${bold ? 'bold' : '600'} ${size * 4}px ${FONT}`
+  return Math.ceil(measure.measureText(text).width / 4)
+}
+
 /** Draw and clear the queue: internal (x, y) lands at (ox + x * scale, oy + y * scale) in CSS px on `ctx`. */
 export function flushPlain(ctx: CanvasRenderingContext2D, ox: number, oy: number, scale: number): void {
   if (plain.length === 0) return

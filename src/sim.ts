@@ -240,6 +240,7 @@ import {
   gridX,
   SPEED_SESAME,
   STEP_SESAME,
+  HUD_DROP,
 } from './balance'
 
 export type Phase = 'grow' | 'clash'
@@ -390,10 +391,8 @@ export interface Sim {
   callT: number
   rewardT: number
   nextCat: number
-  deny0: number
-  deny1: number
-  deny2: number
-  deny3: number
+  /** Card shake timer per coat (a denied tap), counting down. */
+  deny: number[]
   /** Special gauge per coat, in damage dealt. Fires at SPECIAL_NEED. */
   charge: number[]
   /** The coat whose special cut-in is showing, or -1. */
@@ -629,10 +628,7 @@ export function createSim(opts?: SimOptions): Sim {
     planKind: WAVE_MIXED,
     planSide: 2,
     planCount: 0,
-    deny0: 0,
-    deny1: 0,
-    deny2: 0,
-    deny3: 0,
+    deny: new Array<number>(KINDS).fill(0),
     charge: Array.from({ length: KINDS }, () => 0),
     cutKind: -1,
     cutT: 0,
@@ -975,10 +971,7 @@ function boot(sim: Sim): void {
   sim.planKind = WAVE_MIXED
   sim.planSide = 2
   sim.planCount = 0
-  sim.deny0 = 0
-  sim.deny1 = 0
-  sim.deny2 = 0
-  sim.deny3 = 0
+  sim.deny.fill(0)
   sim.recharge.fill(0)
   sim.charge.fill(0)
   sim.cutKind = -1
@@ -1091,7 +1084,7 @@ export function spawnCat(sim: Sim, lane: number, breed: number, at?: { x: number
   unit.stun = 0
   unit.hurtAt = -9
   unit.pass = false
-  unit.y = 22 + (lane % 4) * 16
+  unit.y = 22 + (lane % 4) * 16 + (sim.free ? HUD_DROP : 0)
   unit.x = laneW * (lane + 0.5) + ((sim.aliveCats * 7 + lane * 5) % 17) - 8
   if (at) {
     unit.x = Math.max(14, Math.min(FIELD_W - 14, at.x))
@@ -1108,7 +1101,7 @@ function spawnBoss(sim: Sim): void {
   if (!spawnCat(sim, lane, BREED_CORGI)) return
   for (let i = 0; i < sim.cats.length; i++) {
     const unit = sim.cats[i]
-    if (!unit?.alive || unit.lane !== lane || unit.y > 80 || unit.kind !== BREED_CORGI || unit.hp !== unit.maxHp) continue
+    if (!unit?.alive || unit.lane !== lane || unit.y > 80 + (sim.free ? HUD_DROP : 0) || unit.kind !== BREED_CORGI || unit.hp !== unit.maxHp) continue
     unit.kind = BREED_BOSS
     unit.hp = Math.round(BOSS_HP * spec(sim).hp)
     unit.maxHp = unit.hp
@@ -1237,10 +1230,7 @@ export function step(sim: Sim, dt: number, input: Input = NO_INPUT): void {
 
   if (sim.callT > 0) sim.callT -= tick
   if (sim.floatT > 0) sim.floatT -= tick
-  if (sim.deny0 > 0) sim.deny0 -= tick
-  if (sim.deny1 > 0) sim.deny1 -= tick
-  if (sim.deny2 > 0) sim.deny2 -= tick
-  if (sim.deny3 > 0) sim.deny3 -= tick
+  for (let k = 0; k < sim.deny.length; k++) if ((sim.deny[k] ?? 0) > 0) sim.deny[k] = (sim.deny[k] ?? 0) - tick
   for (let k = 0; k < KINDS; k++) {
     const left = sim.recharge[k] ?? 0
     if (left > 0) sim.recharge[k] = Math.max(0, left - tick)
@@ -1433,10 +1423,7 @@ export function costOf(sim: Sim, card: number): number {
 }
 
 function deny(sim: Sim, card: number): void {
-  if (card === KIND_BLACK) sim.deny1 = 0.18
-  else if (card === KIND_SESAME) sim.deny2 = 0.18
-  else if (card === KIND_WHITE) sim.deny3 = 0.18
-  else sim.deny0 = 0.18
+  if (card >= 0 && card < sim.deny.length) sim.deny[card] = 0.18
 }
 
 function laneBack(sim: Sim, lane: number): number {
@@ -1497,6 +1484,19 @@ function planNext(sim: Sim): void {
   sim.planCount = full > 0 ? Math.max(kind === WAVE_PINCER ? 2 : 1, Math.round(full * clashRamp(at))) : 0
 }
 
+/** Free placement: what the next wave will be, for the HUD warning (read-only). `kind` is its pattern (WAVE_MIXED for the trickle), `boss` is true when that wave sends the last dogs, so the boss walks out with it. Null while nothing is due. */
+export function waveAhead(sim: Sim): { at: number; kind: number; side: number; boss: boolean } | null {
+  if (!sim.free || sim.title || sim.outcome !== 'play' || sim.boss || sim.toSend <= 0) return null
+  const horde = sim.nextCat >= CLASH_AT
+  const pattern = horde && sim.planKind !== WAVE_MIXED
+  const count = pattern
+    ? Math.min(sim.planCount, sim.toSend)
+    : horde
+      ? Math.max(1, Math.round((5 + Math.floor((sim.nextCat - CLASH_AT) / 18)) * clashRamp(sim.nextCat)))
+      : TRICKLE_COUNT
+  return { at: sim.nextCat, kind: pattern ? sim.planKind : WAVE_MIXED, side: sim.planSide, boss: count >= sim.toSend }
+}
+
 /** Share of full wave size at this match time: the clash ramps from CLASH_RAMP_FROM up to 1 over its first CLASH_RAMP s. */
 export function clashRamp(time: number): number {
   const t = Math.max(0, Math.min(1, (time - CLASH_AT) / CLASH_RAMP))
@@ -1512,15 +1512,15 @@ function spawnPattern(sim: Sim): void {
     sim.horde += 1
     if (sim.planKind === WAVE_SWARM) {
       const cx = sim.planSide === 0 ? 70 : sim.planSide === 1 ? FIELD_W - 70 : mid
-      spawnCat(sim, 0, BREED_CHIHUAHUA, { x: cx - 36 + (i % 4) * 24, y: 22 + Math.floor(i / 4) * 16 })
+      spawnCat(sim, 0, BREED_CHIHUAHUA, { x: cx - 36 + (i % 4) * 24, y: HUD_DROP + 22 + Math.floor(i / 4) * 16 })
     } else if (sim.planKind === WAVE_WALL) {
       const span = FIELD_W - 90
-      spawnCat(sim, 0, BREED_BULLDOG, { x: 45 + (span * (i + 0.5)) / Math.max(1, count), y: 24 })
+      spawnCat(sim, 0, BREED_BULLDOG, { x: 45 + (span * (i + 0.5)) / Math.max(1, count), y: HUD_DROP + 24 })
     } else {
       const half = count >> 1
       const left = i < half
       const k = left ? i : i - half
-      spawnCat(sim, 0, BREED_CORGI, { x: left ? 28 + k * 22 : FIELD_W - 28 - k * 22, y: 24 + (k % 2) * 14 })
+      spawnCat(sim, 0, BREED_CORGI, { x: left ? 28 + k * 22 : FIELD_W - 28 - k * 22, y: HUD_DROP + 24 + (k % 2) * 14 })
     }
   }
 }

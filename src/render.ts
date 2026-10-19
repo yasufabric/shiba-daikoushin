@@ -12,6 +12,7 @@ import {
   BREED_BULLDOG,
   BREED_CHIHUAHUA,
   BREED_CORGI,
+  BREED_GOLDEN,
   BREED_POODLE,
   BREED_POM,
   POM_RADIUS,
@@ -32,6 +33,7 @@ import {
   FIELD_W,
   FIELD_X,
   FIELD_Y,
+  HUD_DROP,
   FREE_ZONE_Y,
   COAT_UNLOCK,
   HEAL_RADIUS,
@@ -64,6 +66,7 @@ import {
   BONE_WALL_W,
   BONE_WALL_T,
   KINDS,
+  RECALL_HOLD,
   CARD_XS,
   RECHARGE,
   MAX_LEVEL,
@@ -90,9 +93,9 @@ import {
   PANEL_Y,
   gridX,
 } from './balance'
-import { drawJP, flushPlain, jpWidth, queuePlain } from './jp'
+import { drawJP, flushPlain, jpWidth, plainWidth, queuePlain } from './jp'
 import { finish as hdFinish, flash as hdFlash } from './hd'
-import { BANNER_POP, BANNER_REST, CLEAR_WORD, glyphBit, LEVEL_WORD, letterBit, LOSE_WORD, START_WORD, POP_COL, POP_ROW, RUMBLE_WORD, SELECT_WORD, STAGE_WORD, TITLE_WORD, TAP_WORD, NEW_WORD, PAUSE_WORD } from './font'
+import { BANNER_POP, BANNER_REST, CLEAR_WORD, glyphBit, LEVEL_WORD, letterBit, LOSE_WORD, START_WORD, POP_COL, POP_ROW, RUMBLE_WORD, SELECT_WORD, STAGE_WORD, TAP_WORD, NEW_WORD, PAUSE_WORD } from './font'
 import {
   BOSS_H,
   BOSS_W,
@@ -129,7 +132,7 @@ import {
   WHITE_DARK,
   WHITE_MID,
 } from './palette'
-import { canCall, costOf, deckReady, deckSize, feedCost, isEndless, mvpOf, xpNeed, stageOpen, coatOpen, spec, dogsLeft, levelCost, skillReady, casterOf, boomPoint, type Cast, type Outcome, type Sim, type Unit } from './sim'
+import { canCall, costOf, deckReady, deckSize, feedCost, isEndless, mvpOf, xpNeed, stageOpen, coatOpen, spec, dogsLeft, levelCost, skillReady, casterOf, boomPoint, waveAhead, type Cast, type Outcome, type Sim, type Unit } from './sim'
 import { createSheets, type Sheets } from './sprites'
 
 const BUCKETS = 96
@@ -225,6 +228,12 @@ export interface Renderer {
   chestOpenAt: number
   /** Sim clock at the last draw; a drop means a new match began. */
   lastTime: number
+  /** The wave warning on screen (free placement): the wave it is about, kept a moment after the wave lands. */
+  warn: { at: number; kind: number; side: number; boss: boolean } | null
+  /** A press held on one of our shibas (field px) and when it began (performance.now); a full ring means recall. */
+  press: { x: number; y: number; start: number } | null
+  /** The title's settings panel is open. */
+  settings: boolean
 }
 
 export interface ViewFit {
@@ -430,6 +439,9 @@ export function createRenderer(): Renderer {
     fxSeen: 0,
     castSeen: 0,
     lastTime: 0,
+    warn: null,
+    press: null,
+    settings: false,
     muted: false,
     fast: false,
     paused: false,
@@ -516,6 +528,7 @@ export function draw(
     if (sim.free) paintFreeZone(g)
     else paintLaneArrows(g, renderer)
   }
+  paintPress(g, renderer)
   paintGhosts(g, renderer, sim)
   paintBooms(g, renderer, sim)
   if (sim.free) paintCasts(g, renderer, sim)
@@ -523,6 +536,7 @@ export function draw(
   g.restore()
   paintSpecialField(g, renderer, sim)
   paintCall(g, renderer, sim)
+  paintWaveWarn(g, renderer, sim)
   paintIntro(g, renderer, sim)
   paintStageBanner(g, renderer, sim)
   paintDamage(g, renderer, sim)
@@ -537,6 +551,8 @@ export function draw(
   presentView(ctx, renderer, dpr, sim)
 }
 
+/** The title logo. */
+const TITLE_JP = 'しば大行進'
 const TITLE_TILE_W = 32
 const TITLE_TILE_H = 46
 const TITLE_TILE_GAP = 4
@@ -547,6 +563,16 @@ const SHOP_INFO_SHORT = 27
 /** Stage tiles plus one for エンドレス. */
 const TITLE_TILES = STAGES.length + 1
 
+/** The title's rows, from the top: logo, the deck's faces, the 柴の家, and where the stage tiles start. Short screens (375×667 with browser bars) pull the top rows up and tighten them so SELECT never sits on the house. */
+function titleLayout(): { logo: number; faces: number; home: number; tiles: number; short: boolean } {
+  const rows = Math.ceil(TITLE_TILES / TITLE_ROW)
+  const tilesH = rows * TITLE_TILE_H + (rows - 1) * 6
+  const room = frame.internalH - frame.topDy
+  const short = room < 380
+  const tiles = short ? Math.max(150, room - tilesH - 6) : Math.max(206, room - tilesH - 52)
+  return short ? { logo: 24, faces: 60, home: 98, tiles, short } : { logo: 28, faces: 84, home: 126, tiles, short }
+}
+
 /** Internal-px box of a stage tile on the title screen, from the top of the screen. */
 function titleTile(stage: number): { x: number; y: number } {
   // Up to TITLE_ROW tiles per row; later stages wrap to a second row.
@@ -554,31 +580,95 @@ function titleTile(stage: number): { x: number; y: number } {
   const col = stage % TITLE_ROW
   const inRow = Math.min(TITLE_ROW, TITLE_TILES - row * TITLE_ROW)
   const total = inRow * TITLE_TILE_W + (inRow - 1) * TITLE_TILE_GAP
-  const rows = Math.ceil(TITLE_TILES / TITLE_ROW)
-  const base = Math.max(150, frame.internalH - frame.topDy - 150 - (rows - 1) * 26)
+  const base = titleLayout().tiles
   return { x: ((frame.internalW - total) >> 1) + col * (TITLE_TILE_W + TITLE_TILE_GAP), y: base + row * (TITLE_TILE_H + 6) }
 }
 
-const RESET_W = 74
-const RESET_H = 16
+/** The title's settings panel (opened by the gear, top right): sound on/off and the level reset. Design px. */
+const MENU_W = 140
+const MENU_H = 112
+const MENU_BTN_W = 116
+const MENU_BTN_H = 22
+const RESET_W = MENU_BTN_W
+const RESET_H = MENU_BTN_H
 
-/** The title's level reset button: bottom centre, under the stage tiles. */
-function resetRect(): { x: number; y: number } {
-  const last = titleTile(TITLE_TILES - 1)
-  return { x: (INTERNAL_W - RESET_W) >> 1, y: Math.min(frame.internalH - frame.topDy - RESET_H - 6, last.y + TITLE_TILE_H + 10) }
+function menuRect(): { x: number; y: number; sound: number; reset: number; close: number } {
+  const x = (INTERNAL_W - MENU_W) >> 1
+  const y = Math.max(40, Math.min(78, (frame.internalH - frame.topDy - MENU_H) >> 1))
+  return { x, y, sound: y + 24, reset: y + 52, close: y + 84 }
 }
 
-/** A tap on the reset button (flat world point). */
-export function resetTarget(x: number, y: number): boolean {
-  const r = resetRect()
+/** What a tap on the title's settings picks (flat world point): the gear, and with the panel open its buttons, 'inside' (the panel's blank parts) or 'none' (outside it). */
+export function titleMenuTarget(x: number, y: number, open: boolean): 'gear' | 'sound' | 'reset' | 'close' | 'inside' | 'none' {
   const ix = x / 2
   const iy = y / 2
-  return ix >= r.x - 2 && ix <= r.x + RESET_W + 2 && iy >= r.y - 2 && iy <= r.y + RESET_H + 2
+  if (ix >= rightEdge() - 24 && ix <= rightEdge() + 2 && iy <= 26) return 'gear'
+  if (!open) return 'none'
+  const m = menuRect()
+  const bx = (INTERNAL_W - MENU_BTN_W) >> 1
+  const inBtn = (top: number): boolean => ix >= bx - 2 && ix <= bx + MENU_BTN_W + 2 && iy >= top - 2 && iy <= top + MENU_BTN_H + 2
+  if (inBtn(m.sound)) return 'sound'
+  if (inBtn(m.reset)) return 'reset'
+  if (iy >= m.close - 2 && iy <= m.close + 20 && ix >= m.x && ix <= m.x + MENU_W) return 'close'
+  if (ix >= m.x && ix <= m.x + MENU_W && iy >= m.y && iy <= m.y + MENU_H) return 'inside'
+  return 'none'
+}
+
+/** The gear on the title, where the speaker sits on other screens: a 20×18 night tile with a sealed white cog, gold while the panel is open. */
+function paintGear(ctx: CanvasRenderingContext2D, open: boolean, y: number): void {
+  const x = px(rightEdge() - 22)
+  ctx.fillStyle = LINE
+  ctx.fillRect(x, y, 20, 18)
+  ctx.fillStyle = open ? GOLD_DARK : NIGHT_2
+  ctx.fillRect(x + 1, y + 1, 18, 16)
+  const rows = ['....##....', '.#.####.#.', '.########.', '..##..##..', '###....###', '###....###', '..##..##..', '.########.', '.#.####.#.', '....##....']
+  const ox = x + 5
+  const oy = y + 4
+  ctx.fillStyle = LINE
+  for (let r = 0; r < rows.length; r++) {
+    const row = rows[r] ?? ''
+    for (let c = 0; c < row.length; c++) if (row[c] === '#') ctx.fillRect(ox + c - 1, oy + r - 1, 3, 3)
+  }
+  for (let r = 0; r < rows.length; r++) {
+    const row = rows[r] ?? ''
+    for (let c = 0; c < row.length; c++) {
+      if (row[c] !== '#') continue
+      ctx.fillStyle = r < 5 && c < 5 ? WHITE : WHITE_MID
+      ctx.fillRect(ox + c, oy + r, 1, 1)
+    }
+  }
+}
+
+/** The settings panel over a dimmed title: せってい, a sound toggle, レベルリセット (two taps), and とじる. */
+function paintMenu(ctx: CanvasRenderingContext2D, renderer: Renderer): void {
+  ctx.fillStyle = dither(ctx, NIGHT, 2) ?? NIGHT
+  ctx.fillRect(0, 0, frame.internalW, frame.internalH)
+  const m = menuRect()
+  const x = px(m.x)
+  const y = py(m.y)
+  ctx.fillStyle = LINE
+  ctx.fillRect(x, y, MENU_W, MENU_H)
+  ctx.fillStyle = NIGHT_1
+  ctx.fillRect(x + 1, y + 1, MENU_W - 2, MENU_H - 2)
+  frameRect(ctx, x + 2, y + 2, MENU_W - 4, MENU_H - 4, GOLD_DARK)
+  queuePlain('せってい', frame.internalW >> 1, y + 7, 10, GOLD_LIGHT, 'center', true, LINE)
+  // Sound: the same speaker as the dock's, and the word for its state.
+  const bx = px((INTERNAL_W - MENU_BTN_W) >> 1)
+  const sy = py(m.sound)
+  ctx.fillStyle = LINE
+  ctx.fillRect(bx, sy, MENU_BTN_W, MENU_BTN_H)
+  ctx.fillStyle = NIGHT_2
+  ctx.fillRect(bx + 1, sy + 1, MENU_BTN_W - 2, MENU_BTN_H - 2)
+  drawSpeaker(ctx, renderer.muted, bx + 6, sy + 2)
+  queuePlain(renderer.muted ? 'サウンド オフ' : 'サウンド オン', bx + 32, sy + 5, 10, renderer.muted ? WHITE_MID : WHITE, 'left', true, LINE)
+  paintReset(ctx, renderer)
+  queuePlain('とじる', frame.internalW >> 1, py(m.close) + 4, 9, WHITE_MID, 'center', true, LINE)
 }
 
 /** レベルリセット: dim until tapped, then red and asking for a second tap; a short "リセットした!" after. */
 function paintReset(ctx: CanvasRenderingContext2D, renderer: Renderer): void {
-  const r = resetRect()
+  const m = menuRect()
+  const r = { x: (INTERNAL_W - RESET_W) >> 1, y: m.reset }
   const now = performance.now()
   const armed = now - renderer.resetArmedAt < 3000
   const done = now - renderer.resetDoneAt < 1500
@@ -586,11 +676,10 @@ function paintReset(ctx: CanvasRenderingContext2D, renderer: Renderer): void {
   const y = py(r.y)
   ctx.fillStyle = LINE
   ctx.fillRect(x, y, RESET_W, RESET_H)
-  ctx.fillStyle = armed ? DANGER_DARK : NIGHT_1
+  ctx.fillStyle = armed ? DANGER_DARK : NIGHT_2
   ctx.fillRect(x + 1, y + 1, RESET_W - 2, RESET_H - 2)
   const text = done ? 'リセットした!' : armed ? 'もう一回タップ' : 'レベルリセット'
-  const tw = jpWidth(text, 9)
-  drawJP(ctx, text, x + ((RESET_W - tw) >> 1), y + 3, 9, armed ? WHITE : done ? GOLD_LIGHT : NIGHT_3)
+  queuePlain(text, frame.internalW >> 1, y + 5, 10, armed ? WHITE : done ? GOLD_LIGHT : DANGER_LIGHT, 'center', true, LINE)
 }
 
 /** What a tap on the title screen picks: a stage tile, or -1. `x`, `y` are flat world points. */
@@ -617,15 +706,14 @@ function paintTitle(ctx: CanvasRenderingContext2D, renderer: Renderer, sim: Sim)
   ctx.fillStyle = MEADOW
   ctx.fillRect(0, py(64), w, frame.internalH)
   paintLanes(ctx, 0, py(64), w, frame.internalH, 24, w)
-  // Logo: gold letters with a dark drop shadow.
-  const lw = TITLE_WORD.length * 36 - 4
-  const lx = (w - lw) >> 1
+  const lay = titleLayout()
+  // Logo: しば大行進 in gold, palette-snapped, over a dark drop shadow; it bobs gently.
   const bob = BOB[Math.floor(clock * 4) & 7] ?? 0
-  for (let i = 0; i < TITLE_WORD.length; i++) {
-    const ch = TITLE_WORD[i] ?? ''
-    drawLetter(ctx, ch, lx + i * 36 + 2, py(22) + 3, 4, GOLD_DARK)
-    drawLetter(ctx, ch, lx + i * 36, py(22) - (bob >> 1), 4, GOLD_LIGHT)
-  }
+  const size = lay.short ? 28 : 32
+  const lw = jpWidth(TITLE_JP, size)
+  const lx = (w - lw) >> 1
+  drawJP(ctx, TITLE_JP, lx + 2, py(lay.logo) + 3, size, GOLD_DARK)
+  drawJP(ctx, TITLE_JP, lx, py(lay.logo) - (bob >> 1), size, GOLD_LIGHT)
   // The deck's faces, hopping in turn.
   const faces = sim.deck.length > 0 ? sim.deck : [0, 1, 2, 3]
   const fw = faces.length * (HERO_PX + 6) - 6
@@ -634,23 +722,26 @@ function paintTitle(ctx: CanvasRenderingContext2D, renderer: Renderer, sim: Sim)
     const hx = ((w - fw) >> 1) + i * (HERO_PX + 6)
     const blink = ((Math.floor(clock * 2) + i) & 3) === 0
     ctx.fillStyle = LINE
-    ctx.fillRect(hx - 2, py(82) - 2, HERO_PX + 4, HERO_PX + 4)
+    ctx.fillRect(hx - 2, py(lay.faces) - 2, HERO_PX + 4, HERO_PX + 4)
     ctx.fillStyle = NIGHT_2
-    ctx.fillRect(hx - 1, py(82) - 1, HERO_PX + 2, HERO_PX + 2)
-    ctx.drawImage(renderer.sheets.hero, heroCell(faces[i] ?? 0, blink ? 'blink' : 'open') * HERO_PX, 0, HERO_PX, HERO_PX, hx, py(82) - hop, HERO_PX, HERO_PX)
+    ctx.fillRect(hx - 1, py(lay.faces) - 1, HERO_PX + 2, HERO_PX + 2)
+    ctx.drawImage(renderer.sheets.hero, heroCell(faces[i] ?? 0, blink ? 'blink' : 'open') * HERO_PX, 0, HERO_PX, HERO_PX, hx, py(lay.faces) - hop, HERO_PX, HERO_PX)
   }
   // The 柴の家 with a column of rival dogs marching past it, and the guards waiting below.
   const home = renderer.sheets.home
-  ctx.drawImage(home, (w - home.width) >> 1, py(124))
-  const lineY = py(124) + home.height + 8
+  ctx.drawImage(home, (w - home.width) >> 1, py(lay.home))
+  const lineY = py(lay.home) + home.height + (lay.short ? -2 : 8)
   const span = w + CAT_PX * 2
   for (let i = 0; i < 6; i++) {
     const dx = Math.floor((((clock * 18 + i * (span / 6)) % span) + span) % span) - CAT_PX
     blitCat(ctx, renderer, i % 5, 'walk', clock, i, 0, false, dx, lineY + ((i * 7) % 12))
   }
-  for (let i = 0; i < 4; i++) {
-    const dx = ((w - 4 * (CROWD_PX + 8)) >> 1) + i * (CROWD_PX + 8)
-    blitCrowd(ctx, renderer, furOf(faces[i] ?? 0), 'idle', clock, i, 0, false, dx, lineY + 30)
+  // The guards stand two a side of the house, so nothing sits under SELECT.
+  for (let i = 0; i < Math.min(4, faces.length); i++) {
+    const side = (i & 1) === 0 ? -1 : 1
+    const k = i >> 1
+    const dx = (w >> 1) + side * ((home.width >> 1) + 4 + k * (CROWD_PX + 4)) - (side < 0 ? CROWD_PX : 0)
+    blitCrowd(ctx, renderer, furOf(faces[i] ?? 0), 'idle', clock, i, 0, false, dx, py(lay.home) + home.height - CROWD_PX)
   }
   // Stars collected so far, top left, out of three per stage (the dim number).
   {
@@ -696,8 +787,8 @@ function paintTitle(ctx: CanvasRenderingContext2D, renderer: Renderer, sim: Sim)
       drawLock(ctx, x + 11, y + 14)
     }
   }
-  paintReset(ctx, renderer)
-  paintMute(ctx, renderer, py(4))
+  if (renderer.settings) paintMenu(ctx, renderer)
+  paintGear(ctx, renderer.settings, py(4))
 }
 
 /** A tap on the speaker: `flat` screens (title, result) put it top right, play puts it at the right end of the dock's top row. */
@@ -715,6 +806,11 @@ function paintMute(ctx: CanvasRenderingContext2D, renderer: Renderer, y: number)
   ctx.fillRect(x, y, 20, 18)
   ctx.fillStyle = NIGHT_2
   ctx.fillRect(x + 1, y + 1, 18, 16)
+  drawSpeaker(ctx, renderer.muted, x, y)
+}
+
+/** The speaker glyph inside a 20×18 tile at x, y: waves when on, a red cross when muted. */
+function drawSpeaker(ctx: CanvasRenderingContext2D, muted: boolean, x: number, y: number): void {
   ctx.fillStyle = LINE
   ctx.fillRect(x + 3, y + 6, 4, 6)
   ctx.fillRect(x + 6, y + 4, 2, 10)
@@ -722,7 +818,7 @@ function paintMute(ctx: CanvasRenderingContext2D, renderer: Renderer, y: number)
   ctx.fillStyle = WHITE
   ctx.fillRect(x + 4, y + 7, 3, 4)
   ctx.fillRect(x + 7, y + 5, 2, 8)
-  if (renderer.muted) {
+  if (muted) {
     ctx.fillStyle = DANGER
     for (let i = 0; i < 7; i++) {
       ctx.fillRect(x + 11 + i, y + 5 + i, 2, 2)
@@ -955,11 +1051,14 @@ function presentHd(ctx: CanvasRenderingContext2D, renderer: Renderer, sim: Sim, 
   const fieldBottom = sim.title ? destH : pyDock(at(PANEL_Y)) * frame.scale
   hdFinish(ctx, renderer.view, frame.ox, frame.oy, destW, destH, light, 0, playing, fieldTop, fieldBottom)
   if (playing) {
-    if (sim.fxT > 0) hdFlash(ctx, frame.ox, frame.oy, destW, destH, FX_TIME - sim.fxT, 0.35, true)
-    // A skill's flash covers the field only, so the HUD and the dock stay crisp.
+    // Every flash (?lanes specials, skills, the cannon) covers the field only, so the HUD and the dock stay crisp.
+    const hudBottom = sim.free ? py(at(FIELD_Y + HUD_DROP)) * frame.scale : fieldTop
+    const fy = frame.oy + hudBottom
+    const fh = fieldBottom - hudBottom
+    if (sim.fxT > 0) hdFlash(ctx, frame.ox, fy, destW, fh, FX_TIME - sim.fxT, 0.35, true)
     const last = sim.casts[sim.casts.length - 1]
-    if (sim.free && last) hdFlash(ctx, frame.ox, frame.oy + fieldTop, destW, fieldBottom - fieldTop, sim.time - last.at, 0.25, true)
-    hdFlash(ctx, frame.ox, frame.oy, destW, destH, sim.time - sim.cannonAt, 0.3, false)
+    if (sim.free && last) hdFlash(ctx, frame.ox, fy, destW, fh, sim.time - last.at, 0.25, true)
+    hdFlash(ctx, frame.ox, fy, destW, fh, sim.time - sim.cannonAt, 0.3, false)
   }
 }
 
@@ -1257,20 +1356,103 @@ function paintNextWave(ctx: CanvasRenderingContext2D, renderer: Renderer, sim: S
   const breed = sim.planKind === WAVE_SWARM ? BREED_CHIHUAHUA : sim.planKind === WAVE_WALL ? BREED_BULLDOG : BREED_CORGI
   ctx.drawImage(renderer.sheets.cat, 4 * CAT_PX, breed * 4 * CAT_PX, CAT_PX, 14, x, y - 2, CAT_PX, 14)
   drawNumber(ctx, renderer, Math.min(sim.planCount, sim.toSend), x + 22, y + 2, false)
-  // Where from: left, middle, right, or both edges for the pincer.
-  const lit = (slot: number): boolean => (sim.planKind === WAVE_PINCER ? slot !== 1 : sim.planKind === WAVE_WALL ? true : slot === (sim.planSide === 0 ? 0 : sim.planSide === 1 ? 2 : 1))
-  for (let slot = 0; slot < 3; slot++) {
-    ctx.fillStyle = LINE
-    ctx.fillRect(x + slot * 14, y + 15, 12, 5)
-    ctx.fillStyle = lit(slot) ? DANGER : NIGHT_2
-    ctx.fillRect(x + slot * 14 + 1, y + 16, 10, 3)
-  }
+  // Where it comes from is told by the banner (paintWaveWarn); here only the bar runs down to its arrival.
   const span = Math.max(0.1, sim.free ? WAVE_EVERY * FREE_WAVE_SLOW : WAVE_EVERY)
   const left = Math.max(0, Math.min(1, (sim.nextCat - sim.time) / span))
   ctx.fillStyle = LINE
-  ctx.fillRect(x, y + 22, 42, 4)
+  ctx.fillRect(x, y + 16, 42, 4)
   ctx.fillStyle = GOLD
-  ctx.fillRect(x + 1, y + 23, Math.round(40 * left), 2)
+  ctx.fillRect(x + 1, y + 17, Math.round(40 * left), 2)
+}
+
+/** A press held on one of our shibas: a ring of white dots fills round it, clockwise from the top; when it closes the shiba is recalled. */
+function paintPress(ctx: CanvasRenderingContext2D, renderer: Renderer): void {
+  const p = renderer.press
+  if (!p) return
+  const f = Math.max(0, Math.min(1, (performance.now() - p.start) / (RECALL_HOLD * 1000)))
+  const cx = px(at(FIELD_X + p.x))
+  const cy = fpy(p.y) - (CROWD_PX >> 1)
+  const n = 16
+  for (let k = 0; k < n; k++) {
+    const a = (k / n) * Math.PI * 2 - Math.PI / 2
+    const x = cx + Math.round(Math.cos(a) * 14)
+    const y = cy + Math.round(Math.sin(a) * 14)
+    ctx.fillStyle = LINE
+    ctx.fillRect(x - 1, y - 1, 4, 4)
+    ctx.fillStyle = k / n < f ? WHITE : NIGHT_2
+    ctx.fillRect(x, y, 2, 2)
+  }
+}
+
+/** Seconds before a wave lands that its warning shows, and how long it stays after. */
+const WARN_LEAD = 1.5
+const WARN_HOLD = 0.35
+
+/** What the warning says: the wave's name and where it comes from. */
+function warnText(w: { kind: number; side: number; boss: boolean }): string {
+  if (w.boss) return 'ボスが来る!'
+  if (w.kind === WAVE_WALL) return 'ブルドッグの壁 ↓'
+  if (w.kind === WAVE_PINCER) return '←コーギーの挟み撃ち→'
+  return w.side === 0 ? 'チワワの群れ ←左' : w.side === 1 ? 'チワワの群れ 右→' : 'チワワの群れ ↓中央'
+}
+
+/** Free placement: about WARN_LEAD s before a named wave (or the boss) arrives, a banner drops into the HUD band with its name and side, and red arrows blink at the field's top edge where it will walk in. */
+function paintWaveWarn(ctx: CanvasRenderingContext2D, renderer: Renderer, sim: Sim): void {
+  if (!sim.free || sim.outcome !== 'play' || sim.tutorial) {
+    renderer.warn = null
+    return
+  }
+  const ahead = waveAhead(sim)
+  if (ahead && (ahead.kind !== WAVE_MIXED || ahead.boss) && ahead.at - sim.time <= WARN_LEAD) renderer.warn = ahead
+  const w = renderer.warn
+  if (!w) return
+  const age = sim.time - (w.at - WARN_LEAD)
+  if (age < 0 || sim.time > w.at + WARN_HOLD) {
+    if (sim.time > w.at + WARN_HOLD) renderer.warn = null
+    return
+  }
+  const text = warnText(w)
+  const size = 10
+  const tw = plainWidth(text, size, true)
+  const bw = tw + 14
+  const bh = 16
+  const bx = (frame.internalW - bw) >> 1
+  const drop = age < 0.12 ? Math.round((1 - age / 0.12) * 12) : 0
+  const by = py(at(FIELD_Y + HUD_DROP)) + 6 - drop
+  const blink = (Math.floor(sim.time * 6) & 1) === 0
+  ctx.fillStyle = LINE
+  ctx.fillRect(bx, by, bw, bh)
+  ctx.fillStyle = w.boss ? DANGER_DARK : NIGHT_1
+  ctx.fillRect(bx + 1, by + 1, bw - 2, bh - 2)
+  frameRect(ctx, bx + 1, by + 1, bw - 2, bh - 2, blink ? DANGER : DANGER_LIGHT)
+  queuePlain(text, frame.internalW >> 1, by + 3, size, WHITE, 'center', true, LINE)
+  // Arrows at the top edge of the field where the wave walks in.
+  const left = px(at(FIELD_X)) + 4
+  const right = px(at(FIELD_X + FIELD_W)) - 4 - WARN_ARROW_W
+  const mid = (frame.internalW - WARN_ARROW_W) >> 1
+  const xs = w.boss ? [mid] : w.kind === WAVE_WALL ? [left, mid, right] : w.kind === WAVE_PINCER ? [left, right] : w.side === 0 ? [left] : w.side === 1 ? [right] : [mid]
+  const bob = (Math.floor(sim.time * 6) & 1) * 2
+  for (const ax of xs) drawWarnArrow(ctx, ax, by + bh + 4 + bob, blink)
+}
+
+/** A red down arrow (9×8 cells drawn at 2×), sealed with the line colour. */
+const WARN_ARROW = ['..#####..', '..#####..', '..#####..', '#########', '.#######.', '..#####..', '...###...', '....#....'] as const
+const WARN_ARROW_W = 20
+
+function drawWarnArrow(ctx: CanvasRenderingContext2D, x: number, y: number, lit: boolean): void {
+  ctx.fillStyle = LINE
+  for (let r = 0; r < WARN_ARROW.length; r++) {
+    const row = WARN_ARROW[r] ?? ''
+    for (let c = 0; c < row.length; c++) if (row[c] === '#') ctx.fillRect(x + c * 2, y + r * 2, 4, 4)
+  }
+  for (let r = 0; r < WARN_ARROW.length; r++) {
+    const row = WARN_ARROW[r] ?? ''
+    for (let c = 0; c < row.length; c++) {
+      if (row[c] !== '#') continue
+      ctx.fillStyle = c === 2 || (r === 3 && c < 4) ? DANGER_LIGHT : lit ? DANGER : DANGER_DARK
+      ctx.fillRect(x + c * 2 + 1, y + r * 2 + 1, 2, 2)
+    }
+  }
 }
 
 /** The boss's HP, a wide pink bar across the top of the field while it is out. */
@@ -1588,6 +1770,10 @@ function paintHpBars(ctx: CanvasRenderingContext2D, sim: Sim): void {
   for (let i = 0; i < sim.cats.length; i++) {
     const dog = sim.cats[i]
     if (!dog?.alive || dog.fly === 1 || dog.hp >= dog.maxHp || dog.maxHp <= 0 || dog.kind === BREED_BOSS) continue
+    // Free placement: a plain dog's bar shows only for HP_BAR_HOLD s after its last hit, so a big fight is not a field of pink bars. Elites keep theirs.
+    const elite = dog.kind === BREED_GOLDEN || dog.kind === BREED_POM
+    const since = sim.time - dog.hurtAt
+    if (sim.free && !elite && !(since >= 0 && since < HP_BAR_HOLD)) continue
     const x = px(at(FIELD_X + dog.x)) - 8
     const y = fpy(dog.y) - CAT_PX - 4
     drawHpBar(ctx, x, y, dog.hp / dog.maxHp, DANGER_DARK, DANGER, DANGER_LIGHT)
@@ -1610,6 +1796,9 @@ function paintHpBars(ctx: CanvasRenderingContext2D, sim: Sim): void {
     }
   }
 }
+
+/** Seconds a plain dog's HP bar stays up after a hit (free placement). */
+const HP_BAR_HOLD = 2
 
 function drawHpBar(ctx: CanvasRenderingContext2D, x: number, y: number, ratio: number, back: string, fill: string, lit: string): void {
   const w = 16
@@ -1991,6 +2180,8 @@ function forgetEffects(renderer: Renderer): void {
   renderer.shakeUntil = 0
   renderer.fxSeen = 0
   renderer.castSeen = 0
+  renderer.warn = null
+  renderer.press = null
 }
 
 function noteDeaths(renderer: Renderer, sim: Sim): void {
@@ -2997,12 +3188,12 @@ function paintDock(ctx: CanvasRenderingContext2D, renderer: Renderer, sim: Sim):
       continue
     }
     const kind = sim.free ? (sim.deck[slot] ?? slot) : slot
-    const deny = [sim.deny0, sim.deny1, sim.deny2, sim.deny3][kind] ?? 0
+    const deny = sim.deny[kind] ?? 0
     const cost = sim.free ? -1 : costOf(sim, kind)
     const x = px(at(CARD_XS[slot] ?? CARD_X0) + denyShift(deny))
     const wait = (sim.recharge[kind] ?? 0) / (RECHARGE[kind] ?? 1)
     const ready = sim.free ? sim.aliveShibas < FIELD_CAP : sim.bones >= cost
-    paintCard(ctx, renderer, x, kind, cost, ready && wait <= 0, false, sim.time, kind === sim.picked, wait)
+    paintCard(ctx, renderer, x, kind, cost, ready && wait <= 0, false, sim.time, kind === sim.picked, wait, sim.recharge[kind] ?? 0)
     paintGauge(ctx, x, kind, sim)
     if (sim.free && skillReady(sim, kind)) paintSkillReady(ctx, x, kind, sim, kind === sim.picked)
   }
@@ -3024,6 +3215,7 @@ function paintCard(
   time: number,
   picked: boolean,
   wait: number,
+  secs = 0,
 ): void {
   const y = pyDock(at(CARD_Y)) - (picked ? 3 : 0)
   const w = at(CARD_W)
@@ -3052,14 +3244,16 @@ function paintCard(
   const hop = affordable ? (HOP[Math.floor(time * 8) & 7] ?? 0) >> 1 : 0
   ctx.drawImage(renderer.sheets.hero, col * HERO_PX, 0, HERO_PX, HERO_PX, hx, y + 3 - hop, HERO_PX, HERO_PX)
   if (wait > 0) {
-    // Recharge shutter: night drops over the portrait and slides away as the card gets ready.
+    // Recharge: the portrait stays but sinks under a night dither that lifts from the bottom as the card gets ready, with the seconds left big on top.
     const top = y + 3
     const tall = HERO_PX + 2
     const cover = Math.ceil(tall * Math.min(1, wait))
-    ctx.fillStyle = NIGHT
+    ctx.fillStyle = dither(ctx, NIGHT, 2) ?? NIGHT
     ctx.fillRect(x + 2, top, w - 4, cover)
     ctx.fillStyle = NIGHT_3
     ctx.fillRect(x + 2, top + cover - 1, w - 4, 1)
+    const n = Math.max(1, Math.ceil(secs - 0.05))
+    if (secs > 0) drawNumber(ctx, renderer, n, x + ((w - (digitCount(n) * 14 - 2)) >> 1), top + ((tall - 15) >> 1), true)
   }
   drawRoleIcon(ctx, kind, x + w - 12, y + 4)
   if (cost >= 0) {

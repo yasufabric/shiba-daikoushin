@@ -15,6 +15,7 @@ import {
   FIELD_Y,
   LANE_COUNT,
   SPECIAL_NEED,
+  RECALL_HOLD,
   RECALL_LIFT,
   RECALL_TAP,
   HERO_TAP_Y,
@@ -25,8 +26,8 @@ import {
   HERO_TAP_R,
   HERO_TAP_LIFT,
 } from './balance'
-import { createSim, dogsLeft, fillMarch, spawnCat, spawnShiba, NO_INPUT, step, type Input, type Outcome } from './sim'
-import { createRenderer, draw, muteTarget, pauseButtonTarget, pauseTarget, resetTarget, speedTarget, screenToWorld, shopTarget, titleTarget, type ScreenInsets } from './render'
+import { createSim, dogsLeft, fillMarch, spawnCat, spawnShiba, NO_INPUT, step, type Input, type Outcome, type Unit } from './sim'
+import { createRenderer, draw, muteTarget, pauseButtonTarget, pauseTarget, speedTarget, titleMenuTarget, screenToWorld, shopTarget, titleTarget, type ScreenInsets } from './render'
 
 const canvasEl = document.querySelector<HTMLCanvasElement>('#game')
 if (!canvasEl) throw new Error('canvas unavailable')
@@ -172,6 +173,12 @@ interface ShibaDev {
     floatDmg: number
     purse: number
     levels: number[]
+    /** The next wave: when it lands, its pattern and side. */
+    next: number
+    plan: number
+    side: number
+    /** Field px of every live shiba. */
+    pos: [number, number][]
   }
 }
 
@@ -234,6 +241,10 @@ if (devOn) {
         floatDmg: sim.floatDmg,
         purse: sim.purse,
         levels: [...sim.levels],
+        next: sim.nextCat,
+        plan: sim.planKind,
+        side: sim.planSide,
+        pos: sim.shibas.filter((u) => u.alive).map((u): [number, number] => [u.x, u.y]),
       }
     },
   }
@@ -313,7 +324,8 @@ canvas.addEventListener('pointerdown', (ev) => {
   ev.preventDefault()
   synth.unlock()
   const p = toLogical(ev)
-  if (muteTarget(p.x, p.y, sim.title || sim.outcome !== 'play')) {
+  // The title has the gear where other screens have the speaker; sound is toggled in its settings panel.
+  if (!sim.title && muteTarget(p.x, p.y, sim.outcome !== 'play')) {
     synth.setMuted(!synth.isMuted())
     synth.tap()
     return
@@ -340,15 +352,30 @@ canvas.addEventListener('pointerdown', (ev) => {
     return
   }
   if (sim.title) {
-    if (resetTarget(p.x, p.y)) {
-      // Two taps within 3 s: the first arms the button, the second resets.
-      const now = performance.now()
-      if (now - renderer.resetArmedAt < 3000) {
-        input.resetLevels = true
+    const menu = titleMenuTarget(p.x, p.y, renderer.settings)
+    if (menu === 'gear') {
+      renderer.settings = !renderer.settings
+      renderer.resetArmedAt = -1e9
+      synth.tap()
+      return
+    }
+    if (renderer.settings) {
+      if (menu === 'sound') {
+        synth.setMuted(!synth.isMuted())
+        renderer.muted = synth.isMuted()
+      } else if (menu === 'reset') {
+        // Two taps within 3 s: the first arms the button, the second resets.
+        const now = performance.now()
+        if (now - renderer.resetArmedAt < 3000) {
+          input.resetLevels = true
+          renderer.resetArmedAt = -1e9
+          renderer.resetDoneAt = now
+        } else {
+          renderer.resetArmedAt = now
+        }
+      } else if (menu === 'close' || menu === 'none') {
+        renderer.settings = false
         renderer.resetArmedAt = -1e9
-        renderer.resetDoneAt = now
-      } else {
-        renderer.resetArmedAt = now
       }
       synth.tap()
       return
@@ -398,16 +425,14 @@ canvas.addEventListener('pointerdown', (ev) => {
       input.heroSkill = true
       return
     }
-    if (shibaAt(local.x, local.y)) {
-      input.recall = local
+    const own = shibaAt(local.x, local.y)
+    if (own) {
+      // Recall needs a held press (RECALL_HOLD); a quick tap on a shiba deploys like any field tap, on release.
+      held = { id: ev.pointerId, unit: own, local, start: performance.now() }
+      renderer.press = { x: own.x, y: own.y, start: held.start }
       return
     }
-    if (sim.hero.alive && local.y < HERO_TAP_Y) {
-      input.hero = local
-      return
-    }
-    input.card = input.pick ?? sim.picked
-    input.at = local
+    fieldTap(local)
     return
   }
   const lane = laneAt(p.x, p.y)
@@ -418,9 +443,61 @@ canvas.addEventListener('pointerdown', (ev) => {
   }
 })
 
-/** True when a tap lands on one of our shibas, which sends it home instead of placing a new one. */
-function shibaAt(x: number, y: number): boolean {
-  return sim.shibas.some((u) => u.alive && !u.recall && Math.hypot(u.x - x, u.y - RECALL_LIFT - y) < RECALL_TAP)
+/** A field tap that is not on a button: steer the hero (when it is on) or drop the picked shiba there. */
+function fieldTap(local: { x: number; y: number }): void {
+  if (sim.hero.alive && local.y < HERO_TAP_Y) {
+    input.hero = local
+    return
+  }
+  // A pick tapped this same frame has not reached the sim yet, so it wins over sim.picked.
+  input.card = input.pick ?? sim.picked
+  input.at = local
+}
+
+/** A press on one of our shibas, waiting to become a recall (held RECALL_HOLD) or a deploy (let go sooner). */
+let held: { id: number; unit: Unit; local: { x: number; y: number }; start: number } | null = null
+
+function releaseHeld(ev: PointerEvent, cancel: boolean): void {
+  if (!held || held.id !== ev.pointerId) return
+  const local = held.local
+  held = null
+  renderer.press = null
+  if (!cancel && !sim.title && sim.outcome === 'play' && !paused) fieldTap(local)
+}
+
+canvas.addEventListener('pointerup', (ev) => releaseHeld(ev, false))
+canvas.addEventListener('pointercancel', (ev) => releaseHeld(ev, true))
+
+/** Called every frame: a press held long enough sends that shiba home. */
+function checkHeld(): void {
+  if (!held) return
+  if (sim.title || sim.outcome !== 'play' || paused || !held.unit.alive || held.unit.recall) {
+    held = null
+    renderer.press = null
+    return
+  }
+  renderer.press = { x: held.unit.x, y: held.unit.y, start: held.start }
+  if (performance.now() - held.start < RECALL_HOLD * 1000) return
+  input.recall = { x: held.unit.x, y: held.unit.y - RECALL_LIFT }
+  held = null
+  renderer.press = null
+  synth.tap()
+  buzz(15)
+}
+
+/** The shiba under a field tap, if any (the nearest within RECALL_TAP). */
+function shibaAt(x: number, y: number): Unit | undefined {
+  let best: Unit | undefined
+  let bestD = RECALL_TAP
+  for (const u of sim.shibas) {
+    if (!u.alive || u.recall) continue
+    const d = Math.hypot(u.x - x, u.y - RECALL_LIFT - y)
+    if (d < bestD) {
+      bestD = d
+      best = u
+    }
+  }
+  return best
 }
 
 /** The path under a field tap, or -1 off the field. */
@@ -574,6 +651,7 @@ function frame(now: number): void {
     renderer.hitstop -= dt
     if (renderer.hitstop < 0) renderer.hitstop = 0
   } else if (!paused) {
+    checkHeld()
     advance(dt)
   }
   if (sim.chest === 2 && lastChest === 1) {
