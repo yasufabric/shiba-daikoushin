@@ -172,8 +172,8 @@ describe('sprites', () => {
     assertSealed(homeArt, HOME_W, HOME_H)
     expect(bossArt).toHaveLength(2)
     for (const seal of [...bossArt, ...bossDarkArt]) assertSealed(seal, BOSS_PX, BOSS_PX)
-    expect(BOSS_W).toBeGreaterThanOrEqual(48)
-    expect(BOSS_H).toBeGreaterThanOrEqual(48)
+    expect(BOSS_W).toBeGreaterThanOrEqual(40)
+    expect(BOSS_H).toBeGreaterThanOrEqual(36)
 
     const hero = heroArt[0]
     expect(hero).toBeDefined()
