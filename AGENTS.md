@@ -255,3 +255,6 @@ The result screen shows an XP bar under each LV and an info strip above START (`
 
 ## Japanese text
 `jp.ts` draws Japanese with the browser font into an offscreen canvas and snaps it to the palette: solid ink plus a 1px LINE outline, no anti-aliased colours (`drawJP`, `jpWidth`; cached). Use it for UI words the 8×10 glyph font cannot spell; keep the glyph font for numbers and the big banners.
+
+## Faces (play-test: braver shibas, less zombie rivals)
+Shibas wear a set face: brows `v` slanting down to the middle (dark on red; tan まろ眉 on 黒), 2×2 eyes `K` (NIGHT) with a white glint, and a closed mouth under the nose; the pink tongue only shows on the bark frame. Card portraits (`HERO_HALF`) match. Rival dogs no longer have glowing red eyes: `e` is NIGHT with an `x` glint added by `dogFrame`, and every rival wears the gang's red bandana (`DOG_SCARF`, rows from `DOG_SCARF_Y`).
