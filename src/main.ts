@@ -401,6 +401,16 @@ let soundKills = 0
 let soundCallT = 0
 
 /** Sounds for what just happened in the fight: one hit per coat per frame, a pop for fallen dogs, a chime for a heal, a blip for a called wave. */
+/** A short buzz on phones that have one (Android); silent when muted or unsupported. */
+function buzz(pattern: number | number[]): void {
+  if (synth.isMuted()) return
+  try {
+    navigator.vibrate?.(pattern)
+  } catch {
+    // Not allowed here: no buzz.
+  }
+}
+
 function battleSounds(): void {
   if (sim.time < soundMark - 0.01) {
     soundMark = 0
@@ -420,11 +430,13 @@ function battleSounds(): void {
   if (sim.callT > soundCallT) synth.call()
   if (sim.heroSkillAt > soundMark && sim.heroSkillAt <= sim.time) {
     synth.strike(1)
+    buzz(30)
     renderer.shakeUntil = sim.time + 0.3
     renderer.hitstop = 0.05
   }
   if (sim.howlAt > soundMark && sim.howlAt <= sim.time) {
     synth.hit(5)
+    buzz([40, 30, 40])
     renderer.shakeUntil = sim.time + 0.3
   }
   soundCallT = sim.callT
@@ -439,6 +451,7 @@ function playSounds(before: Outcome): void {
   }
   if (sim.sfxStrike >= 0) {
     synth.strike(sim.sfxStrike)
+    buzz(45)
     renderer.hitstop = 0.05
     renderer.shakeUntil = sim.time + 0.35
   }
@@ -519,7 +532,10 @@ function frame(now: number): void {
   } else if (!paused) {
     advance(dt)
   }
-  if (sim.chest === 2 && lastChest === 1) synth.fanfare(true)
+  if (sim.chest === 2 && lastChest === 1) {
+    synth.fanfare(true)
+    buzz([20, 40, 20])
+  }
   lastChest = sim.chest
   renderer.fast = fast
   renderer.paused = paused
