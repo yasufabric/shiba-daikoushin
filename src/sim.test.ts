@@ -79,6 +79,16 @@ import {
   START_SHIBAS,
   STEP_TAN,
   gridX,
+  BREACH,
+  SPLASH_CHARGE,
+  patternSize,
+  CLASH_RAMP,
+  CLASH_RAMP_FROM,
+  CROWD_CAP,
+  FIELD_CAP,
+  JERKY_FREE_HIT,
+  JERKY_BOSS,
+  FREE_DOG_HP,
 } from './balance'
 import {
   costOf,
@@ -100,6 +110,7 @@ import {
   phaseAt,
   dogsLeft,
   step,
+  clashRamp,
   type Input,
   type Unit,
   type Sim,
@@ -873,7 +884,7 @@ describe('soldiers', () => {
     expect(sim.aliveShibas).toBe(alive + 1)
     const saved = createSim({ tutorial: false, free: true, deck: [1, 2, 4, 5], best: [1, 1, 1, 1, 1] })
     expect(saved.deck).toEqual([1, 2, 4, 5])
-    expect(createSim({ tutorial: false, free: true, deck: [1, 1, 4, 5] }).deck).toEqual([0])
+    expect(createSim({ tutorial: false, free: true, deck: [1, 1, 4, 5] }).deck).toEqual([0, 1])
     expect(createSim({ tutorial: false, deck: [1, 2, 4, 5] }).deck).toEqual([0, 1, 2, 3])
   })
 
@@ -1015,14 +1026,14 @@ describe('soldiers', () => {
     expect(sim.hero.hp).toBeGreaterThan(0)
   })
 
-  it('starts with 赤柴 alone and unlocks one coat per stage cleared, which joins the deck by itself', () => {
+  it('starts with 赤柴 and 黒柴 and unlocks one coat per stage cleared, which joins the deck by itself', () => {
     const sim = createSim({ tutorial: false, seed: 4, free: true, deck: [0, 1, 4, 5] })
-    expect(sim.deck).toEqual([0])
+    expect(sim.deck).toEqual([0, 1])
     expect(deckReady(sim)).toBe(true)
-    expect(coatOpen(sim, 1)).toBe(false)
-    expect(toggleDeck(sim, 1)).toBe(false)
+    expect(coatOpen(sim, 2)).toBe(false)
+    expect(toggleDeck(sim, 2)).toBe(false)
     expect(buyLevel(sim, 4)).toBe(false)
-    sim.stage = COAT_UNLOCK[1] ?? 0
+    sim.stage = COAT_UNLOCK[2] ?? 0
     for (const c of sim.cats) c.alive = false
     sim.aliveCats = 0
     sim.toSend = 0
@@ -1030,9 +1041,9 @@ describe('soldiers', () => {
     sim.bossIndex = -1
     for (let i = 0; i < 120 && sim.outcome === 'play'; i++) step(sim, 1 / 30, NO_INPUT)
     expect(sim.outcome).toBe('won')
-    expect(sim.newCoat).toBe(1)
-    expect(coatOpen(sim, 1)).toBe(true)
-    expect(sim.deck).toEqual([0, 1])
+    expect(sim.newCoat).toBe(2)
+    expect(coatOpen(sim, 2)).toBe(true)
+    expect(sim.deck).toEqual([0, 1, 2])
     expect(deckReady(sim)).toBe(true)
   })
 
@@ -1253,5 +1264,109 @@ describe('soldiers', () => {
     expect((sim.xp[KIND_BLACK] ?? 0) > xp0 || (sim.levels[KIND_BLACK] ?? 1) > 1).toBe(true)
     expect(sim.purse).toBeLessThan(1000)
     void purse
+  })
+})
+
+describe('balance curve (free placement)', () => {
+  function emptyField(stage = 0): Sim {
+    const sim = createSim({ tutorial: false, seed: 3, free: true, stage, best: STAGES.map((_, i) => (i < stage ? 1 : 0)) })
+    for (const c of sim.cats) c.alive = false
+    for (const u of sim.shibas) u.alive = false
+    sim.aliveCats = 0
+    sim.aliveShibas = 0
+    sim.nextCat = 1e9
+    return sim
+  }
+
+  it('a dog at the 柴の家 lands one breach hit and leaves the field; the boss hits much harder', () => {
+    const sim = emptyField()
+    spawnCat(sim, 0, BREED_CORGI, { x: FIELD_W / 2, y: FIELD_H - 30 })
+    step(sim, 1 / 30, NO_INPUT)
+    expect(sim.homeHp).toBeCloseTo(HOME_HP * (1 - (BREACH[BREED_CORGI] ?? 0)), 5)
+    expect(sim.aliveCats).toBe(0)
+    expect(sim.kills).toBe(0)
+    expect(sim.breaches.length).toBe(1)
+    play(sim, 2, () => NO_INPUT)
+    expect(sim.homeHp).toBeCloseTo(HOME_HP * (1 - (BREACH[BREED_CORGI] ?? 0)), 5)
+    expect(sim.outcome).toBe('play')
+
+    const bull = emptyField()
+    spawnCat(bull, 0, BREED_BULLDOG, { x: FIELD_W / 2, y: FIELD_H - 30 })
+    step(bull, 1 / 30, NO_INPUT)
+    expect(HOME_HP - bull.homeHp).toBeCloseTo(HOME_HP * 0.1, 5)
+    expect(bull.breaches[0]?.big).toBe(true)
+    expect(BREACH[BREACH.length - 1]).toBeGreaterThan(BREACH[BREED_BULLDOG] ?? 1)
+  })
+
+  it('pattern waves grow with the stage and ramp in over the first part of the clash', () => {
+    expect(patternSize(WAVE_SWARM, 0)).toBeLessThan(patternSize(WAVE_SWARM, 7))
+    expect(patternSize(WAVE_SWARM, 7)).toBe(SWARM_COUNT)
+    expect(patternSize(WAVE_PINCER, 7)).toBe(PINCER_COUNT)
+    expect(patternSize(WAVE_WALL, 0)).toBe(2)
+    expect(patternSize(WAVE_WALL, 7)).toBe(WALL_COUNT)
+    expect(clashRamp(CLASH_AT)).toBeCloseTo(CLASH_RAMP_FROM, 5)
+    expect(clashRamp(CLASH_AT + CLASH_RAMP / 2)).toBeGreaterThan(CLASH_RAMP_FROM)
+    expect(clashRamp(CLASH_AT + CLASH_RAMP * 2)).toBe(1)
+  })
+
+  it('splash hits fill the gauge at SPLASH_CHARGE; only the dog aimed at counts in full', () => {
+    const sim = emptyField()
+    spawnShiba(sim, KIND_SESAME, 0, 0)
+    const thrower = sim.shibas.find((u) => u.alive)
+    Object.assign(thrower ?? {}, { x: 100, y: 500, speed: 0 })
+    for (const x of [100, 120, 80]) spawnCat(sim, 0, BREED_BULLDOG, { x, y: 400 })
+    for (const c of sim.cats) if (c.alive) Object.assign(c, { hp: 1e6, maxHp: 1e6, dps: 0, speed: 0 })
+    play(sim, 3, () => NO_INPUT)
+    const dealt = sim.dealt[KIND_SESAME] ?? 0
+    expect(dealt).toBeGreaterThan(0)
+    // One aimed hit and two splashed per ball.
+    expect(sim.charge[KIND_SESAME] ?? 0).toBeCloseTo((dealt / 3) * (1 + 2 * SPLASH_CHARGE), 3)
+  })
+
+  it('a shiba ringed by CROWD_CAP dogs is passed by: the next dog walks on to the house', () => {
+    const sim = emptyField()
+    spawnShiba(sim, KIND_TAN, 0, 0)
+    const tan = sim.shibas.find((u) => u.alive)
+    Object.assign(tan ?? {}, { x: 100, y: 300, speed: 0, hp: 1e6, maxHp: 1e6, dps: 0 })
+    for (let i = 0; i < CROWD_CAP; i++) spawnCat(sim, 0, BREED_CORGI, { x: 100 + (i - 0.5) * 30, y: 270 })
+    spawnCat(sim, 0, BREED_CORGI, { x: 100, y: 220 })
+    const late = sim.cats.filter((c) => c.alive).at(-1)
+    play(sim, 0.5, () => NO_INPUT)
+    expect(late?.pass).toBe(true)
+  })
+
+  it('シバドリル lands half on the boss', () => {
+    const sim = emptyField()
+    spawnCat(sim, 2, BREED_CORGI, { x: 100, y: 100 })
+    const boss = sim.cats.find((c) => c.alive)
+    Object.assign(boss ?? {}, { kind: BREED_BOSS, hp: 1e6, maxHp: 1e6 })
+    strikeSpecial(sim, KIND_BLACK)
+    expect(1e6 - (boss?.hp ?? 0)).toBeCloseTo(JERKY_FREE_HIT * FREE_DOG_HP * JERKY_BOSS, 5)
+  })
+
+  it('a new player with 赤 and 黒 at Lv1 wins stage 1', () => {
+    for (const seed of [1, 2, 3]) {
+      const sim = createSim({ tutorial: false, seed, free: true })
+      expect(sim.deck).toEqual([KIND_TAN, KIND_BLACK])
+      let wait = 0
+      play(sim, 600, (s) => {
+        wait -= 1 / 30
+        if (wait > 0 || s.aliveShibas >= FIELD_CAP) return NO_INPUT
+        wait = 0.5
+        // Aim at the dog nearest the house with whichever card is ready, 黒 first while none is out.
+        let x = FIELD_W / 2
+        let y = -1
+        for (const c of s.cats) if (c.alive && c.fly !== 1 && c.hp > 0 && c.y > y) {
+          y = c.y
+          x = c.x
+        }
+        const blacks = s.shibas.filter((u) => u.alive && u.kind === KIND_BLACK).length
+        const order = blacks === 0 ? [KIND_BLACK, KIND_TAN] : [KIND_TAN, KIND_BLACK]
+        const card = order.find((k) => (s.recharge[k] ?? 0) <= 0)
+        return card === undefined ? NO_INPUT : { ...NO_INPUT, card, at: { x: Math.max(14, Math.min(FIELD_W - 14, x)), y: 470 } }
+      })
+      expect(sim.outcome).toBe('won')
+      expect(sim.homeHp).toBeGreaterThan(0)
+    }
   })
 })
