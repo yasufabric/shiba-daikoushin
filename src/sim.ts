@@ -16,6 +16,8 @@ import {
   HERO_RADIUS,
   HERO_REVIVE,
   HERO_TAP_Y,
+  ENDLESS_STAGE,
+  ENDLESS_RAMP,
   HERO_SLOT,
   CHEST_BASE,
   CHEST_STAGE,
@@ -309,6 +311,9 @@ export interface Sim {
   deck: number[]
   /** A coat this result unlocked (shown NEW! on the result screen), or -1. */
   newCoat: number
+  /** エンドレス: the most dogs beaten in one run, and whether the last run beat it. */
+  endlessBest: number
+  endlessRecord: boolean
   /** 宝箱 on the result screen: 0 none, 1 waiting to be opened, 2 opened. chestBones is what it pays. */
   chest: number
   chestBones: number
@@ -393,6 +398,8 @@ export interface SimOptions {
   /** Stage to start on and the best stars per stage so far. */
   stage?: number
   best?: readonly number[]
+  /** Saved エンドレス best (dogs beaten). */
+  endlessBest?: number
   /** Open on the title screen. */
   title?: boolean
   /** Saved deck: coat numbers in dock order. */
@@ -468,6 +475,8 @@ export function createSim(opts?: SimOptions): Sim {
     title: opts?.title === true,
     deck: [...DEFAULT_DECK],
     newCoat: -1,
+    endlessBest: Math.max(0, Math.floor(opts?.endlessBest ?? 0)),
+    endlessRecord: false,
     chest: 0,
     chestBones: 0,
     stage: Math.min(STAGES.length - 1, Math.max(0, Math.floor(opts?.stage ?? 0))),
@@ -542,7 +551,7 @@ export function coatOpen(sim: Sim, kind: number): boolean {
 
 /** A stage is open once the one before it has been cleared. */
 export function stageOpen(sim: Sim, stage: number): boolean {
-  return stage >= 0 && stage < STAGES.length && (stage === 0 || (sim.best[stage - 1] ?? 0) > 0)
+  return stage >= 0 && stage <= STAGES.length && (stage === 0 || (sim.best[stage - 1] ?? 0) > 0)
 }
 
 /** Title screen: start this stage fresh. */
@@ -594,7 +603,18 @@ export function callWave(sim: Sim): boolean {
 
 /** The stage in play. ?lanes keeps the plain old numbers. */
 export function spec(sim: Sim): (typeof STAGES)[number] {
+  if (isEndless(sim)) return ENDLESS_STAGE
   return sim.free ? (STAGES[sim.stage] ?? OLD_STAGE) : OLD_STAGE
+}
+
+/** エンドレス is the stage after the last one. */
+export function isEndless(sim: Sim): boolean {
+  return sim.free && sim.stage === STAGES.length
+}
+
+/** How much tougher dogs are by now: 1 outside エンドレス. */
+function ramp(sim: Sim): number {
+  return isEndless(sim) ? 1 + (ENDLESS_RAMP * sim.time) / 100 : 1
 }
 
 export function reset(sim: Sim): void {
@@ -737,6 +757,7 @@ function stepHero(sim: Sim, dt: number, beat: number): void {
 
 function boot(sim: Sim): void {
   sim.newCoat = -1
+  sim.endlessRecord = false
   sim.chest = 0
   sim.chestBones = 0
   sim.time = 0
@@ -850,9 +871,9 @@ export function spawnCat(sim: Sim, lane: number, breed: number, at?: { x: number
   unit.alive = true
   unit.lane = lane
   unit.kind = breed
-  unit.hp = Math.round((BREED_HP[breed] ?? BREED_HP[BREED_CORGI]) * (sim.free ? FREE_DOG_HP * spec(sim).hp : 1))
+  unit.hp = Math.round((BREED_HP[breed] ?? BREED_HP[BREED_CORGI]) * (sim.free ? FREE_DOG_HP * spec(sim).hp * ramp(sim) : 1))
   unit.maxHp = unit.hp
-  unit.dps = (BREED_DPS[breed] ?? BREED_DPS[BREED_CORGI]) * (sim.free ? FREE_DOG_DPS * spec(sim).dps : 1)
+  unit.dps = (BREED_DPS[breed] ?? BREED_DPS[BREED_CORGI]) * (sim.free ? FREE_DOG_DPS * spec(sim).dps * ramp(sim) : 1)
   unit.speed = BREED_SPEED[breed] ?? BREED_SPEED[BREED_CORGI]
   unit.fly = 0
   unit.cd = 0
@@ -1034,6 +1055,10 @@ function pay(sim: Sim): void {
     sim.chest = 1
   } else {
     sim.stars = 0
+    if (isEndless(sim)) {
+      sim.endlessRecord = sim.kills > sim.endlessBest
+      sim.endlessBest = Math.max(sim.endlessBest, sim.kills)
+    }
   }
   sim.earned = base + sim.kills * BONE_PER_KILL + sim.callBonus
   sim.purse += sim.earned
