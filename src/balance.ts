@@ -25,16 +25,18 @@ export const BREED_BULLDOG = 2
 export const BREED_DACHS = 3
 export const BREED_GOLDEN = 4
 export const BREED_POODLE = 5
-export const BREEDS = 6
+/** ポメラニアン: a fluffy medic that hangs back and mends the dogs around it. */
+export const BREED_POM = 6
+export const BREEDS = 7
 /** The boss, セントバーナード. Not part of the wave mix; it walks out of the mansion once every regular dog has been sent. */
-export const BREED_BOSS = 6
+export const BREED_BOSS = 7
 export const BOSS_HP = 1500
 export const BOSS_DPS = 40
 export const BOSS_SPEED = 10
 /** チワワ fast and frail, コーギー the baseline, ブルドッグ slow and tough. */
-export const BREED_HP = [20, 30, 60, 14, 46, 22] as const
-export const BREED_DPS = [10, 12, 16, 9, 13, 5] as const
-export const BREED_SPEED = [44, 30, 18, 64, 22, 26] as const
+export const BREED_HP = [20, 30, 60, 14, 46, 22, 26] as const
+export const BREED_DPS = [10, 12, 16, 9, 13, 5, 4] as const
+export const BREED_SPEED = [44, 30, 18, 64, 22, 26, 28] as const
 /** ダックスフント: a long, low sprinter that is gone before it is noticed. ゴールデン: a slow retriever behind a bone shield, which takes this much off every single hit (never below a third of it), so quick nips bounce and heavy hits and splashes get through. */
 export const GOLDEN_ARMOR = 8
 /** プードル: stops well short and lobs a ball over the front line, then keeps lobbing. Frail, so shibas that get through to it end it quickly. */
@@ -262,6 +264,8 @@ export interface StageSpec {
   dachsEvery: number
   /** Every Nth clash dog is a プードル (0: none). */
   poodleEvery: number
+  /** Every Nth clash dog is a ポメラニアン (0: none). */
+  pomEvery: number
   goldenEvery: number
   bulldogEvery: number
   /** 岩 and 池 on the field: ground units walk around them. */
@@ -275,41 +279,41 @@ export interface Rock {
   pond?: boolean
 }
 export const STAGES: readonly StageSpec[] = [
-  { count: 70, hp: 0.85, dps: 0.85, dachsEvery: 0, poodleEvery: 0, goldenEvery: 0, bulldogEvery: 9, rocks: [] },
-  { count: 90, hp: 1, dps: 1, dachsEvery: 7, poodleEvery: 9, goldenEvery: 14, bulldogEvery: 8, rocks: [
+  { count: 70, hp: 0.85, dps: 0.85, dachsEvery: 0, poodleEvery: 0, pomEvery: 0, goldenEvery: 0, bulldogEvery: 9, rocks: [] },
+  { count: 90, hp: 1, dps: 1, dachsEvery: 7, poodleEvery: 9, pomEvery: 0, goldenEvery: 14, bulldogEvery: 8, rocks: [
       { x: 58, y: 230, r: 10 },
       { x: 140, y: 300, r: 10 },
     ] },
-  { count: 110, hp: 1.2, dps: 1.15, dachsEvery: 5, poodleEvery: 7, goldenEvery: 9, bulldogEvery: 7, rocks: [
+  { count: 110, hp: 1.2, dps: 1.15, dachsEvery: 5, poodleEvery: 7, pomEvery: 0, goldenEvery: 9, bulldogEvery: 7, rocks: [
       { x: 97, y: 210, r: 22, pond: true },
       { x: 38, y: 330, r: 10 },
       { x: 158, y: 340, r: 10 },
     ] },
-  { count: 130, hp: 1.5, dps: 1.35, dachsEvery: 4, poodleEvery: 6, goldenEvery: 8, bulldogEvery: 6, rocks: [
+  { count: 130, hp: 1.5, dps: 1.35, dachsEvery: 4, poodleEvery: 6, pomEvery: 11, goldenEvery: 8, bulldogEvery: 6, rocks: [
       { x: 48, y: 190, r: 20, pond: true },
       { x: 148, y: 260, r: 20, pond: true },
       { x: 97, y: 350, r: 10 },
     ] },
-  { count: 150, hp: 1.9, dps: 1.6, dachsEvery: 4, poodleEvery: 5, goldenEvery: 6, bulldogEvery: 5, rocks: [
+  { count: 150, hp: 1.9, dps: 1.6, dachsEvery: 4, poodleEvery: 5, pomEvery: 9, goldenEvery: 6, bulldogEvery: 5, rocks: [
       { x: 97, y: 250, r: 26, pond: true },
       { x: 34, y: 180, r: 10 },
       { x: 160, y: 180, r: 10 },
       { x: 48, y: 350, r: 10 },
       { x: 146, y: 350, r: 10 },
     ] },
-  { count: 160, hp: 2.15, dps: 1.7, dachsEvery: 3, poodleEvery: 4, goldenEvery: 6, bulldogEvery: 5, rocks: [
+  { count: 160, hp: 2.15, dps: 1.7, dachsEvery: 3, poodleEvery: 4, pomEvery: 8, goldenEvery: 6, bulldogEvery: 5, rocks: [
       { x: 40, y: 220, r: 22, pond: true },
       { x: 154, y: 220, r: 22, pond: true },
       { x: 97, y: 320, r: 12 },
     ] },
-  { count: 170, hp: 2.45, dps: 1.85, dachsEvery: 3, poodleEvery: 3, goldenEvery: 5, bulldogEvery: 4, rocks: [
+  { count: 170, hp: 2.45, dps: 1.85, dachsEvery: 3, poodleEvery: 3, pomEvery: 7, goldenEvery: 5, bulldogEvery: 4, rocks: [
       { x: 30, y: 170, r: 10 },
       { x: 70, y: 260, r: 10 },
       { x: 124, y: 260, r: 10 },
       { x: 164, y: 170, r: 10 },
       { x: 97, y: 360, r: 16, pond: true },
     ] },
-  { count: 190, hp: 2.8, dps: 2, dachsEvery: 3, poodleEvery: 3, goldenEvery: 4, bulldogEvery: 4, rocks: [
+  { count: 190, hp: 2.8, dps: 2, dachsEvery: 3, poodleEvery: 3, pomEvery: 6, goldenEvery: 4, bulldogEvery: 4, rocks: [
       { x: 97, y: 200, r: 30, pond: true },
       { x: 30, y: 300, r: 18, pond: true },
       { x: 164, y: 300, r: 18, pond: true },
@@ -395,3 +399,9 @@ export const HERO_SKILL_CD = 14
 export const HERO_TAP_R = 28
 /** The hero is aimed at a little above its feet, where the sprite is. */
 export const HERO_TAP_LIFT = 28
+
+/** ポメラニアン: every POM_EVERY s it mends each dog within POM_RADIUS (not itself, not the boss) by POM_HEAL, and keeps POM_KEEP behind the nearest shiba. */
+export const POM_EVERY = 1.6
+export const POM_RADIUS = 52
+export const POM_HEAL = 8
+export const POM_KEEP = 70

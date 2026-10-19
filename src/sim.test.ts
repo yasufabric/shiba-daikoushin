@@ -37,6 +37,7 @@ import {
   SPECIAL_NEED,
   BREED_BULLDOG,
   BREED_POODLE,
+  BREED_POM,
   COAT_UNLOCK,
   KIND_CHEER,
   BOSS_HOWL_FIRST,
@@ -1072,5 +1073,28 @@ describe('soldiers', () => {
     expect(sim.heroSkillT).toBeGreaterThan(HERO_SKILL_CD - 1)
     step(sim, 1 / 30, { ...NO_INPUT, heroSkill: true })
     expect(sim.heroSkillAt).toBeLessThan(sim.time - 0.01)
+  })
+
+  it('a ポメラニアン mends hurt dogs near it and hangs back from shibas', () => {
+    const sim = createSim({ tutorial: false, seed: 10, free: true, stage: 0 })
+    for (const c of sim.cats) c.alive = false
+    for (const u of sim.shibas) u.alive = false
+    sim.aliveCats = 0
+    sim.aliveShibas = 0
+    sim.nextCat = 1e9
+    spawnCat(sim, 0, BREED_POM, { x: 100, y: 200 })
+    spawnCat(sim, 0, BREED_BULLDOG, { x: 120, y: 210 })
+    const bull = sim.cats.find((c) => c.alive && c.kind === BREED_BULLDOG)
+    Object.assign(bull ?? {}, { speed: 0, hp: 10 })
+    for (let i = 0; i < 60; i++) step(sim, 1 / 30, NO_INPUT)
+    expect((bull?.hp ?? 0) > 10).toBe(true)
+    spawnShiba(sim, KIND_TAN, 0, 0)
+    const shiba = sim.shibas.find((u) => u.alive)
+    Object.assign(shiba ?? {}, { x: 100, y: 240, speed: 0, dps: 0 })
+    const pom = sim.cats.find((c) => c.alive && c.kind === BREED_POM)
+    Object.assign(shiba ?? {}, { x: pom?.x ?? 100, y: (pom?.y ?? 200) + 40 })
+    const y0 = pom?.y ?? 0
+    for (let i = 0; i < 60; i++) step(sim, 1 / 30, NO_INPUT)
+    expect(pom?.y ?? 999).toBeLessThan(y0 - 20)
   })
 })

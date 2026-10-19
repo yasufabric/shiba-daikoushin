@@ -154,7 +154,7 @@ describe('sprites', () => {
     expect(CROWD_PX).toBe(20)
     expect(CAT_PX).toBe(20)
     expect(crowdArt).toHaveLength(7)
-    expect(dogArt).toHaveLength(6)
+    expect(dogArt).toHaveLength(7)
     for (const strip of dogArt) expect(strip).toHaveLength(10)
     for (const fur of crowdArt) {
       expect(fur).toHaveLength(10)

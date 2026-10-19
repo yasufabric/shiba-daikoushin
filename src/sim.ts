@@ -24,6 +24,11 @@ import {
   BREED_DACHS,
   BREED_GOLDEN,
   BREED_POODLE,
+  BREED_POM,
+  POM_EVERY,
+  POM_RADIUS,
+  POM_HEAL,
+  POM_KEEP,
   POODLE_EVERY,
   POODLE_RANGE,
   GOLDEN_ARMOR,
@@ -559,7 +564,7 @@ export function toggleDeck(sim: Sim, kind: number): boolean {
   return true
 }
 
-const OLD_STAGE: (typeof STAGES)[number] = { count: DOG_COUNT, hp: 1, dps: 1, dachsEvery: 5, poodleEvery: 0, goldenEvery: 9, bulldogEvery: 7, rocks: [] }
+const OLD_STAGE: (typeof STAGES)[number] = { count: DOG_COUNT, hp: 1, dps: 1, dachsEvery: 5, poodleEvery: 0, pomEvery: 0, goldenEvery: 9, bulldogEvery: 7, rocks: [] }
 
 /** Can the next wave be called now? Free play, before the boss, with dogs left and a wait to skip. */
 export function canCall(sim: Sim): boolean {
@@ -621,6 +626,35 @@ function heroSkill(sim: Sim): void {
     if (!dog?.alive || dog.fly === 1 || dog.hp <= 0) continue
     if (Math.hypot(dog.x - h.x, dog.y - h.y) <= HERO_SKILL_R) dog.hp -= HERO_SKILL_HIT * (dog.kind === BREED_BOSS ? 1 : spec(sim).hp)
   }
+}
+
+/** ポメラニアン: mend the pack on a timer, and keep POM_KEEP back from the nearest shiba. Returns true when it handled its own move (a shiba is in sight). */
+function pomFree(sim: Sim, pom: Unit, dt: number, beat: number): boolean {
+  pom.cd -= beat
+  if (pom.cd <= 0) {
+    pom.cd = POM_EVERY
+    let any = false
+    for (const d of sim.cats) {
+      if (!d?.alive || d === pom || d.fly === 1 || d.hp <= 0 || d.hp >= d.maxHp || d.kind === BREED_BOSS) continue
+      if (Math.hypot(d.x - pom.x, d.y - pom.y) > POM_RADIUS) continue
+      d.hp = Math.min(d.maxHp, d.hp + POM_HEAL * spec(sim).hp)
+      d.mendAt = sim.time
+      any = true
+    }
+    if (any) pom.bitAt = sim.time
+  }
+  const near = nearest(sim.shibas, pom, FREE_SIGHT_DOG, true)
+  if (!near) return false
+  const d = Math.hypot(near.x - pom.x, near.y - pom.y)
+  if (d < POM_KEEP - 6) {
+    // Back off, straight away from the shiba.
+    const ux = (pom.x - near.x) / Math.max(1, d)
+    const uy = (pom.y - near.y) / Math.max(1, d)
+    stepToward(pom, pom.x + ux * 20, Math.max(16, pom.y + uy * 20), pom.speed * dt)
+  } else if (d > POM_KEEP + 10) {
+    stepToward(pom, near.x, near.y, Math.min(d - POM_KEEP, pom.speed * dt))
+  }
+  return true
 }
 
 /** The boss howls: later stages call チワワ to its side, and the last ones freeze shibas near it. */
@@ -1102,6 +1136,7 @@ function spawnWave(sim: Sim): void {
       sim.horde += 1
       if (sim.horde % every === 0) breed = BREED_BULLDOG
       else if (st.goldenEvery > 0 && sim.horde % st.goldenEvery === 0) breed = BREED_GOLDEN
+      else if (st.pomEvery > 0 && sim.horde % st.pomEvery === 0) breed = BREED_POM
       else if (st.poodleEvery > 0 && sim.horde % st.poodleEvery === 0) breed = BREED_POODLE
       else if (st.dachsEvery > 0 && sim.horde % st.dachsEvery === 0) breed = BREED_DACHS
     }
@@ -1540,6 +1575,7 @@ function moveFree(sim: Sim, rawDt: number): void {
         howl(sim, dog)
       }
     }
+    if (dog.kind === BREED_POM && pomFree(sim, dog, dt, beat)) continue
     let foe = nearestTaunt(sim.shibas, dog, FREE_SIGHT_DOG)
     if (sim.hero.alive) {
       const dh = Math.hypot(sim.hero.x - dog.x, sim.hero.y - dog.y)
