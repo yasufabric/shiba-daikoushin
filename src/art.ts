@@ -139,6 +139,8 @@ const RED: Record<string, string> = {
   e: FUR_LIGHT,
   s: FUR_BODY,
   k: FUR_DARK,
+  K: NIGHT,
+  v: FUR_DARK,
   x: WHITE,
   n: FUR_DARK,
   p: DANGER_LIGHT,
@@ -161,6 +163,7 @@ const BLACK: Record<string, string> = {
   e: FUR_LIGHT,
   s: NIGHT_2,
   k: NIGHT,
+  v: FUR_LIGHT,
   q: GOLD,
 }
 
@@ -247,8 +250,10 @@ const CAT: Record<string, string> = {
   b: CAT_BODY,
   h: CAT_LIGHT,
   p: DANGER_LIGHT,
-  e: DANGER,
+  e: NIGHT,
+  x: WHITE,
   r: DANGER_DARK,
+  R: DANGER,
   w: WHITE,
   n: NIGHT,
   g: GOLD_LIGHT,
@@ -330,12 +335,12 @@ const CROWD_HALF = [
   'LhccoLhhhh',
   'LoccLhhhoo',
   'LoooLhooos',
-  'LLoooooooo',
-  'Lhoooeeooo',
-  'Lhoookxooo',
-  'Lwwooooooo',
+  'LLovvooooo',
+  'Lhooovvooo',
+  'LhooKxKooo',
+  'LwwoKKKooo',
   'Lwwwwwwwnn',
-  '.Lwwwwwwpp',
+  '.Lwwwwwwwn',
   '..Lowwwwww',
   '.Lhoowwwww',
   '.Lhooswwww',
@@ -428,17 +433,17 @@ const HERO_HALF = [
   'LhhccoLhhhoooo',
   'LhhcoLhhooooos',
   'LhoooooooooooO',
-  'LhhoooooooooOO',
-  'LhoooooeeoooOO',
-  'LhooooookxkoOO',
-  'LwwoooookkkoOO',
+  'LhhoooKKooooOO',
+  'LhoooooKKoooOO',
+  'LhooooooKxKoOO',
+  'LwwoooooKKKoOO',
   'LwwwwooooooooO',
   'LwwwwwwwwooooO',
   'LwwwwwwwwwwooO',
   'Lwwwwwwwwwwwnn',
   '.Lwwwwwwwkwwwn',
-  '..Lwwwwwwwkkpp',
-  '...Lwwwwwwwwpp',
+  '..Lwwwwwwwkkww',
+  '...Lwwwwwwwwww',
   '....Lwwwwwwwww',
   '....Lowwwwwwww',
   '...Lhoowwwwwww',
@@ -476,7 +481,7 @@ function hero(face: Face, reward: boolean): string[] {
     for (const y of [11, 12]) {
       for (let x = 0; x < HERO_PX; x++) {
         const ch = g[y]?.[x]
-        if (ch === 'k' || ch === 'x') put(g, x, y, y === 11 ? 'o' : 'k')
+        if (ch === 'k' || ch === 'x' || ch === 'K') put(g, x, y, y === 11 ? 'o' : 'k')
       }
     }
   }
@@ -484,7 +489,7 @@ function hero(face: Face, reward: boolean): string[] {
     // Heavy lids, eyes sliding sideways, one brow up, and a lopsided smirk instead of the tongue.
     for (let x = 0; x < HERO_PX; x++) {
       const ch = g[11]?.[x]
-      if (ch === 'k' || ch === 'x') put(g, x, 11, 'L')
+      if (ch === 'k' || ch === 'x' || ch === 'K') put(g, x, 11, 'L')
     }
     put(g, 9, 12, 'x')
     put(g, 20, 12, 'x')
@@ -664,11 +669,18 @@ const DOG_POSES: readonly DogPose[] = [
   { feet: 4, tail: true, blink: false, swipe: false },
 ]
 
+const DOG_SCARF = ['RRRRRR', '.rRRr.', '..rr..'] as const
+/** Where the bandana sits on each breed (row of the 20×20 frame). */
+const DOG_SCARF_Y = [14, 14, 14, 14, 14, 14, 14] as const
+
 function dogFrame(breed: number, pose: DogPose): string[] {
-  const g = ['.'.repeat(20), '.'.repeat(20), ...twin(DOG_HALVES[breed] ?? DOG_HALVES[0] ?? [])]
+  // Dark eyes with a white glint on the left of each (they used to glow red, which read as zombies).
+  const g = ['.'.repeat(20), '.'.repeat(20), ...twin(DOG_HALVES[breed] ?? DOG_HALVES[0] ?? [])].map((line) => line.replace(/ee/g, 'xe'))
   for (const line of DOG_FEET[pose.feet] ?? DOG_FEET[0]) g.push(line)
+  // The rival gang's red bandana, knotted under the chin.
+  stamp(g, 7, DOG_SCARF_Y[breed] ?? 14, DOG_SCARF)
   if (pose.blink) {
-    for (let y = 0; y < g.length; y++) g[y] = (g[y] ?? '').replace(/e/g, 'L')
+    for (let y = 0; y < g.length; y++) g[y] = (g[y] ?? '').replace(/[ex]/g, 'L')
   }
   if (breed !== 1) stamp(g, 16, 11, pose.tail ? DOG_TAIL_B : DOG_TAIL_A)
   if (breed === 4) stamp(g, 5, 14, DOG_SHIELD)
