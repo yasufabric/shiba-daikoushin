@@ -248,3 +248,10 @@ Free placement no longer opens with five 赤 on the field (play-test: not wanted
 
 ## Specials, round two
 Play-test: specials were too strong, too alike, and food names felt off. Names are now shiba things (`SPECIAL_WORDS`): シバダッシュ!! (赤, rush 2.5 s), シバドリル!! (黒, one big hit on the toughest dog on the field, the 柴ドリル shake), トオボエ!! (胡麻, a howl: tiny hit, short shove, 1.2 s stun on all), ペロペロ!! (白, half health back, +150 house), ブンブン!! (ぶち, tail-wag sweep of the front row, 90), ドスン!! (どっしり, thud on the thickest knot, 95, 1.5 s stun), ワンワン!! (応援, 4 s of 1.5× attacks). Gauges need about 1.4× the damage they used to (`SPECIAL_NEED`). New katakana glyphs live in `font.ts`.
+
+## Levels level themselves (free placement)
+Play-test: buying levels felt pointless. Now each deck coat earns XP after every match (`XP_BASE_GAIN` + `XP_PER_STAGE` × stage, × (1 + its share of `sim.dealt`, which also counts 白's healing and 応援's cheering), × `XP_WIN` on a win; `gainXp`, saved as `xp`). `xpNeed(level)` = `XP_NEED_BASE` × level^`XP_NEED_EXP`, so it gets steep; `sim.gained` marks levels gained this match (UP! on the result screen). A level is +`LEVEL_STEP` (7%) HP and attack. Perks (`perk(sim, kind, at)`): at `PERK_A` (Lv5) each coat gets its own trick (赤 bites faster, 黒 knocks back, 胡麻 / 白 / 応援 reach `PERK_WIDE` farther, ぶち throws `PERK_DISC_RANGE` farther, どっしり stuns briefly); at `PERK_B` (Lv10) its special gauge fills `PERK_B_CHARGE`× faster. ホネ now buy おやつ: the gold button feeds `feedCost(level)` ホネ for `FEED_SHARE` of a level's XP. ?lanes keeps buying whole levels.
+The result screen shows an XP bar under each LV and an info strip above START (`paintCoatInfo`, the coat last tapped): its Japanese name and level, XP to go, and the next perk. It hides while the chest is shut or the deck is short.
+
+## Japanese text
+`jp.ts` draws Japanese with the browser font into an offscreen canvas and snaps it to the palette: solid ink plus a 1px LINE outline, no anti-aliased colours (`drawJP`, `jpWidth`; cached). Use it for UI words the 8×10 glyph font cannot spell; keep the glyph font for numbers and the big banners.
