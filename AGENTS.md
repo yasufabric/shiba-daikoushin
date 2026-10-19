@@ -196,6 +196,9 @@ One steered shiba (`sim.hero`, a `Unit` kept outside the pools; enabled by `crea
 ## Eight stages
 `STAGES` has 8 entries; 6-8 push hp/dps scaling (2.15/2.45/2.8) and lean on プードル and ダックス. The title lays stage tiles out `TITLE_ROW` (4) per row and wraps, shifting the block up 26 px per extra row.
 
+## Corner buttons on narrow phones
+Phones narrower than 390 css px get an internal width under `INTERNAL_W` and crop both sides. The speaker, 2× and pause buttons (draw and hit test) hug `rightEdge()`, the rightmost on-screen design x, instead of `INTERNAL_W`.
+
 ## 2× speed
 The dock's top row has a ▶▶ button left of the speaker (`speedTarget`, `paintSpeed`). It doubles the time fed to `step` during play only (title and result screens run at 1×), multiplies with the dev `setScale`, and is saved under `shiba-daikoushin-speed`. The sim never knows: it is purely how much time `advance` hands it.
 

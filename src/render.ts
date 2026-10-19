@@ -316,6 +316,11 @@ function ensureView(renderer: Renderer): void {
   renderer.pen.imageSmoothingEnabled = false
 }
 
+/** The rightmost design-space x that is on screen: narrow phones (internal width under INTERNAL_W) crop both sides, so corner buttons hug this instead of INTERNAL_W. */
+function rightEdge(): number {
+  return Math.min(INTERNAL_W, frame.internalW - frame.shiftX)
+}
+
 function px(designX: number): number {
   return designX + frame.shiftX
 }
@@ -628,14 +633,14 @@ function paintTitle(ctx: CanvasRenderingContext2D, renderer: Renderer, sim: Sim)
 /** A tap on the speaker: `flat` screens (title, result) put it top right, play puts it at the right end of the dock's top row. */
 export function muteTarget(x: number, y: number, flat: boolean): boolean {
   const ix = x / 2
-  if (ix < INTERNAL_W - 24 || ix > INTERNAL_W + 2) return false
+  if (ix < rightEdge() - 24 || ix > rightEdge() + 2) return false
   if (flat) return y / 2 <= 26
   return y >= BONE_Y - 8 && y <= BONE_Y + 26
 }
 
 /** Speaker, 16×14, on a night tile: waves when sound is on, a cross when it is off. */
 function paintMute(ctx: CanvasRenderingContext2D, renderer: Renderer, y: number): void {
-  const x = px(INTERNAL_W - 22)
+  const x = px(rightEdge() - 22)
   ctx.fillStyle = LINE
   ctx.fillRect(x, y, 20, 18)
   ctx.fillStyle = NIGHT_2
@@ -663,12 +668,12 @@ function paintMute(ctx: CanvasRenderingContext2D, renderer: Renderer, y: number)
 /** A tap on the pause button, left of 2× in the dock's top row. */
 export function pauseButtonTarget(x: number, y: number): boolean {
   const ix = x / 2
-  if (ix < INTERNAL_W - 72 || ix > INTERNAL_W - 48) return false
+  if (ix < rightEdge() - 72 || ix > rightEdge() - 48) return false
   return y >= BONE_Y - 8 && y <= BONE_Y + 26
 }
 
 function paintPauseButton(ctx: CanvasRenderingContext2D, y: number): void {
-  const x = px(INTERNAL_W - 70)
+  const x = px(rightEdge() - 70)
   ctx.fillStyle = LINE
   ctx.fillRect(x, y, 20, 18)
   ctx.fillStyle = NIGHT_2
@@ -737,13 +742,13 @@ function paintPause(ctx: CanvasRenderingContext2D, renderer: Renderer): void {
 /** A tap on the 2× button, left of the speaker in the dock's top row (play only). */
 export function speedTarget(x: number, y: number): boolean {
   const ix = x / 2
-  if (ix < INTERNAL_W - 48 || ix > INTERNAL_W - 24) return false
+  if (ix < rightEdge() - 48 || ix > rightEdge() - 24) return false
   return y >= BONE_Y - 8 && y <= BONE_Y + 26
 }
 
 /** 2× speed, 20×18 like the speaker: two arrows, gold and blinking-fast when on. */
 function paintSpeed(ctx: CanvasRenderingContext2D, renderer: Renderer, sim: Sim, y: number): void {
-  const x = px(INTERNAL_W - 46)
+  const x = px(rightEdge() - 46)
   ctx.fillStyle = LINE
   ctx.fillRect(x, y, 20, 18)
   ctx.fillStyle = renderer.fast ? GOLD_DARK : NIGHT_2
