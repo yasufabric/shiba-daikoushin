@@ -82,6 +82,8 @@ import {
   MAX_CATS,
   MAX_SHIBAS,
   PANEL_Y,
+  WALL_HP,
+  gridX,
 } from './balance'
 import { drawJP, flushPlain, jpWidth, queuePlain } from './jp'
 import { finish as hdFinish, flash as hdFlash } from './hd'
@@ -492,6 +494,7 @@ export function draw(
   g.clip()
   paintHome(g, renderer)
   paintRocks(g, sim)
+  paintWalls(g, sim)
   paintUnits(g, renderer, sim)
   if (sim.free) paintRoles(g, sim)
   if (sim.free) paintAttacks(g, sim)
@@ -2652,11 +2655,61 @@ function fillEllipse(ctx: CanvasRenderingContext2D, cx: number, cy: number, rx: 
   }
 }
 
+/** 柵: a sealed wooden fence of posts and two rails. It shakes when bitten, cracks under half health, and is gone at zero. */
+function paintWalls(ctx: CanvasRenderingContext2D, sim: Sim): void {
+  if (!sim.free) return
+  const walls = spec(sim).walls ?? []
+  walls.forEach((wall, i) => {
+    const hp = sim.wallHp[i] ?? 0
+    if (hp <= 0) return
+    const full = WALL_HP * spec(sim).hp
+    const hurt = sim.time - (sim.wallHitAt[i] ?? -9) < 0.12
+    const w = at(gridX(wall.w))
+    const x = px(at(FIELD_X + gridX(wall.x))) - (w >> 1) + (hurt ? 1 : 0)
+    const y = fpy(wall.y) - 5
+    // Shadow, then outline and wood.
+    ctx.fillStyle = MEADOW_DARK
+    ctx.fillRect(x + 1, y + 10, w, 2)
+    ctx.fillStyle = LINE
+    ctx.fillRect(x, y + 2, w, 3)
+    ctx.fillRect(x, y + 6, w, 3)
+    const cracked = hp < full * 0.5
+    for (let px0 = x; px0 < x + w - 2; px0 += 7) {
+      ctx.fillStyle = LINE
+      ctx.fillRect(px0, y - 1, 4, 12)
+      ctx.fillStyle = hurt ? WHITE : FUR_BODY
+      ctx.fillRect(px0 + 1, y, 2, 10)
+      ctx.fillStyle = FUR_LIGHT
+      ctx.fillRect(px0 + 1, y, 1, 1)
+    }
+    ctx.fillStyle = LINE
+    ctx.fillRect(x + w - 4, y - 1, 4, 12)
+    ctx.fillStyle = hurt ? WHITE : FUR_BODY
+    ctx.fillRect(x + w - 3, y, 2, 10)
+    ctx.fillStyle = hurt ? WHITE : FUR_MID
+    ctx.fillRect(x + 1, y + 3, w - 2, 1)
+    ctx.fillRect(x + 1, y + 7, w - 2, 1)
+    if (cracked) {
+      ctx.fillStyle = LINE
+      ctx.fillRect(x + (w >> 1) - 1, y + 3, 1, 1)
+      ctx.fillRect(x + (w >> 1), y + 7, 2, 1)
+      ctx.fillRect(x + (w >> 2), y + 3, 2, 1)
+    }
+    // Health: a thin bar over the fence once it has been bitten.
+    if (hp < full) {
+      ctx.fillStyle = LINE
+      ctx.fillRect(x + (w >> 1) - 11, y - 5, 22, 3)
+      ctx.fillStyle = cracked ? DANGER : GOLD_LIGHT
+      ctx.fillRect(x + (w >> 1) - 10, y - 4, Math.max(1, Math.round((20 * hp) / full)), 1)
+    }
+  })
+}
+
 /** 岩 and 池: sealed with the 1px outline, lit from the top left. They sit on the meadow under the units. */
 function paintRocks(ctx: CanvasRenderingContext2D, sim: Sim): void {
   if (!sim.free) return
   for (const rock of spec(sim).rocks) {
-    const cx = px(at(FIELD_X + rock.x))
+    const cx = px(at(FIELD_X + gridX(rock.x)))
     const cy = fpy(rock.y)
     const rx = rock.r
     const ry = Math.round(rock.r * 0.62)

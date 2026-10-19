@@ -78,6 +78,7 @@ import {
   START_BONES,
   START_SHIBAS,
   STEP_TAN,
+  gridX,
 } from './balance'
 import {
   costOf,
@@ -805,9 +806,11 @@ describe('soldiers', () => {
     sim.aliveShibas = 0
     sim.toSend = 5
     sim.nextCat = 1e9
-    const pond = STAGES[4]?.rocks[0]
-    expect(pond).toBeDefined()
-    if (!pond) return
+    const raw = STAGES[4]?.rocks[0]
+    expect(raw).toBeDefined()
+    if (!raw) return
+    // Field px: rocks are authored on the 195-wide grid and block 1.6r.
+    const pond = { x: gridX(raw.x), y: raw.y, r: raw.r * 1.6 }
     spawnCat(sim, 1, BREED_CORGI, { x: pond.x, y: pond.y - pond.r - 30 })
     const dog = sim.cats.find((c) => c.alive)
     expect(dog).toBeDefined()
@@ -819,6 +822,31 @@ describe('soldiers', () => {
     }
     expect(dog.y).toBeGreaterThan(pond.y + pond.r)
     expect(closest).toBeGreaterThanOrEqual(pond.r)
+  })
+
+  it('stops a dog at a 柵 until it has bitten through it', () => {
+    const sim = createSim({ tutorial: false, seed: 4, free: true, stage: 1 })
+    for (const dog of sim.cats) dog.alive = false
+    sim.aliveCats = 0
+    for (const shiba of sim.shibas) shiba.alive = false
+    sim.aliveShibas = 0
+    sim.toSend = 5
+    sim.nextCat = 1e9
+    const wall = STAGES[1]?.walls?.[0]
+    expect(wall).toBeDefined()
+    if (!wall) return
+    const full = sim.wallHp[0] ?? 0
+    expect(full).toBeGreaterThan(0)
+    spawnCat(sim, 1, BREED_CORGI, { x: gridX(wall.x), y: wall.y - 40 })
+    const dog = sim.cats.find((c) => c.alive)
+    if (!dog) return
+    for (let i = 0; i < 30 * 8; i++) step(sim, 1 / 30, NO_INPUT)
+    expect(dog.y).toBeLessThan(wall.y)
+    expect(sim.wallHp[0] ?? 0).toBeLessThan(full)
+    for (let i = 0; i < 30 * 600 && (sim.wallHp[0] ?? 0) > 0; i++) step(sim, 1 / 30, NO_INPUT)
+    expect(sim.wallHp[0]).toBe(0)
+    for (let i = 0; i < 30 * 4; i++) step(sim, 1 / 30, NO_INPUT)
+    expect(dog.y).toBeGreaterThan(wall.y)
   })
 
   it('keeps a four-coat deck: toggling swaps coats, an incomplete deck blocks START, and only deck coats deploy', () => {
