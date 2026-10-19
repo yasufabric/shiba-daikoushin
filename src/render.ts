@@ -41,6 +41,7 @@ import {
   KIND_BIG,
   KIND_CHEER,
   CHEER_RADIUS,
+  BOSS_HOWL_R,
   KIND_DISC,
   KIND_SESAME,
   KIND_WHITE,
@@ -1250,6 +1251,7 @@ function paintHero(ctx: CanvasRenderingContext2D, renderer: Renderer, sim: Sim):
   ctx.fillRect(dx + 3, dy + CROWD_PX - 1, CROWD_PX - 6, 2)
   blitCrowd(ctx, renderer, FUR_RED, poseOf(moved, fighting), sim.time, 0, 0, false, dx, dy)
   drawCrown(ctx, cx, dy - 6, GOLD, GOLD_LIGHT)
+  if (h.stun > 0) drawDizzy(ctx, cx, dy - 9, sim.time)
   if (fighting) {
     const age = sim.time - sim.heroSpinAt
     const r = 10 + Math.floor(age * 36)
@@ -1302,6 +1304,7 @@ function drawShiba(ctx: CanvasRenderingContext2D, renderer: Renderer, sim: Sim, 
     ctx.fillStyle = (k & 1) === 0 ? GOLD_LIGHT : WHITE
     ctx.fillRect(dx + 3 + k * 2, dy + 4 - k * 2, 2, 2)
   }
+  if (unit.stun > 0) drawDizzy(ctx, dx + (CROWD_PX >> 1), dy - 3, sim.time)
   if (unit.kind === KIND_CHEER && sim.time - unit.bitAt < 0.5) {
     // Its reach, as a dotted pink ring on the grass, each time it waves.
     const r = at(CHEER_RADIUS)
@@ -1321,6 +1324,21 @@ function drawShiba(ctx: CanvasRenderingContext2D, renderer: Renderer, sim: Sim, 
 }
 
 /** 胡麻柴's bark: three widening bars rising off the helmet, ")))" turned upward. */
+/** Stunned: two little stars circle over the head. */
+function drawDizzy(ctx: CanvasRenderingContext2D, cx: number, cy: number, time: number): void {
+  for (let k = 0; k < 2; k++) {
+    const a = time * 7 + k * Math.PI
+    const x = cx + Math.round(Math.cos(a) * 6)
+    const y = cy + Math.round(Math.sin(a) * 2)
+    ctx.fillStyle = LINE
+    ctx.fillRect(x - 2, y - 1, 5, 3)
+    ctx.fillRect(x - 1, y - 2, 3, 5)
+    ctx.fillStyle = GOLD_LIGHT
+    ctx.fillRect(x - 1, y, 3, 1)
+    ctx.fillRect(x, y - 1, 1, 3)
+  }
+}
+
 /** 応援柴's flag, 7×12: a pole and a pink pennant that flaps; it jumps when it waves. */
 function drawPennant(ctx: CanvasRenderingContext2D, x: number, y: number, time: number, wave: boolean): void {
   const lift = wave ? 2 : 0
@@ -1461,7 +1479,24 @@ function drawBoss(ctx: CanvasRenderingContext2D, renderer: Renderer, sim: Sim, b
   const frameNo = Math.floor(sim.time * 3) & 1
   const fighting = foeNear(sim, boss.lane, boss.y, false)
   const flash = fighting && hitFrame(offbeat(sim.time, index))
-  ctx.drawImage(renderer.sheets.boss, frameNo * size, flash ? size : 0, size, size, dx, dy, size, size)
+  const howlAge = sim.time - sim.howlAt
+  const shake = howlAge >= 0 && howlAge < 0.4 ? ((Math.floor(howlAge * 30) & 1) === 0 ? 1 : -1) : 0
+  ctx.drawImage(renderer.sheets.boss, frameNo * size, flash ? size : 0, size, size, dx + shake, dy, size, size)
+  if (howlAge >= 0 && howlAge < 0.7) {
+    // The howl: rings roll out from its mouth, as far as the stun reaches.
+    const cx = dx + (size >> 1)
+    const cy = dy + (size >> 1) + 6
+    for (let ring = 0; ring < 2; ring++) {
+      const t = howlAge - ring * 0.18
+      if (t < 0) continue
+      const r = Math.round(at(BOSS_HOWL_R) * Math.min(1, t / 0.45))
+      ctx.fillStyle = ring === 0 ? DANGER_LIGHT : WHITE
+      for (let k = 0; k < 32; k++) {
+        const a = (k / 32) * Math.PI * 2
+        ctx.fillRect(cx + Math.round(Math.cos(a) * r), cy + Math.round(Math.sin(a) * r * 0.6), 3, 2)
+      }
+    }
+  }
 }
 
 function forgetEffects(renderer: Renderer): void {

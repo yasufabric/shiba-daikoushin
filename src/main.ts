@@ -381,6 +381,10 @@ function battleSounds(): void {
   if (sim.kills > soundKills) synth.pop()
   soundKills = sim.kills
   if (sim.callT > soundCallT) synth.call()
+  if (sim.howlAt > soundMark && sim.howlAt <= sim.time) {
+    synth.hit(5)
+    renderer.shakeUntil = sim.time + 0.3
+  }
   soundCallT = sim.callT
   soundMark = sim.time
 }
