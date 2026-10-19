@@ -46,6 +46,7 @@ import {
   HERO_ENABLED,
   BOSS_DARK_FROM,
   CANNON_CHARGE,
+  CANNON_ENABLED,
   CANNON_REACH,
   HERO_SKILL_R,
   HERO_SKILL_CD,
@@ -57,7 +58,6 @@ import {
   BORO_BAND,
   MILK_RADIUS,
   KINDS,
-  DECK_SIZE,
   CARD_XS,
   RECHARGE,
   MAX_LEVEL,
@@ -122,7 +122,7 @@ import {
   WHITE_DARK,
   WHITE_MID,
 } from './palette'
-import { canCall, costOf, deckReady, feedCost, isEndless, mvpOf, xpNeed, stageOpen, coatOpen, spec, dogsLeft, levelCost, type Outcome, type Sim, type Unit } from './sim'
+import { canCall, costOf, deckReady, deckSize, feedCost, isEndless, mvpOf, xpNeed, stageOpen, coatOpen, spec, dogsLeft, levelCost, type Outcome, type Sim, type Unit } from './sim'
 import { createSheets, type Sheets } from './sprites'
 
 const BUCKETS = 96
@@ -210,6 +210,9 @@ export interface Renderer {
   chestState: number
   /** The coat the result screen's info strip is about (-1: pick one). */
   infoKind: number
+  /** Title screen level reset: when (performance.now) the button was armed, and when a reset happened. */
+  resetArmedAt: number
+  resetDoneAt: number
   chestOpenAt: number
   /** Sim clock at the last draw; a drop means a new match began. */
   lastTime: number
@@ -423,6 +426,8 @@ export function createRenderer(): Renderer {
     hd: true,
     chestState: 0,
     infoKind: -1,
+    resetArmedAt: -1e9,
+    resetDoneAt: -1e9,
     chestOpenAt: -9,
     partX: new Int16Array(PARTS),
     partY: new Int16Array(PARTS),
@@ -539,6 +544,40 @@ function titleTile(stage: number): { x: number; y: number } {
   return { x: ((frame.internalW - total) >> 1) + col * (TITLE_TILE_W + TITLE_TILE_GAP), y: base + row * (TITLE_TILE_H + 6) }
 }
 
+const RESET_W = 74
+const RESET_H = 16
+
+/** The title's level reset button: bottom centre, under the stage tiles. */
+function resetRect(): { x: number; y: number } {
+  const last = titleTile(TITLE_TILES - 1)
+  return { x: (INTERNAL_W - RESET_W) >> 1, y: Math.min(frame.internalH - frame.topDy - RESET_H - 6, last.y + TITLE_TILE_H + 10) }
+}
+
+/** A tap on the reset button (flat world point). */
+export function resetTarget(x: number, y: number): boolean {
+  const r = resetRect()
+  const ix = x / 2
+  const iy = y / 2
+  return ix >= r.x - 2 && ix <= r.x + RESET_W + 2 && iy >= r.y - 2 && iy <= r.y + RESET_H + 2
+}
+
+/** レベルリセット: dim until tapped, then red and asking for a second tap; a short "リセットした!" after. */
+function paintReset(ctx: CanvasRenderingContext2D, renderer: Renderer): void {
+  const r = resetRect()
+  const now = performance.now()
+  const armed = now - renderer.resetArmedAt < 3000
+  const done = now - renderer.resetDoneAt < 1500
+  const x = px(r.x)
+  const y = py(r.y)
+  ctx.fillStyle = LINE
+  ctx.fillRect(x, y, RESET_W, RESET_H)
+  ctx.fillStyle = armed ? DANGER_DARK : NIGHT_1
+  ctx.fillRect(x + 1, y + 1, RESET_W - 2, RESET_H - 2)
+  const text = done ? 'リセットした!' : armed ? 'もう一回タップ' : 'レベルリセット'
+  const tw = jpWidth(text, 9)
+  drawJP(ctx, text, x + ((RESET_W - tw) >> 1), y + 3, 9, armed ? WHITE : done ? GOLD_LIGHT : NIGHT_3)
+}
+
 /** What a tap on the title screen picks: a stage tile, or -1. `x`, `y` are flat world points. */
 export function titleTarget(x: number, y: number): number {
   const ix = x / 2
@@ -642,6 +681,7 @@ function paintTitle(ctx: CanvasRenderingContext2D, renderer: Renderer, sim: Sim)
       drawLock(ctx, x + 11, y + 14)
     }
   }
+  paintReset(ctx, renderer)
   paintMute(ctx, renderer, py(4))
 }
 
@@ -1222,7 +1262,7 @@ function paintHomeBar(ctx: CanvasRenderingContext2D, renderer: Renderer, sim: Si
   ctx.fillRect(barX, barY, fill, 4)
   ctx.fillStyle = GOLD_LIGHT
   ctx.fillRect(barX, barY, fill, 1)
-  if (!sim.free) return
+  if (!sim.free || !CANNON_ENABLED) return
   // おやつ砲: a sky-blue charge bar over the health bar; when full the house blinks and says TAP!.
   const cy = barY - 6
   const ready = sim.cannonT >= CANNON_CHARGE
@@ -2598,6 +2638,16 @@ function paintDock(ctx: CanvasRenderingContext2D, renderer: Renderer, sim: Sim):
     drawNumber(ctx, renderer, sim.bones | 0, px(at(BONE_X)) + 14, pyDock(at(BONE_Y)) + 1, false)
   }
   for (let slot = 0; slot < CARD_XS.length; slot++) {
+    if (sim.free && sim.deck[slot] === undefined) {
+      // Not unlocked yet: an empty, dim slot.
+      const ex = px(at(CARD_XS[slot] ?? CARD_X0))
+      ctx.fillStyle = LINE
+      ctx.fillRect(ex, pyDock(at(CARD_Y)), at(CARD_W), at(CARD_H))
+      ctx.fillStyle = NIGHT_1
+      ctx.fillRect(ex + 1, pyDock(at(CARD_Y)) + 1, at(CARD_W) - 2, at(CARD_H) - 2)
+      drawLock(ctx, ex + (at(CARD_W) >> 1) - 5, pyDock(at(CARD_Y)) + (at(CARD_H) >> 1) - 7)
+      continue
+    }
     const kind = sim.free ? (sim.deck[slot] ?? slot) : slot
     const deny = [sim.deny0, sim.deny1, sim.deny2, sim.deny3][kind] ?? 0
     const cost = sim.free ? -1 : costOf(sim, kind)
@@ -3020,7 +3070,7 @@ function paintShop(ctx: CanvasRenderingContext2D, renderer: Renderer, sim: Sim):
         ctx.fillRect(bxx + 1, byy + 1, bww - 2, 2)
         drawNumber(ctx, renderer, slot + 1, bxx + ((bww - 10) >> 1), byy + ((bhh - 10) >> 1), false)
       } else {
-        const full = sim.deck.length >= DECK_SIZE
+        const full = sim.deck.length >= deckSize(sim)
         drawLetter(ctx, '+', bxx + ((bww - 8) >> 1), byy + ((bhh - 10) >> 1), 1, full ? NIGHT_2 : GOLD_LIGHT)
       }
       }
@@ -3110,7 +3160,7 @@ function paintShop(ctx: CanvasRenderingContext2D, renderer: Renderer, sim: Sim):
     // Pick DECK_SIZE coats first.
     const hx = (frame.internalW - (SELECT_WORD.length * 10 + 14)) >> 1
     for (let i = 0; i < SELECT_WORD.length; i++) drawLetter(ctx, SELECT_WORD[i] ?? '', hx + i * 10, by - 14, 1, DANGER)
-    drawNumber(ctx, renderer, DECK_SIZE, hx + SELECT_WORD.length * 10 + 4, by - 14, false)
+    drawNumber(ctx, renderer, deckSize(sim), hx + SELECT_WORD.length * 10 + 4, by - 14, false)
   }
   const openAge = wall - renderer.chestOpenAt
   if (sim.chest === 2 && openAge >= 0 && openAge < 1.4) {

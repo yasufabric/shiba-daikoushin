@@ -267,3 +267,9 @@ Chiptune (play-test: the synthesized 和風 ensemble sounded naff; pixel art wan
 
 ## 2D-HD finish
 Play-test asked for high-quality 2D in the HD-2D manner. The pixel art is unchanged (closed palette, integer scale); `hd.ts` then finishes the upscaled frame on the display canvas, the one file the palette test lets use gradients and translucency: a soft bloom (the frame drawn tiny and back up, in screen mode), a time-of-day light wash in soft-light, slow diagonal sun shafts by day and dusk, and a vignette. Glow, wash and shafts cover the field only (`fieldTop`..`fieldBottom`), so the HUD, dock and menus stay crisp; menus get the vignette alone. Specials and the cannon add a brief screen flash (`flash`). There is no depth-of-field band: the HUD shares the top with the kennel. Inside the palette, units cast dithered soft shadows (`softShadow`) and `paintAir` drifts sakura petals by day, embers at dusk and fireflies at night. `?nohd` turns the finish off.
+
+## Play-test round 3
+- おやつ砲 is off (`CANNON_ENABLED = false`): no charge, no bar, no house taps. Code kept.
+- Shiba faces are back to the original smiling ones (the "brave" brows looked creepy); rivals keep their normal eyes and bandana.
+- Only 赤柴 starts. Each stage cleared unlocks the next coat (`COAT_UNLOCK` = [-1, 0, 1, 2, 3, 4, 5]). A deck holds `deckSize(sim)` coats: `DECK_SIZE`, or fewer while fewer are unlocked; `fillDeck` tops it up (on load and when a clear unlocks a coat), and the dock shows locked empty slots.
+- The title has a レベルリセット button under the stage tiles (`resetTarget`, `paintReset`): one tap arms it (red, もう一回タップ), a second within 3 s sends `Input.resetLevels`, which puts every level back to 1 and XP to 0. Stars, unlocks, deck and ホネ stay.

@@ -17,6 +17,7 @@ import {
   HERO_REVIVE,
   HERO_TAP_Y,
   CANNON_CHARGE,
+  CANNON_ENABLED,
   CANNON_REACH,
   CANNON_HIT,
   CANNON_PUSH,
@@ -277,6 +278,8 @@ export interface Input {
   home?: boolean
   /** On the result screen: open the 宝箱. */
   openChest?: boolean
+  /** On the title screen: put every coat back to level 1 with no XP. */
+  resetLevels?: boolean
   /** From the pause menu: give up this match and go back to the title. */
   quit?: boolean
   /** On the level-up screen, buy a level for this coat. */
@@ -572,17 +575,32 @@ export function createSim(opts?: SimOptions): Sim {
     laneCN: new Int16Array(LANE_COUNT),
   }
   if (opts?.free === true) {
-    sim.deck = cleanDeck(opts?.deck)
-    if (!sim.deck.every((k) => coatOpen(sim, k))) sim.deck = [...DEFAULT_DECK]
+    sim.deck = cleanDeck(opts?.deck).filter((k) => coatOpen(sim, k))
+    fillDeck(sim)
   }
   sim.picked = sim.deck[0] ?? KIND_TAN
   boot(sim)
   return sim
 }
 
-/** A saved deck is kept only if it is DECK_SIZE different coats of the roster; otherwise the default deck. */
+/** How many coats a deck holds: DECK_SIZE, or fewer while fewer coats are unlocked. */
+export function deckSize(sim: Sim): number {
+  if (!sim.free) return DECK_SIZE
+  let open = 0
+  for (let k = 0; k < KINDS; k++) if (coatOpen(sim, k)) open += 1
+  return Math.min(DECK_SIZE, open)
+}
+
+/** Top the deck up with unlocked coats (in roster order) until it holds deckSize. */
+function fillDeck(sim: Sim): void {
+  for (let k = 0; k < KINDS && sim.deck.length < deckSize(sim); k++) {
+    if (coatOpen(sim, k) && !sim.deck.includes(k)) sim.deck.push(k)
+  }
+}
+
+/** A saved deck is kept only if it is 1..DECK_SIZE different coats of the roster; otherwise the default deck. */
 function cleanDeck(deck: readonly number[] | undefined): number[] {
-  if (!deck || deck.length !== DECK_SIZE) return [...DEFAULT_DECK]
+  if (!deck || deck.length < 1 || deck.length > DECK_SIZE) return [...DEFAULT_DECK]
   const seen = new Set<number>()
   for (const k of deck) {
     if (!Number.isInteger(k) || k < 0 || k >= KINDS || seen.has(k)) return [...DEFAULT_DECK]
@@ -614,7 +632,7 @@ export function selectStage(sim: Sim, stage: number): boolean {
 }
 
 export function deckReady(sim: Sim): boolean {
-  return sim.deck.length === DECK_SIZE
+  return sim.deck.length === deckSize(sim)
 }
 
 /** Put a coat in the deck, or take it out. A full deck needs one out first. */
@@ -623,7 +641,7 @@ export function toggleDeck(sim: Sim, kind: number): boolean {
   const at = sim.deck.indexOf(kind)
   if (at >= 0) {
     sim.deck.splice(at, 1)
-  } else if (sim.deck.length < DECK_SIZE && coatOpen(sim, kind)) {
+  } else if (sim.deck.length < deckSize(sim) && coatOpen(sim, kind)) {
     sim.deck.push(kind)
   } else {
     return false
@@ -1020,6 +1038,7 @@ function acquire(units: Unit[], sim: Sim, which: 's' | 'c'): Unit | null {
 export function step(sim: Sim, dt: number, input: Input = NO_INPUT): void {
   if (!(dt > 0)) return
   if (sim.title) {
+    if (input.resetLevels) resetLevels(sim)
     if (input.pickStage !== undefined) selectStage(sim, input.pickStage)
     return
   }
@@ -1085,7 +1104,7 @@ export function step(sim: Sim, dt: number, input: Input = NO_INPUT): void {
   reap(sim)
   if (sim.rushT > 0) sim.rushT -= tick
   if (sim.wanT > 0) sim.wanT -= tick
-  if (sim.free && sim.cannonT < CANNON_CHARGE) sim.cannonT = Math.min(CANNON_CHARGE, sim.cannonT + tick)
+  if (sim.free && CANNON_ENABLED && sim.cannonT < CANNON_CHARGE) sim.cannonT = Math.min(CANNON_CHARGE, sim.cannonT + tick)
   if (sim.fxT > 0) {
     sim.fxT -= tick
     if (sim.fxT <= 0) sim.fxKind = -1
@@ -1141,6 +1160,8 @@ function pay(sim: Sim): void {
     const firstClear = (sim.best[sim.stage] ?? 0) === 0
     sim.best[sim.stage] = Math.max(sim.best[sim.stage] ?? 0, sim.stars)
     if (firstClear) sim.newCoat = COAT_UNLOCK.findIndex((need) => need === sim.stage)
+    // A newly unlocked coat joins the deck by itself while there is room.
+    if (sim.newCoat >= 0) fillDeck(sim)
     sim.seed = (Math.imul(sim.seed, 1103515245) + 12345) >>> 0
     const wobble = 0.8 + ((sim.seed >>> 8) % 41) / 100
     sim.chestBones = Math.round((CHEST_BASE + CHEST_STAGE * sim.stage) * (1 + CHEST_STAR * sim.stars) * wobble)
@@ -1178,6 +1199,14 @@ export function levelCost(level: number): number {
 /** How much stronger a coat is for its level: 1 at level 1. */
 export function power(sim: Sim, kind: number): number {
   return 1 + LEVEL_STEP * ((sim.levels[kind] ?? 1) - 1)
+}
+
+/** Every coat (and the hero slot) back to level 1 with no XP. Stars, unlocks, the deck and ホネ stay. */
+export function resetLevels(sim: Sim): void {
+  sim.levels.fill(1)
+  sim.xp.fill(0)
+  sim.gained.fill(0)
+  sim.saveSeq += 1
 }
 
 /** XP a coat needs to go from `level` to the next. */

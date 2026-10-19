@@ -26,7 +26,7 @@ import {
   HERO_TAP_LIFT,
 } from './balance'
 import { createSim, dogsLeft, fillMarch, spawnCat, spawnShiba, NO_INPUT, step, type Input, type Outcome } from './sim'
-import { createRenderer, draw, muteTarget, pauseButtonTarget, pauseTarget, speedTarget, screenToWorld, shopTarget, titleTarget, type ScreenInsets } from './render'
+import { createRenderer, draw, muteTarget, pauseButtonTarget, pauseTarget, resetTarget, speedTarget, screenToWorld, shopTarget, titleTarget, type ScreenInsets } from './render'
 
 const canvasEl = document.querySelector<HTMLCanvasElement>('#game')
 if (!canvasEl) throw new Error('canvas unavailable')
@@ -340,6 +340,19 @@ canvas.addEventListener('pointerdown', (ev) => {
     return
   }
   if (sim.title) {
+    if (resetTarget(p.x, p.y)) {
+      // Two taps within 3 s: the first arms the button, the second resets.
+      const now = performance.now()
+      if (now - renderer.resetArmedAt < 3000) {
+        input.resetLevels = true
+        renderer.resetArmedAt = -1e9
+        renderer.resetDoneAt = now
+      } else {
+        renderer.resetArmedAt = now
+      }
+      synth.tap()
+      return
+    }
     const stage = titleTarget(p.x, p.y)
     if (stage >= 0) input.pickStage = stage
     return
@@ -363,6 +376,7 @@ canvas.addEventListener('pointerdown', (ev) => {
   }
   for (let card = 0; card < CARD_XS.length; card++) {
     if (hitCard(p.x, p.y, CARD_XS[card] ?? 0)) {
+      if (sim.free && sim.deck[card] === undefined) return
       input.pick = sim.free ? (sim.deck[card] ?? card) : card
       return
     }
@@ -529,6 +543,7 @@ function advance(dt: number): void {
   input.pickStage = undefined
   input.quit = undefined
   input.openChest = undefined
+  input.resetLevels = undefined
   input.heroSkill = undefined
   input.cannon = undefined
   input.home = undefined
