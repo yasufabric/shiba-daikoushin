@@ -410,3 +410,6 @@ export const POM_KEEP = 70
 export const CHEST_BASE = 30
 export const CHEST_STAGE = 15
 export const CHEST_STAR = 0.25
+
+/** The ヒーロー柴 levels up on the result screen like a coat: its level lives at levels[HERO_SLOT], after the coats. */
+export const HERO_SLOT = KINDS
