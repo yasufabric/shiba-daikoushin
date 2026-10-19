@@ -91,6 +91,13 @@ const devOn = new URLSearchParams(location.search).has('dev')
 // Free placement is the game; ?lanes keeps the older five-path game for comparison.
 const freeOn = !new URLSearchParams(location.search).has('lanes')
 const sim = createSim({ tutorial: !seenTutorial(), levels: saved?.levels, purse: saved?.purse, free: freeOn, hero: true, title: freeOn && !devOn, stage: saved?.stage, best: saved?.best, deck: saved?.deck })
+const HERO_KEY = 'shiba-daikoushin-hero'
+try {
+  sim.heroUsed = localStorage.getItem(HERO_KEY) === '1'
+} catch {
+  // Storage blocked: the hint just shows again.
+}
+let heroSaved = sim.heroUsed
 let savedSeq = sim.saveSeq
 const renderer = createRenderer()
 const synth = createSynth()
@@ -446,6 +453,14 @@ function frame(now: number): void {
     advance(dt)
   }
   renderer.muted = synth.isMuted()
+  if (sim.heroUsed && !heroSaved) {
+    heroSaved = true
+    try {
+      localStorage.setItem(HERO_KEY, '1')
+    } catch {
+      // Ignore: the hint comes back next visit.
+    }
+  }
   syncViewport()
   draw(ctx, renderer, sim, viewW, viewH, dpr, insets)
   requestAnimationFrame(frame)
