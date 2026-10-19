@@ -38,6 +38,8 @@ import {
   BREED_BULLDOG,
   BREED_POODLE,
   COAT_UNLOCK,
+  KIND_CHEER,
+  WANWAN_T,
   HERO_REVIVE,
   HERO_HIT,
   HERO_RADIUS,
@@ -988,5 +990,36 @@ describe('soldiers', () => {
     expect(sim.newCoat).toBe(4)
     expect(coatOpen(sim, 4)).toBe(true)
     expect(toggleDeck(sim, 4)).toBe(true)
+  })
+
+  it('応援柴 makes nearby shibas bite faster, fills its gauge, and ワンワン!! fires the whole pack up', () => {
+    const run = (cheer: boolean): number => {
+      const sim = createSim({ tutorial: false, seed: 7, free: true })
+      for (const c of sim.cats) c.alive = false
+      for (const u of sim.shibas) u.alive = false
+      sim.aliveCats = 0
+      sim.aliveShibas = 0
+      sim.nextCat = 1e9
+      spawnCat(sim, 0, BREED_BULLDOG, { x: 100, y: 300 })
+      const dog = sim.cats.find((c) => c.alive)
+      Object.assign(dog ?? {}, { hp: 99999, maxHp: 99999, dps: 0, speed: 0 })
+      spawnShiba(sim, KIND_TAN, 0, 0)
+      const biter = sim.shibas.find((u) => u.alive)
+      Object.assign(biter ?? {}, { x: 100, y: 320, speed: 0 })
+      if (cheer) {
+        spawnShiba(sim, KIND_CHEER, 0, 0)
+        const c = sim.shibas.find((u) => u.alive && u.kind === KIND_CHEER)
+        Object.assign(c ?? {}, { x: 100, y: 340, speed: 0 })
+      }
+      for (let i = 0; i < 300; i++) step(sim, 1 / 30, NO_INPUT)
+      if (cheer) expect((sim.charge[KIND_CHEER] ?? 0) > 0).toBe(true)
+      return 99999 - (dog?.hp ?? 0)
+    }
+    const plain = run(false)
+    const cheered = run(true)
+    expect(cheered).toBeGreaterThan(plain * 1.2)
+    const sim = createSim({ tutorial: false, seed: 7, free: true })
+    strikeSpecial(sim, KIND_CHEER)
+    expect(sim.wanT).toBe(WANWAN_T)
   })
 })

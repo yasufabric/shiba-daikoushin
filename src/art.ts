@@ -199,6 +199,21 @@ const BUCHI: Record<string, string> = {
   q: GOLD,
 }
 
+/** 応援柴: a golden きなこ coat, so the cheerleader shines in the crowd. */
+const KINAKO: Record<string, string> = {
+  ...RED,
+  L: GOLD_DARK,
+  o: GOLD,
+  h: GOLD_HOT,
+  m: GOLD_DARK,
+  c: GOLD_HOT,
+  e: GOLD_LIGHT,
+  s: GOLD,
+  k: GOLD_DARK,
+  n: GOLD_DARK,
+  q: DANGER,
+}
+
 /** どっしり柴: a big grey-brown coat with a dark outline, for the slow stomper. */
 const GRAY: Record<string, string> = {
   ...RED,
@@ -222,7 +237,8 @@ export const FUR_SESAME = 2
 export const FUR_CREAM = 3
 export const FUR_BUCHI = 4
 export const FUR_GRAY = 5
-const FUR_MAPS = [RED, BLACK, SESAME, CREAM, BUCHI, GRAY] as const
+export const FUR_KINAKO = 6
+const FUR_MAPS = [RED, BLACK, SESAME, CREAM, BUCHI, GRAY, KINAKO] as const
 
 const CAT: Record<string, string> = {
   L: CAT_DARK,
@@ -766,7 +782,7 @@ function sealAll(name: string, frames: readonly (readonly string[])[], map: Reco
   return frames.map((rows, i) => seal(`${name}-${i}`, rows, map))
 }
 
-const FUR_NAMES = ['red', 'black', 'sesame', 'cream', 'buchi', 'gray'] as const
+const FUR_NAMES = ['red', 'black', 'sesame', 'cream', 'buchi', 'gray', 'kinako'] as const
 
 /** One 10-frame strip per fur: 赤, 黒, 胡麻, 白, ぶち, どっしり. */
 export const crowdArt: readonly Seal[][] = FUR_MAPS.map((map, i) => sealAll(`crowd-${FUR_NAMES[i] ?? i}`, CROWD_ROWS, map))
@@ -831,6 +847,7 @@ const HERO_COATS = [
   ['cream', CREAM],
   ['buchi', BUCHI],
   ['gray', GRAY],
+  ['kinako', KINAKO],
 ] as const
 
 /** Four coats in card order (赤, 黒, 胡麻, 白) × open, blink, smug, then the reward (red with a gold collar). Index with heroCell. */

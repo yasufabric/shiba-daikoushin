@@ -201,3 +201,7 @@ The dock's top row has a ▶▶ button left of the speaker (`speedTarget`, `pain
 
 ## Coat unlocks
 `COAT_UNLOCK[kind]` is the stage index that must have a star before a coat joins (-1: from the start). ぶち柴 opens after stage 2, どっしり柴 after stage 4 (`coatOpen`). Locked coats cannot enter the deck or be levelled; a saved deck holding one falls back to `DEFAULT_DECK`. The first clear that opens a coat sets `sim.newCoat`, and the result screen blinks NEW! over its portrait; locked cells show a padlock and a dim tile with the stage number to clear.
+
+## 応援柴 (KIND_CHEER, 7th coat)
+Golden きなこ coat (`KINAKO`, `FUR_KINAKO`) with a pink pennant (`drawPennant`). Deals no damage: trails the nearest non-support shiba (`cheerFree`), and every shiba within `CHEER_RADIUS` attacks `CHEER_HASTE`× as often (`hasteOf` scales the per-shiba beat as `hbeat` inside `moveFree`). Its gauge fills `CHEER_CHARGE`/s while a shiba is in range. Special ワンワン!! sets `sim.wanT` (`WANWAN_T` s of `WANWAN_HASTE`× attacks for the whole pack) and heals each shiba 15%. Unlocks after stage 6 (`COAT_UNLOCK[6] = 5`).
+Seven coats need four rows on the result screen: `shopLayout` goes compact and derives `cellH` from the space above START; short cells move the deck number onto the portrait and lay the buy button's bone and cost side by side.

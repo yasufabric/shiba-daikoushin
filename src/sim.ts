@@ -52,6 +52,15 @@ import {
   HP_BLACK,
   HP_TAN,
   KIND_BIG,
+  KIND_CHEER,
+  HP_CHEER,
+  DPS_CHEER,
+  SPEED_CHEER,
+  CHEER_RADIUS,
+  CHEER_HASTE,
+  CHEER_CHARGE,
+  WANWAN_T,
+  WANWAN_HASTE,
   KIND_DISC,
   DISC_EVERY,
   DISC_HIT,
@@ -309,6 +318,8 @@ export interface Sim {
   /** Coat whose special struck this step, or -1. */
   sfxStrike: number
   rushT: number
+  /** ワンワン!! time left: every shiba attacks faster. */
+  wanT: number
   /** ヒーロー柴: a steered shiba kept outside the pools. alive=false while it waits to come back (heroT seconds). */
   hero: Unit
   heroT: number
@@ -449,6 +460,7 @@ export function createSim(opts?: SimOptions): Sim {
     fxHits: [],
     sfxStrike: -1,
     rushT: 0,
+    wanT: 0,
     hero: makePool(1)[0] as Unit,
     heroT: 0,
     heroOn: opts?.hero === true,
@@ -652,6 +664,7 @@ function boot(sim: Sim): void {
   sim.fxT = 0
   sim.sfxStrike = -1
   sim.rushT = 0
+  sim.wanT = 0
   spawnHero(sim)
   sim.sfxSpecial = -1
   sim.seq = 0
@@ -700,11 +713,11 @@ export function spawnShiba(sim: Sim, kind: number, lane: number, y: number): boo
   return true
 }
 
-const HP_OF = [HP_TAN, HP_BLACK, HP_SESAME, HP_WHITE, HP_DISC, HP_BIG] as const
-const DPS_OF = [DPS_TAN, DPS_BLACK, DPS_SESAME, DPS_WHITE, DPS_DISC, DPS_BIG] as const
-const SPEED_OF = [SPEED_TAN, SPEED_BLACK, SPEED_SESAME, SPEED_WHITE, SPEED_DISC, SPEED_BIG] as const
-const COUNT_OF = [COUNT_TAN, COUNT_BLACK, COUNT_SESAME, COUNT_WHITE, 1, 1] as const
-const STEP_OF = [STEP_TAN, STEP_BLACK, STEP_SESAME, STEP_WHITE, 0, 0] as const
+const HP_OF = [HP_TAN, HP_BLACK, HP_SESAME, HP_WHITE, HP_DISC, HP_BIG, HP_CHEER] as const
+const DPS_OF = [DPS_TAN, DPS_BLACK, DPS_SESAME, DPS_WHITE, DPS_DISC, DPS_BIG, DPS_CHEER] as const
+const SPEED_OF = [SPEED_TAN, SPEED_BLACK, SPEED_SESAME, SPEED_WHITE, SPEED_DISC, SPEED_BIG, SPEED_CHEER] as const
+const COUNT_OF = [COUNT_TAN, COUNT_BLACK, COUNT_SESAME, COUNT_WHITE, 1, 1, 1] as const
+const STEP_OF = [STEP_TAN, STEP_BLACK, STEP_SESAME, STEP_WHITE, 0, 0, 0] as const
 
 export function fillMarch(sim: Sim, count: number): number {
   let spawned = 0
@@ -836,6 +849,7 @@ export function step(sim: Sim, dt: number, input: Input = NO_INPUT): void {
   }
   reap(sim)
   if (sim.rushT > 0) sim.rushT -= tick
+  if (sim.wanT > 0) sim.wanT -= tick
   if (sim.fxT > 0) {
     sim.fxT -= tick
     if (sim.fxT <= 0) sim.fxKind = -1
@@ -1188,6 +1202,51 @@ function nearestTaunt(shibas: Unit[], dog: Unit, sight: number): Unit | undefine
 }
 
 /** 白: walk to the most-hurt shiba (else trail the nearest one from just behind), and every HEAL_EVERY mend every shiba inside HEAL_RADIUS. */
+/** How much faster this shiba attacks: near a 応援柴, and during ワンワン!!. */
+function hasteOf(sim: Sim, unit: Unit): number {
+  let h = sim.wanT > 0 ? WANWAN_HASTE : 1
+  for (const u of sim.shibas) {
+    if (!u?.alive || u.kind !== KIND_CHEER || u === unit || u.hp <= 0) continue
+    if (Math.hypot(u.x - unit.x, u.y - unit.y) <= CHEER_RADIUS) {
+      h *= CHEER_HASTE
+      break
+    }
+  }
+  return h
+}
+
+/** 応援柴: trail the nearest fighting shiba a little behind, wave the flag, and fill the gauge while anyone is in range. */
+function cheerFree(sim: Sim, cheer: Unit, dt: number, beat: number): void {
+  let lead: Unit | undefined
+  let leadD = Infinity
+  let near = false
+  for (const u of sim.shibas) {
+    if (!u?.alive || u === cheer || u.kind === KIND_CHEER || u.kind === KIND_WHITE || u.recall) continue
+    const d = Math.hypot(u.x - cheer.x, u.y - cheer.y)
+    if (d < leadD) {
+      leadD = d
+      lead = u
+    }
+    if (d <= CHEER_RADIUS) near = true
+  }
+  if (lead) {
+    const tx = lead.x
+    const ty = lead.y + 18
+    const d = Math.hypot(tx - cheer.x, ty - cheer.y)
+    if (d > 8) stepToward(cheer, tx, ty, Math.min(d, cheer.speed * dt))
+  } else if (cheer.y > FREE_HOLD_Y + 20) {
+    stepToward(cheer, cheer.x, FREE_HOLD_Y + 20, cheer.speed * dt)
+  }
+  if (near) {
+    sim.charge[KIND_CHEER] = (sim.charge[KIND_CHEER] ?? 0) + CHEER_CHARGE * power(sim, KIND_CHEER) * beat
+    cheer.cd -= beat
+    if (cheer.cd <= 0) {
+      cheer.cd = 1.2
+      cheer.bitAt = sim.time
+    }
+  }
+}
+
 function mendFree(sim: Sim, healer: Unit, dt: number, beat: number): void {
   // Head for the shiba that needs it most (low HP share, nearer wins ties); with nobody hurt, trail the nearest shiba.
   let hurt: Unit | undefined
@@ -1325,8 +1384,13 @@ function moveFree(sim: Sim, rawDt: number): void {
       }
       continue
     }
+    const hbeat = beat * hasteOf(sim, shiba)
     if (shiba.kind === KIND_WHITE) {
-      mendFree(sim, shiba, dt, beat)
+      mendFree(sim, shiba, dt, hbeat)
+      continue
+    }
+    if (shiba.kind === KIND_CHEER) {
+      cheerFree(sim, shiba, dt, beat)
       continue
     }
     const haste = shiba.kind === KIND_TAN ? TAN_HASTE : 1
@@ -1345,7 +1409,7 @@ function moveFree(sim: Sim, rawDt: number): void {
       continue
     }
     if (shiba.kind === KIND_BLACK) {
-      shiba.cd -= beat
+      shiba.cd -= hbeat
       if (shiba.cd <= 0) {
         shiba.cd = HEAVY_EVERY
         hurt(sim, foe, HEAVY_HIT * power(sim, KIND_BLACK), KIND_BLACK)
@@ -1354,13 +1418,13 @@ function moveFree(sim: Sim, rawDt: number): void {
         shiba.bitAt = sim.time
       }
     } else if (shiba.kind === KIND_DISC) {
-      shiba.cd -= beat
+      shiba.cd -= hbeat
       if (shiba.cd <= 0) {
         shiba.cd = DISC_EVERY
         throwDisc(sim, shiba, foe)
       }
     } else if (shiba.kind === KIND_BIG) {
-      shiba.cd -= beat
+      shiba.cd -= hbeat
       if (shiba.cd <= 0) {
         shiba.cd = BIG_EVERY
         const hit = BIG_HIT * power(sim, KIND_BIG)
@@ -1373,7 +1437,7 @@ function moveFree(sim: Sim, rawDt: number): void {
         shiba.bitAt = sim.time
       }
     } else if (shiba.kind === KIND_SESAME) {
-      shiba.cd -= beat
+      shiba.cd -= hbeat
       if (shiba.cd <= 0) {
         shiba.cd = BARK_EVERY
         const hit = BARK_HIT * power(sim, KIND_SESAME)
@@ -1386,7 +1450,7 @@ function moveFree(sim: Sim, rawDt: number): void {
         shiba.bitAt = sim.time
       }
     } else {
-      shiba.bite -= beat * pace
+      shiba.bite -= hbeat * pace
       if (shiba.bite <= 0) {
         const every = shiba.kind === KIND_TAN ? TAN_BITE_EVERY : BITE_EVERY
         shiba.bite += every
@@ -1654,6 +1718,15 @@ export function strikeSpecial(sim: Sim, kind: number): void {
       dealt += hit
       c.hp -= BORO_HIT * scale
       note(c, hit, false)
+    }
+  } else if (kind === KIND_CHEER) {
+    // ワンワン!!: the whole pack gets fired up; every shiba also gets a little health back.
+    sim.wanT = WANWAN_T
+    for (const u of sim.shibas) {
+      if (!u?.alive || u.hp <= 0) continue
+      const gain = Math.min(u.maxHp * 0.15, u.maxHp - u.hp)
+      u.hp += gain
+      note(u, Math.round(gain), true)
     }
   } else if (kind === KIND_BIG) {
     // ミルク!!: the thickest knot of dogs.
