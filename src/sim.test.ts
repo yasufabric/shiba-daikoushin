@@ -1045,4 +1045,14 @@ describe('soldiers', () => {
     expect(sim.cats.filter((c) => c.alive).length).toBeGreaterThan(before)
     expect((shiba?.stun ?? 0) > 0).toBe(true)
   })
+
+  it('quitting from the pause menu goes back to the title, and a picked stage starts fresh', () => {
+    const sim = createSim({ tutorial: false, seed: 9, free: true, stage: 0 })
+    for (let i = 0; i < 60; i++) step(sim, 1 / 30, NO_INPUT)
+    step(sim, 1 / 30, { ...NO_INPUT, quit: true })
+    expect(sim.title).toBe(true)
+    step(sim, 1 / 30, { ...NO_INPUT, pickStage: 0 })
+    expect(sim.title).toBe(false)
+    expect(sim.time).toBeLessThan(0.1)
+  })
 })

@@ -236,6 +236,8 @@ export interface Input {
   pickStage?: number
   /** On the result screen, go back to the title. */
   home?: boolean
+  /** From the pause menu: give up this match and go back to the title. */
+  quit?: boolean
   /** On the level-up screen, buy a level for this coat. */
   levelUp?: number
   /** On the level-up screen, put this coat in or take it out of the deck. */
@@ -828,6 +830,10 @@ export function step(sim: Sim, dt: number, input: Input = NO_INPUT): void {
   if (!(dt > 0)) return
   if (sim.title) {
     if (input.pickStage !== undefined) selectStage(sim, input.pickStage)
+    return
+  }
+  if (input.quit && sim.outcome === 'play') {
+    sim.title = true
     return
   }
   if (sim.outcome !== 'play') {
