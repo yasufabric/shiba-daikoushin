@@ -198,3 +198,6 @@ One steered shiba (`sim.hero`, a `Unit` kept outside the pools; enabled by `crea
 
 ## 2× speed
 The dock's top row has a ▶▶ button left of the speaker (`speedTarget`, `paintSpeed`). It doubles the time fed to `step` during play only (title and result screens run at 1×), multiplies with the dev `setScale`, and is saved under `shiba-daikoushin-speed`. The sim never knows: it is purely how much time `advance` hands it.
+
+## Coat unlocks
+`COAT_UNLOCK[kind]` is the stage index that must have a star before a coat joins (-1: from the start). ぶち柴 opens after stage 2, どっしり柴 after stage 4 (`coatOpen`). Locked coats cannot enter the deck or be levelled; a saved deck holding one falls back to `DEFAULT_DECK`. The first clear that opens a coat sets `sim.newCoat`, and the result screen blinks NEW! over its portrait; locked cells show a padlock and a dim tile with the stage number to clear.
