@@ -526,7 +526,6 @@ export function titleTarget(x: number, y: number): number {
 
 /** Title: the logo over the meadow, the deck's faces hopping, and one tile per stage with its best stars. */
 function paintTitle(ctx: CanvasRenderingContext2D, renderer: Renderer, sim: Sim): void {
-  paintMute(ctx, renderer, py(4))
   const w = frame.internalW
   const clock = performance.now() / 1000
   ctx.fillStyle = SKY
@@ -573,6 +572,22 @@ function paintTitle(ctx: CanvasRenderingContext2D, renderer: Renderer, sim: Sim)
     const dx = ((w - 4 * (CROWD_PX + 8)) >> 1) + i * (CROWD_PX + 8)
     blitCrowd(ctx, renderer, furOf(faces[i] ?? 0), 'idle', clock, i, 0, false, dx, lineY + 30)
   }
+  // Stars collected so far, top left, out of three per stage (the dim number).
+  {
+    const got = sim.best.reduce((n, b) => n + b, 0)
+    const all = STAGES.length * 3
+    const sy0 = py(6)
+    ctx.fillStyle = LINE
+    ctx.fillRect(4, sy0 - 2, 22 + (digitCount(got) + digitCount(all)) * 10 + 8, 16)
+    ctx.fillStyle = NIGHT_1
+    ctx.fillRect(5, sy0 - 1, 20 + (digitCount(got) + digitCount(all)) * 10 + 8, 14)
+    drawMiniStar(ctx, 8, sy0 + 2, true)
+    drawNumber(ctx, renderer, got, 20, sy0, false)
+    const ax = 20 + digitCount(got) * 10 + 4
+    ctx.fillStyle = NIGHT_3
+    ctx.fillRect(ax, sy0 + 9, 3, 1)
+    drawNumber(ctx, renderer, all, ax + 4, sy0, false)
+  }
   // SELECT and the stage tiles.
   const sx = (w - SELECT_WORD.length * 10) >> 1
   const ty = py(titleTile(0).y)
@@ -595,6 +610,7 @@ function paintTitle(ctx: CanvasRenderingContext2D, renderer: Renderer, sim: Sim)
       drawLock(ctx, x + 11, y + 14)
     }
   }
+  paintMute(ctx, renderer, py(4))
 }
 
 /** A tap on the speaker: `flat` screens (title, result) put it top right, play puts it at the right end of the dock's top row. */
