@@ -181,7 +181,7 @@ The result screen lays itself out from the top (`shopLayout`); short phones get 
 `?dev` has `__shiba.place('s'|'c', kind, x, y)` to drop a shiba or dog for screenshots.
 
 ## Title screen and HUD polish
-The game opens on a title screen (`sim.title`; `?dev` skips it): the logo, the deck's faces, the 柴の家 with rival dogs marching past, and one tile per stage showing its best stars. A stage opens once the one before it has a star (`stageOpen`); tapping a tile calls `selectStage`. The result screen has a small kennel button (top left) that goes back to the title. Taps on both screens map flat (`screenToWorld(..., flat)`), via `titleTarget` and `shopTarget`.
+The game opens on a title screen (`sim.title`; `?dev` skips it): the logo, the deck's faces, the 柴の家 with rival dogs marching past, and one tile per stage showing its best stars, and a star total (got, then out of 3 × stages) top left. The speaker is painted last so the sky does not cover it. A stage opens once the one before it has a star (`stageOpen`); tapping a tile calls `selectStage`. The result screen has a small kennel button (top left) that goes back to the title. Taps on both screens map flat (`screenToWorld(..., flat)`), via `titleTarget` and `shopTarget`.
 Cards and deck cells carry a 9×9 role icon (`drawRoleIcon`): claws, slam ring, ball, heart, frisbee, paw. The HUD shows `STAGE n` under the dog count.
 
 ## Sound
