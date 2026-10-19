@@ -953,12 +953,12 @@ function paintLane(ctx: CanvasRenderingContext2D, x: number, laneW: number, lane
     const y = fy + ((row * 12 + lane * 5) % fh)
     const tx = x + 1 + ((row * 13 + lane * 11) % (laneW - 5))
     if (row % 5 === 2) {
-      ctx.fillStyle = MEADOW_DARK
+      ctx.fillStyle = ground.patch
       ctx.fillRect(tx, y + 1, 6, 2)
       ctx.fillRect(tx + 1, y, 4, 4)
       continue
     }
-    ctx.fillStyle = row % 3 === 0 ? MEADOW_HOT : MEADOW_LIGHT
+    ctx.fillStyle = row % 3 === 0 ? ground.hot : ground.tuft
     ctx.fillRect(tx, y, 1, 2)
     ctx.fillRect(tx + 1, y + 1, 1, 1)
     ctx.fillRect(tx + 2, y, 1, 2)
@@ -1033,8 +1033,31 @@ function themeOf(sim: Sim): Theme {
   return sim.stage < 3 ? 'day' : sim.stage < 6 ? 'dusk' : 'night'
 }
 
+/** Ground by stage pair (play-test round 4: "草原だけじゃなくても"): 草原, 砂浜, 紅葉の森, 雪原, then round again in エンドレス. */
+type Biome = 'meadow' | 'beach' | 'autumn' | 'snow'
+interface Ground {
+  base: string
+  patch: string
+  tuft: string
+  hot: string
+  rim: string
+}
+const GROUND: Record<Biome, Ground> = {
+  meadow: { base: MEADOW, patch: MEADOW_DARK, tuft: MEADOW_LIGHT, hot: MEADOW_HOT, rim: MEADOW_HOT },
+  beach: { base: FUR_LIGHT, patch: FUR_BODY, tuft: GOLD_HOT, hot: WHITE, rim: WHITE },
+  autumn: { base: MEADOW_DARK, patch: FUR_MID, tuft: FUR_BODY, hot: GOLD, rim: GOLD_LIGHT },
+  snow: { base: WHITE_MID, patch: WHITE_DARK, tuft: WHITE, hot: SKY_LIGHT, rim: WHITE },
+}
+function biomeOf(sim: Sim): Biome {
+  if (!sim.free) return 'meadow'
+  const order: Biome[] = ['meadow', 'meadow', 'beach', 'beach', 'autumn', 'autumn', 'snow', 'snow']
+  return order[sim.stage % order.length] ?? 'meadow'
+}
+let ground: Ground = GROUND.meadow
+
 function paintBackdrop(ctx: CanvasRenderingContext2D, sim: Sim): void {
   const theme = themeOf(sim)
+  ground = GROUND[biomeOf(sim)]
   const width = frame.internalW
   const fx = px(at(FIELD_X))
   const fy = py(at(FIELD_Y))
@@ -1068,16 +1091,26 @@ function paintBackdrop(ctx: CanvasRenderingContext2D, sim: Sim): void {
     ctx.fillStyle = NIGHT_3
     ctx.fillRect(0, fy - 6, width, 2)
   }
-  ctx.fillStyle = MEADOW_HOT
+  if (biomeOf(sim) === 'beach') {
+    // The sea along the horizon, with a line of surf.
+    ctx.fillStyle = NIGHT_3
+    ctx.fillRect(0, fy - 10, width, 8)
+    ctx.fillStyle = SKY
+    ctx.fillRect(0, fy - 8, width, 4)
+    ctx.fillStyle = WHITE
+    const t = Math.floor(performance.now() / 300) & 7
+    for (let x = -8 + t; x < width; x += 16) ctx.fillRect(x, fy - 4, 6, 1)
+  }
+  ctx.fillStyle = ground.rim
   ctx.fillRect(0, fy - 2, width, 2)
   const panel = pyDock(at(PANEL_Y))
   const groundH = Math.max(fh, panel - fy)
-  ctx.fillStyle = MEADOW
+  ctx.fillStyle = ground.base
   ctx.fillRect(0, fy, width, groundH)
   const rows = fieldExtra > 0 ? Math.ceil(fh / 12) + 2 : 28
   paintLanes(ctx, fx, fy, fw, fh, rows, frame.internalW)
   // Dusk and night lay a sparse dither over the grass; units drawn after stay bright.
-  const shade = theme === 'dusk' ? dither(ctx, MEADOW_DARK, 4) : theme === 'night' ? dither(ctx, NIGHT, 2) : null
+  const shade = theme === 'dusk' ? dither(ctx, biomeOf(sim) === 'snow' ? WHITE_DARK : MEADOW_DARK, 4) : theme === 'night' ? (biomeOf(sim) === 'snow' ? dither(ctx, NIGHT_3, 2) : dither(ctx, NIGHT, 2)) : null
   if (shade) {
     ctx.fillStyle = shade
     ctx.fillRect(0, fy, width, groundH)
@@ -2559,9 +2592,27 @@ function paintAir(ctx: CanvasRenderingContext2D, sim: Sim): void {
   const fy = py(at(FIELD_Y))
   const fh = at(FIELD_H)
   const n = theme === 'night' ? 12 : 14
+  const biome = biomeOf(sim)
   for (let i = 0; i < n; i++) {
     const seed = i * 97.13
-    if (theme === 'day') {
+    if (biome === 'snow' || (biome === 'autumn' && theme !== 'night')) {
+      // Snowflakes drift down; in the autumn wood, leaves tumble.
+      const fall = (t * (8 + (i % 4) * 3) + seed * 7) % (fh + 20)
+      const x = fx + ((seed * 13 + Math.sin(t * 1.1 + i) * 12) % fw + fw) % fw
+      const y = fy - 10 + fall
+      if (biome === 'snow') {
+        ctx.fillStyle = WHITE
+        ctx.fillRect(Math.round(x), Math.round(y), 2, 2)
+        ctx.fillStyle = SKY_LIGHT
+        ctx.fillRect(Math.round(x) + 1, Math.round(y) + 1, 1, 1)
+      } else {
+        const flip = Math.floor(t * 3 + i) & 1
+        ctx.fillStyle = i % 3 === 0 ? GOLD : FUR_BODY
+        ctx.fillRect(Math.round(x), Math.round(y), flip ? 3 : 2, flip ? 2 : 3)
+        ctx.fillStyle = FUR_MID
+        ctx.fillRect(Math.round(x), Math.round(y), 1, 1)
+      }
+    } else if (theme === 'day') {
       // Petals fall slowly and sway.
       const fall = (t * (10 + (i % 4) * 3) + seed * 7) % (fh + 20)
       const x = fx + ((seed * 13 + t * 6 + Math.sin(t * 1.3 + i) * 10) % fw + fw) % fw

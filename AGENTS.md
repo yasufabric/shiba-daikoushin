@@ -277,3 +277,4 @@ Play-test asked for high-quality 2D in the HD-2D manner. The pixel art is unchan
 ## Play-test round 4
 - Kennels were too big: the rival kennel is 48×40 (was 64×52) and the 柴の家 42×35 (was 56×46), so the field reads as the stage.
 - Specials nerfed again: gauges ~1.25× longer, SPECIAL_GAP 7 s between specials so they never chain, and each effect trimmed (ダッシュ 2 s, ドリル 130, ペロペロ 35%, ブンブン 70, ドスン 75 / 1 s stun, トオボエ stun 0.8 s, ワンワン 3 s).
+- Biomes (`biomeOf`/`GROUND` in render.ts): stages 1-2 草原, 3-4 砂浜 (sea and surf on the horizon), 5-6 紅葉の森 (falling leaves), 7-8 雪原 (snowfall, moonlit dither at night); エンドレス cycles. Time of day (`themeOf`) still layers on top.
