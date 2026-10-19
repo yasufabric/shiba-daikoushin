@@ -258,3 +258,6 @@ The result screen shows an XP bar under each LV and an info strip above START (`
 
 ## Faces (play-test: braver shibas, less zombie rivals)
 Shibas wear a set face: brows `v` slanting down to the middle (dark on red; tan まろ眉 on 黒), 2×2 eyes `K` (NIGHT) with a white glint, and a closed mouth under the nose; the pink tongue only shows on the bark frame. Card portraits (`HERO_HALF`) match. Rival dogs no longer have glowing red eyes: `e` is NIGHT with an `x` glint added by `dogFrame`, and every rival wears the gang's red bandana (`DOG_SCARF`, rows from `DOG_SCARF_Y`).
+
+## Hits you can see
+Every unit keeps `hurtAt` (set in `hurt` for dogs and where a dog's bite lands on a shiba). For 0.1 s after a hit the unit draws from the flash sheet, and for 0.16 s it jolts a pixel side to side. Melee claw marks are bigger with a white impact star on the first frame, and a rival's bite shows a red crossed slash at its jaws.
