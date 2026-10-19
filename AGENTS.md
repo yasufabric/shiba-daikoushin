@@ -218,3 +218,6 @@ Tapping the hero itself (within `HERO_TAP_R` of a point `HERO_TAP_LIFT` above it
 
 ## ポメラニアン (enemy medic)
 `BREED_POM` (6; the boss is now 7, `BREEDS` 7). Every `POM_EVERY` s it mends each other dog within `POM_RADIUS` by `POM_HEAL` × stage hp (never the boss; `mendAt` drives a pink plus over the dog, `bitAt` a pink pulse on the pom). With a shiba in sight it keeps `POM_KEEP` away (`pomFree`, backing straight off); otherwise it walks down like any dog. Stages 4-8 mix it in via `StageSpec.pomEvery`. Art: `DOG_HALVES[6]` (small ears, white ruff).
+
+## 宝箱 (win chest)
+A win sets `sim.chest = 1` and rolls `sim.chestBones` (`CHEST_BASE` + `CHEST_STAGE` × stage, × (1 + `CHEST_STAR` × stars), ±20% from the seed). The result screen draws the chest (`paintChest`, a 30×24 grid at 2×) where START goes, with TAP!; tapping it sends `Input.openChest` (bank the ホネ, `chest = 2`), and ホネ fly out with +N while START returns. START or the kennel with the chest still shut bank it too, so nothing is lost. The result screen's blinks and bobs now run on the wall clock (`shopClock`): the match clock stands still there. `__shiba.win()` clears the field so the match ends in a frame, for screenshots.

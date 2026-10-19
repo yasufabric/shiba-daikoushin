@@ -16,6 +16,9 @@ import {
   HERO_RADIUS,
   HERO_REVIVE,
   HERO_TAP_Y,
+  CHEST_BASE,
+  CHEST_STAGE,
+  CHEST_STAR,
   HERO_SKILL_R,
   HERO_SKILL_HIT,
   HERO_SKILL_CD,
@@ -246,6 +249,8 @@ export interface Input {
   pickStage?: number
   /** On the result screen, go back to the title. */
   home?: boolean
+  /** On the result screen: open the 宝箱. */
+  openChest?: boolean
   /** From the pause menu: give up this match and go back to the title. */
   quit?: boolean
   /** On the level-up screen, buy a level for this coat. */
@@ -303,6 +308,9 @@ export interface Sim {
   deck: number[]
   /** A coat this result unlocked (shown NEW! on the result screen), or -1. */
   newCoat: number
+  /** 宝箱 on the result screen: 0 none, 1 waiting to be opened, 2 opened. chestBones is what it pays. */
+  chest: number
+  chestBones: number
   /** Current stage index (0-based). */
   stage: number
   /** Best stars per stage, 0 = not cleared. Kept across matches. */
@@ -459,6 +467,8 @@ export function createSim(opts?: SimOptions): Sim {
     title: opts?.title === true,
     deck: [...DEFAULT_DECK],
     newCoat: -1,
+    chest: 0,
+    chestBones: 0,
     stage: Math.min(STAGES.length - 1, Math.max(0, Math.floor(opts?.stage ?? 0))),
     best: STAGES.map((_, i) => Math.min(3, Math.max(0, Math.floor(opts?.best?.[i] ?? 0)))),
     stars: 0,
@@ -657,6 +667,14 @@ function pomFree(sim: Sim, pom: Unit, dt: number, beat: number): boolean {
   return true
 }
 
+/** Open the result screen's 宝箱 (if one is waiting) and bank its ホネ. */
+function openChest(sim: Sim): void {
+  if (sim.chest !== 1) return
+  sim.chest = 2
+  sim.purse += sim.chestBones
+  sim.saveSeq += 1
+}
+
 /** The boss howls: later stages call チワワ to its side, and the last ones freeze shibas near it. */
 function howl(sim: Sim, boss: Unit): void {
   sim.howlAt = sim.time
@@ -718,6 +736,8 @@ function stepHero(sim: Sim, dt: number, beat: number): void {
 
 function boot(sim: Sim): void {
   sim.newCoat = -1
+  sim.chest = 0
+  sim.chestBones = 0
   sim.time = 0
   sim.bones = START_BONES
   sim.aliveShibas = 0
@@ -897,6 +917,7 @@ export function step(sim: Sim, dt: number, input: Input = NO_INPUT): void {
   }
   if (sim.outcome !== 'play') {
     if (input.home && sim.rewardT <= 0) {
+      openChest(sim)
       sim.title = true
       return
     }
@@ -908,7 +929,12 @@ export function step(sim: Sim, dt: number, input: Input = NO_INPUT): void {
     }
     if (input.levelUp !== undefined) buyLevel(sim, input.levelUp)
     if (input.toggleDeck !== undefined) toggleDeck(sim, input.toggleDeck)
-    if (input.restart && deckReady(sim)) reset(sim)
+    if (input.openChest) openChest(sim)
+    // START with the chest still shut banks it on the way out.
+    if (input.restart && deckReady(sim)) {
+      openChest(sim)
+      reset(sim)
+    }
     return
   }
 
@@ -1001,6 +1027,10 @@ function pay(sim: Sim): void {
     const firstClear = (sim.best[sim.stage] ?? 0) === 0
     sim.best[sim.stage] = Math.max(sim.best[sim.stage] ?? 0, sim.stars)
     if (firstClear) sim.newCoat = COAT_UNLOCK.findIndex((need) => need === sim.stage)
+    sim.seed = (Math.imul(sim.seed, 1103515245) + 12345) >>> 0
+    const wobble = 0.8 + ((sim.seed >>> 8) % 41) / 100
+    sim.chestBones = Math.round((CHEST_BASE + CHEST_STAGE * sim.stage) * (1 + CHEST_STAR * sim.stars) * wobble)
+    sim.chest = 1
   } else {
     sim.stars = 0
   }

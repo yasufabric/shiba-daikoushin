@@ -405,3 +405,8 @@ export const POM_EVERY = 1.6
 export const POM_RADIUS = 52
 export const POM_HEAL = 8
 export const POM_KEEP = 70
+
+/** 宝箱: a win leaves a chest where START goes; tapping it pays CHEST_BASE + CHEST_STAGE per stage, × (1 + CHEST_STAR per star), ±20%. */
+export const CHEST_BASE = 30
+export const CHEST_STAGE = 15
+export const CHEST_STAR = 0.25
