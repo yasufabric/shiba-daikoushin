@@ -413,3 +413,10 @@ export const CHEST_STAR = 0.25
 
 /** The ヒーロー柴 levels up on the result screen like a coat: its level lives at levels[HERO_SLOT], after the coats. */
 export const HERO_SLOT = KINDS
+
+/** エンドレス: opens after the last stage. Stage 8's mix with no boss and no end; dogs get ENDLESS_RAMP× tougher and harder-biting every 100 s. The score is dogs beaten. */
+export const ENDLESS_STAGE: StageSpec = { count: 999999, hp: 2.4, dps: 1.8, dachsEvery: 3, poodleEvery: 3, pomEvery: 6, goldenEvery: 4, bulldogEvery: 4, rocks: [
+  { x: 60, y: 230, r: 12 },
+  { x: 134, y: 230, r: 12 },
+] }
+export const ENDLESS_RAMP = 0.5

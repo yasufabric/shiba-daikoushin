@@ -1133,4 +1133,26 @@ describe('soldiers', () => {
     expect(sim.hero.maxHp).toBeGreaterThan(HERO_HP)
     expect(buyLevel(createSim({ tutorial: false, purse: 9999 }), HERO_SLOT)).toBe(false)
   })
+
+  it('エンドレス opens after the last stage, never sends a boss, ramps dogs up and keeps the best score', () => {
+    const last = STAGES.length - 1
+    const locked = createSim({ tutorial: false, free: true, title: true, best: STAGES.map((_, i) => (i < last ? 1 : 0)) })
+    expect(stageOpen(locked, STAGES.length)).toBe(false)
+    const sim = createSim({ tutorial: false, seed: 3, free: true, title: true, best: STAGES.map(() => 1), endlessBest: 5 })
+    expect(stageOpen(sim, STAGES.length)).toBe(true)
+    step(sim, 1 / 30, { ...NO_INPUT, pickStage: STAGES.length })
+    expect(sim.title).toBe(false)
+    expect(sim.toSend).toBeGreaterThan(10000)
+    const early = sim.cats.find((c) => c.alive)?.maxHp ?? 0
+    sim.time = 300
+    spawnCat(sim, 0, BREED_CORGI, { x: 100, y: 40 })
+    const late = sim.cats.filter((c) => c.alive && c.kind === BREED_CORGI).reduce((m, c) => Math.max(m, c.maxHp), 0)
+    expect(late).toBeGreaterThan(early)
+    sim.kills = 12
+    sim.homeHp = 0
+    step(sim, 1 / 30, NO_INPUT)
+    expect(sim.outcome).toBe('lost')
+    expect(sim.endlessBest).toBe(12)
+    expect(sim.endlessRecord).toBe(true)
+  })
 })

@@ -114,7 +114,7 @@ import {
   WHITE_DARK,
   WHITE_MID,
 } from './palette'
-import { canCall, costOf, deckReady, stageOpen, coatOpen, spec, dogsLeft, levelCost, type Outcome, type Sim, type Unit } from './sim'
+import { canCall, costOf, deckReady, isEndless, stageOpen, coatOpen, spec, dogsLeft, levelCost, type Outcome, type Sim, type Unit } from './sim'
 import { createSheets, type Sheets } from './sprites'
 
 const BUCKETS = 96
@@ -500,15 +500,17 @@ const TITLE_TILE_W = 32
 const TITLE_TILE_H = 46
 const TITLE_TILE_GAP = 4
 const TITLE_ROW = 4
+/** Stage tiles plus one for エンドレス. */
+const TITLE_TILES = STAGES.length + 1
 
 /** Internal-px box of a stage tile on the title screen, from the top of the screen. */
 function titleTile(stage: number): { x: number; y: number } {
   // Up to TITLE_ROW tiles per row; later stages wrap to a second row.
   const row = Math.floor(stage / TITLE_ROW)
   const col = stage % TITLE_ROW
-  const inRow = Math.min(TITLE_ROW, STAGES.length - row * TITLE_ROW)
+  const inRow = Math.min(TITLE_ROW, TITLE_TILES - row * TITLE_ROW)
   const total = inRow * TITLE_TILE_W + (inRow - 1) * TITLE_TILE_GAP
-  const rows = Math.ceil(STAGES.length / TITLE_ROW)
+  const rows = Math.ceil(TITLE_TILES / TITLE_ROW)
   const base = Math.max(150, frame.internalH - frame.topDy - 150 - (rows - 1) * 26)
   return { x: ((frame.internalW - total) >> 1) + col * (TITLE_TILE_W + TITLE_TILE_GAP), y: base + row * (TITLE_TILE_H + 6) }
 }
@@ -517,7 +519,7 @@ function titleTile(stage: number): { x: number; y: number } {
 export function titleTarget(x: number, y: number): number {
   const ix = x / 2
   const iy = y / 2
-  for (let stage = 0; stage < STAGES.length; stage++) {
+  for (let stage = 0; stage < TITLE_TILES; stage++) {
     const t = titleTile(stage)
     if (ix >= t.x - 2 && ix <= t.x + TITLE_TILE_W + 2 && iy >= t.y - 2 && iy <= t.y + TITLE_TILE_H + 2) return stage
   }
@@ -592,10 +594,11 @@ function paintTitle(ctx: CanvasRenderingContext2D, renderer: Renderer, sim: Sim)
   const sx = (w - SELECT_WORD.length * 10) >> 1
   const ty = py(titleTile(0).y)
   for (let i = 0; i < SELECT_WORD.length; i++) drawLetter(ctx, SELECT_WORD[i] ?? '', sx + i * 10, ty - 18, 1, WHITE)
-  for (let stage = 0; stage < STAGES.length; stage++) {
+  for (let stage = 0; stage < TITLE_TILES; stage++) {
     const t = titleTile(stage)
     const open = stageOpen(sim, stage)
-    const next = open && (sim.best[stage] ?? 0) === 0
+    const endless = stage === STAGES.length
+    const next = open && !endless && (sim.best[stage] ?? 0) === 0
     const x = t.x
     const y = py(t.y)
     ctx.fillStyle = LINE
@@ -603,7 +606,12 @@ function paintTitle(ctx: CanvasRenderingContext2D, renderer: Renderer, sim: Sim)
     ctx.fillStyle = open ? NIGHT_2 : NIGHT_1
     ctx.fillRect(x + 1, y + 1, TITLE_TILE_W - 2, TITLE_TILE_H - 2)
     frameRect(ctx, x + 1, y + 1, TITLE_TILE_W - 2, TITLE_TILE_H - 2, next ? (GOLD_CYCLE[Math.floor(clock * 8) & 3] ?? GOLD) : open ? GOLD_DARK : NIGHT_2)
-    if (open) {
+    if (open && endless) {
+      // エンドレス: an infinity sign over the best score.
+      drawInfinity(ctx, x + 5, y + 9, endless && open ? (GOLD_CYCLE[Math.floor(clock * 6) & 3] ?? GOLD) : GOLD)
+      const b = sim.endlessBest
+      drawNumber(ctx, renderer, b, x + ((TITLE_TILE_W - digitCount(b) * 10) >> 1), y + 28, false)
+    } else if (open) {
       drawNumber(ctx, renderer, stage + 1, x + 10, y + 7, true)
       for (let k = 0; k < 3; k++) drawMiniStar(ctx, x + 4 + k * 9, y + 32, k < (sim.best[stage] ?? 0))
     } else {
@@ -1008,8 +1016,10 @@ function paintCastle(ctx: CanvasRenderingContext2D, renderer: Renderer, sim: Sim
   paintDogsLeft(ctx, renderer, sim, x + BOSS_W + 6, y + 6)
   paintNextWave(ctx, renderer, sim, x - 50, y + 6)
   if (sim.free) {
-    for (let i = 0; i < STAGE_WORD.length; i++) drawLetter(ctx, STAGE_WORD[i] ?? '', x + BOSS_W + 1 + i * 10, y + 26, 1, WHITE)
-    drawNumber(ctx, renderer, sim.stage + 1, x + BOSS_W + 1 + STAGE_WORD.length * 10 + 3, y + 26, false)
+    // エンドレス shows just ∞ where STAGE n goes (there is no room for both).
+    if (isEndless(sim)) drawInfinity(ctx, x + BOSS_W + 14, y + 29, GOLD_LIGHT)
+    else for (let i = 0; i < STAGE_WORD.length; i++) drawLetter(ctx, STAGE_WORD[i] ?? '', x + BOSS_W + 1 + i * 10, y + 26, 1, WHITE)
+    if (!isEndless(sim)) drawNumber(ctx, renderer, sim.stage + 1, x + BOSS_W + 1 + STAGE_WORD.length * 10 + 3, y + 26, false)
   }
 }
 
@@ -1049,7 +1059,21 @@ function paintCall(ctx: CanvasRenderingContext2D, renderer: Renderer, sim: Sim):
 function paintDogsLeft(ctx: CanvasRenderingContext2D, renderer: Renderer, sim: Sim, x: number, y: number): void {
   const icon = renderer.sheets.cat
   ctx.drawImage(icon, 4 * CAT_PX, BREED_CORGI * 4 * CAT_PX, CAT_PX, 14, x - 3, y - 2, CAT_PX, 14)
-  drawNumber(ctx, renderer, dogsLeft(sim), x + 22, y + 2, false)
+  drawNumber(ctx, renderer, isEndless(sim) ? sim.kills : dogsLeft(sim), x + 22, y + 2, false)
+}
+
+/** ∞ as two joined loops, 11×7 cells drawn at 2×, with outline. */
+function drawInfinity(ctx: CanvasRenderingContext2D, x: number, y: number, fill: string): void {
+  const rows = ['.LLLL.LLLL.', 'LffffLffffL', 'LfLLfLfLLfL', 'LfL.LfL.LfL', 'LfLLfLfLLfL', 'LffffLffffL', '.LLLL.LLLL.']
+  for (let r = 0; r < rows.length; r++) {
+    const row = rows[r] ?? ''
+    for (let c = 0; c < row.length; c++) {
+      const ch = row[c]
+      if (ch === '.') continue
+      ctx.fillStyle = ch === 'L' ? LINE : fill
+      ctx.fillRect(x + c * 2, y + r * 2 - 2, 2, 2)
+    }
+  }
 }
 
 /** Free placement: the next wave, announced one wave ahead. The breed's head and the dog count, a three-slot strip lit where it comes from, and a bar that runs down to its arrival. */
@@ -2690,8 +2714,24 @@ function paintShop(ctx: CanvasRenderingContext2D, renderer: Renderer, sim: Sim):
   const stw = STAGE_WORD.length * 10 + 14
   const stx = (frame.internalW - stw) >> 1
   for (let i = 0; i < STAGE_WORD.length; i++) drawLetter(ctx, STAGE_WORD[i] ?? '', stx + i * 10, py(lay.compact ? 3 : 8), 1, WHITE)
-  drawNumber(ctx, renderer, sim.stage + 1, stx + STAGE_WORD.length * 10 + 4, py(lay.compact ? 3 : 8), false)
-  for (let i = 0; i < 3; i++) drawStar(ctx, ((frame.internalW - 66) >> 1) + i * 24, py(lay.compact ? 52 : 99), i < sim.stars)
+  if (isEndless(sim)) {
+    drawInfinity(ctx, stx + STAGE_WORD.length * 10 + 4, py(lay.compact ? 4 : 9), GOLD_LIGHT)
+    // The run's score in place of stars, and NEW! when it beat the best.
+    const word = 'SCORE'
+    const n = sim.kills
+    const total = word.length * 10 + 6 + digitCount(n) * 10
+    const sx0 = (frame.internalW - total) >> 1
+    const sy0 = py(lay.compact ? 54 : 101)
+    for (let i = 0; i < word.length; i++) drawLetter(ctx, word[i] ?? '', sx0 + i * 10, sy0, 1, WHITE)
+    drawNumber(ctx, renderer, n, sx0 + word.length * 10 + 6, sy0, false)
+    if (sim.endlessRecord) {
+      const c = GOLD_CYCLE[Math.floor(shopClock * 8) & 3] ?? GOLD
+      for (let i = 0; i < NEW_WORD.length; i++) drawLetter(ctx, NEW_WORD[i] ?? '', sx0 + total + 6 + i * 9, sy0, 1, c)
+    }
+  } else {
+    drawNumber(ctx, renderer, sim.stage + 1, stx + STAGE_WORD.length * 10 + 4, py(lay.compact ? 3 : 8), false)
+    for (let i = 0; i < 3; i++) drawStar(ctx, ((frame.internalW - 66) >> 1) + i * 24, py(lay.compact ? 52 : 99), i < sim.stars)
+  }
   const earnedDigits = digitCount(sim.earned)
   const purseDigits = digitCount(sim.purse)
   const earnedY = lay.compact ? 38 : 62
