@@ -43,6 +43,8 @@ import {
   BOSS_STUN_FROM,
   WANWAN_T,
   HERO_REVIVE,
+  HERO_SKILL_CD,
+  HERO_SKILL_R,
   HERO_HIT,
   HERO_RADIUS,
   POODLE_RANGE,
@@ -1054,5 +1056,21 @@ describe('soldiers', () => {
     step(sim, 1 / 30, { ...NO_INPUT, pickStage: 0 })
     expect(sim.title).toBe(false)
     expect(sim.time).toBeLessThan(0.1)
+  })
+
+  it('tapping the hero fires its big spin, which then needs HERO_SKILL_CD to come back', () => {
+    const sim = createSim({ tutorial: false, seed: 6, free: true, hero: true, stage: 0 })
+    for (const c of sim.cats) c.alive = false
+    sim.aliveCats = 0
+    sim.nextCat = 1e9
+    spawnCat(sim, 0, BREED_BULLDOG, { x: sim.hero.x + HERO_SKILL_R - 8, y: sim.hero.y })
+    const dog = sim.cats.find((c) => c.alive)
+    Object.assign(dog ?? {}, { hp: 9999, maxHp: 9999, dps: 0, speed: 0 })
+    step(sim, 1 / 30, { ...NO_INPUT, heroSkill: true })
+    const after = dog?.hp ?? 0
+    expect(after).toBeLessThan(9999)
+    expect(sim.heroSkillT).toBeGreaterThan(HERO_SKILL_CD - 1)
+    step(sim, 1 / 30, { ...NO_INPUT, heroSkill: true })
+    expect(sim.heroSkillAt).toBeLessThan(sim.time - 0.01)
   })
 })
