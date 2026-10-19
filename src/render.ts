@@ -115,7 +115,7 @@ import {
   WHITE_DARK,
   WHITE_MID,
 } from './palette'
-import { canCall, costOf, deckReady, isEndless, stageOpen, coatOpen, spec, dogsLeft, levelCost, type Outcome, type Sim, type Unit } from './sim'
+import { canCall, costOf, deckReady, isEndless, mvpOf, stageOpen, coatOpen, spec, dogsLeft, levelCost, type Outcome, type Sim, type Unit } from './sim'
 import { createSheets, type Sheets } from './sprites'
 
 const BUCKETS = 96
@@ -2816,6 +2816,14 @@ function paintShop(ctx: CanvasRenderingContext2D, renderer: Renderer, sim: Sim):
     ctx.drawImage(renderer.sheets.hero, face * HERO_PX, 0, HERO_PX, HERO_PX, x + 4 + ((pick - 8 - HERO_PX) >> 1), y + 6, HERO_PX, HERO_PX)
     if (isHero) drawCrown(ctx, x + (pick >> 1), y + 2, GOLD, GOLD_LIGHT)
     else drawRoleIcon(ctx, kind, x + pick - 15, y + 8)
+    if (kind === mvpOf(sim) && !isHero) {
+      // MVP: the coat that dealt the most damage wears a crown over its portrait.
+      drawCrown(ctx, x + (pick >> 1), y + 1, GOLD, GOLD_LIGHT)
+      const word = 'MVP'
+      ctx.fillStyle = LINE
+      ctx.fillRect(x + 3, y + HERO_PX - 6, word.length * 9 + 3, 14)
+      for (let i = 0; i < word.length; i++) drawLetter(ctx, word[i] ?? '', x + 5 + i * 9, y + HERO_PX - 4, 1, GOLD_LIGHT)
+    }
     if (sim.newCoat === kind) {
       // Just unlocked: a blinking NEW! over the portrait.
       const c = GOLD_CYCLE[Math.floor(shopClock * 8) & 3] ?? GOLD

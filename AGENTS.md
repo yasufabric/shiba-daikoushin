@@ -229,3 +229,6 @@ The stage after the last (`sim.stage === STAGES.length`, `isEndless`) opens once
 
 ## New rival card
 `sim.seenBreeds` (saved as `seen`; チワワ, コーギー and ブルドッグ count as met from the start) gets a bit the first time `spawnCat` makes a breed. That spawn sets `introBreed`/`introAt`, and `paintIntro` slides a card in under the HUD with the dog at 2× and a blinking NEW! for 2.6 s. The boss never gets one (it has its entrance).
+
+## MVP
+`hurt` also adds to `sim.dealt[kind]` (cleared each match); `mvpOf` picks the coat with the most. The result screen puts a crown and an MVP tag on that coat's portrait.

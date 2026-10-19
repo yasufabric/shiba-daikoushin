@@ -311,6 +311,8 @@ export interface Sim {
   deck: number[]
   /** A coat this result unlocked (shown NEW! on the result screen), or -1. */
   newCoat: number
+  /** Damage each coat has landed this match (the result screen crowns the top one). */
+  dealt: number[]
   /** エンドレス: the most dogs beaten in one run, and whether the last run beat it. */
   endlessBest: number
   /** Bit per breed the player has met (saved); the first meeting shows a NEW! card for that breed (introBreed at introAt). */
@@ -481,6 +483,7 @@ export function createSim(opts?: SimOptions): Sim {
     title: opts?.title === true,
     deck: [...DEFAULT_DECK],
     newCoat: -1,
+    dealt: Array.from({ length: KINDS }, () => 0),
     endlessBest: Math.max(0, Math.floor(opts?.endlessBest ?? 0)),
     seenBreeds: (opts?.seenBreeds ?? 0) | (1 << BREED_CHIHUAHUA) | (1 << BREED_CORGI) | (1 << BREED_BULLDOG),
     introBreed: -1,
@@ -697,6 +700,20 @@ function pomFree(sim: Sim, pom: Unit, dt: number, beat: number): boolean {
   return true
 }
 
+/** The coat that landed the most damage this match, or -1 if none did. */
+export function mvpOf(sim: Sim): number {
+  let best = -1
+  let most = 0
+  for (let k = 0; k < sim.dealt.length; k++) {
+    const d = sim.dealt[k] ?? 0
+    if (d > most) {
+      most = d
+      best = k
+    }
+  }
+  return best
+}
+
 /** Open the result screen's 宝箱 (if one is waiting) and bank its ホネ. */
 function openChest(sim: Sim): void {
   if (sim.chest !== 1) return
@@ -766,6 +783,7 @@ function stepHero(sim: Sim, dt: number, beat: number): void {
 
 function boot(sim: Sim): void {
   sim.newCoat = -1
+  sim.dealt.fill(0)
   sim.introBreed = -1
   sim.introAt = -9
   sim.endlessRecord = false
@@ -1774,6 +1792,7 @@ function hurt(sim: Sim, cat: Unit, rawAmount: number, kind: number): number {
   const landed = Math.min(Math.max(0, cat.hp), amount)
   cat.hp -= amount
   sim.charge[kind] = (sim.charge[kind] ?? 0) + landed
+  sim.dealt[kind] = (sim.dealt[kind] ?? 0) + landed
   return landed
 }
 
