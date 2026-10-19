@@ -14,6 +14,8 @@ import {
   BREED_CHIHUAHUA,
   BREED_CORGI,
   BREED_POODLE,
+  BREED_POM,
+  POM_RADIUS,
   FIELD_CAP,
   FREE_WAVE_SLOW,
   CALL_BONE,
@@ -1579,7 +1581,7 @@ function drawCat(ctx: CanvasRenderingContext2D, renderer: Renderer, sim: Sim, in
     return
   }
   const dx = px(at(FIELD_X + cat.x)) - (CAT_PX >> 1)
-  const dy = fpy(cat.y) - CAT_PX + (cat.fly === 1 || cat.kind === BREED_POODLE ? 0 : lunge(sim, cat.bitAt))
+  const dy = fpy(cat.y) - CAT_PX + (cat.fly === 1 || cat.kind === BREED_POODLE || cat.kind === BREED_POM ? 0 : lunge(sim, cat.bitAt))
   if (cat.fly === 1) {
     if (renderer.catFly[index] !== 1) {
       renderer.catFly[index] = 1
@@ -1605,6 +1607,30 @@ function drawCat(ctx: CanvasRenderingContext2D, renderer: Renderer, sim: Sim, in
   const pose = poseOf(moved, fighting)
   const beat = offbeat(sim.time, index)
   blitCat(ctx, renderer, cat.kind, pose, fighting ? beat : sim.time, cat.lane, 0, fighting && hitFrame(beat), dx, dy)
+  if (sim.time - cat.mendAt < 0.5 && sim.time >= cat.mendAt) {
+    // Mended by a ポメラニアン: a pink plus rises off it.
+    const rise = Math.floor((sim.time - cat.mendAt) * 20)
+    const px0 = dx + CAT_PX - 6
+    const py0 = dy - 2 - rise
+    ctx.fillStyle = LINE
+    ctx.fillRect(px0 - 1, py0 - 3, 3, 7)
+    ctx.fillRect(px0 - 3, py0 - 1, 7, 3)
+    ctx.fillStyle = DANGER_LIGHT
+    ctx.fillRect(px0, py0 - 2, 1, 5)
+    ctx.fillRect(px0 - 2, py0, 5, 1)
+  }
+  if (cat.kind === BREED_POM && sim.time - cat.bitAt < 0.4 && sim.time >= cat.bitAt) {
+    // Its mending pulse, out to its reach.
+    const t = (sim.time - cat.bitAt) / 0.4
+    const r = Math.round(at(POM_RADIUS) * t)
+    const gx = dx + (CAT_PX >> 1)
+    const gy = dy + CAT_PX - 2
+    ctx.fillStyle = DANGER_LIGHT
+    for (let k = 0; k < 24; k++) {
+      const a = (k / 24) * Math.PI * 2
+      ctx.fillRect(gx + Math.round(Math.cos(a) * r), gy + Math.round(Math.sin(a) * r * 0.5), 2, 1)
+    }
+  }
   if (cat.kind === BREED_POODLE) paintLob(ctx, sim.time - cat.bitAt, dx + (CAT_PX >> 1), dy + 6, px(at(FIELD_X + cat.aimX)), fpy(cat.aimY) - 8)
 }
 
