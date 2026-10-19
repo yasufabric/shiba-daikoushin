@@ -8,7 +8,6 @@ import {
   CARD_X0,
   CARD_Y,
   BARK_SPLASH,
-  BOSS_HP,
   BREED_BOSS,
   BREED_BULLDOG,
   BREED_CHIHUAHUA,
@@ -486,6 +485,7 @@ export function draw(
   paintSpecialField(g, renderer, sim)
   paintCall(g, renderer, sim)
   paintIntro(g, renderer, sim)
+  paintStageBanner(g, renderer, sim)
   paintDamage(g, renderer, sim)
   paintCutIn(g, renderer, sim)
   g.restore()
@@ -1026,6 +1026,30 @@ function paintCastle(ctx: CanvasRenderingContext2D, renderer: Renderer, sim: Sim
 }
 
 /** 波を早く呼ぶ: a gold pill under the wave bar with chevrons and the ホネ the skip would pay. */
+/** The first moments of a match: STAGE n (or ∞) drops in big over the field, holds, and fades by sliding up. */
+function paintStageBanner(ctx: CanvasRenderingContext2D, renderer: Renderer, sim: Sim): void {
+  if (!sim.free || sim.outcome !== 'play' || sim.time > 1.8) return
+  const t = sim.time
+  const drop = t < 0.2 ? Math.round((1 - t / 0.2) * 30) : 0
+  const lift = t > 1.5 ? Math.round(((t - 1.5) / 0.3) * 40) : 0
+  const endless = isEndless(sim)
+  const n = sim.stage + 1
+  const total = STAGE_WORD.length * 18 + 10 + (endless ? 22 : digitCount(n) * 12)
+  const x = (frame.internalW - total) >> 1
+  const y = py(at(FIELD_Y)) + 120 - drop - lift
+  ctx.fillStyle = LINE
+  ctx.fillRect(0, y - 6, frame.internalW, 32)
+  ctx.fillStyle = NIGHT_1
+  ctx.fillRect(0, y - 5, frame.internalW, 30)
+  ctx.fillStyle = GOLD
+  ctx.fillRect(0, y - 5, frame.internalW, 1)
+  ctx.fillRect(0, y + 24, frame.internalW, 1)
+  for (let i = 0; i < STAGE_WORD.length; i++) drawLetter(ctx, STAGE_WORD[i] ?? '', x + i * 18, y, 2, WHITE)
+  const nx = x + STAGE_WORD.length * 18 + 10
+  if (endless) drawInfinity(ctx, nx, y + 6, GOLD_LIGHT)
+  else drawNumber(ctx, renderer, n, nx, y + 3, true)
+}
+
 /** A rival breed met for the first time: a card slides in under the HUD with the dog at 2× and a blinking NEW!, then slides away. */
 function paintIntro(ctx: CanvasRenderingContext2D, renderer: Renderer, sim: Sim): void {
   const age = sim.time - sim.introAt
@@ -1130,7 +1154,8 @@ function paintBossBar(ctx: CanvasRenderingContext2D, sim: Sim): void {
   ctx.fillRect(x - 1, y - 1, w + 2, 6)
   ctx.fillStyle = DANGER_DARK
   ctx.fillRect(x, y, w, 4)
-  const fill = Math.max(0, Math.round((w * boss.hp) / BOSS_HP))
+  // Out of its own full health: later stages give it more than BOSS_HP.
+  const fill = Math.max(0, Math.min(w, Math.round((w * boss.hp) / Math.max(1, boss.maxHp))))
   ctx.fillStyle = DANGER
   ctx.fillRect(x, y, fill, 4)
   ctx.fillStyle = DANGER_LIGHT
