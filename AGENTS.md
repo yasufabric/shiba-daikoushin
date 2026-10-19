@@ -232,3 +232,6 @@ The stage after the last (`sim.stage === STAGES.length`, `isEndless`) opens once
 
 ## MVP
 `hurt` also adds to `sim.dealt[kind]` (cleared each match); `mvpOf` picks the coat with the most. The result screen puts a crown and an MVP tag on that coat's portrait.
+
+## Stage banner, boss bar
+Each free-placement match opens with `paintStageBanner`: a night band with STAGE n (or ∞) that drops in, holds and slides away in 1.8 s. The boss bar fills against the boss's own `maxHp` (later stages scale it past `BOSS_HP`; the old bar sat full there).
