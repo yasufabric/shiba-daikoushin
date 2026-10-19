@@ -68,7 +68,7 @@ export const STEP_TAN = 8
 export const STEP_BLACK = 16
 /** One shiba per tap, for every card. */
 /** Seconds a card needs before it can send another shiba. Order: 赤, 黒, 胡麻, 白. */
-export const RECHARGE = [2.5, 6, 4, 7, 5, 9] as const
+export const RECHARGE = [2.5, 6, 4, 7, 5, 9, 8] as const
 /** One shiba per tap, for every card. */
 export const COUNT_TAN = 1
 export const COUNT_BLACK = 1
@@ -111,7 +111,7 @@ export const HEAVY_EVERY = 2.3
 export const HEAVY_HIT = 180
 
 /** Specials fire on their own once a coat has dealt this much damage (白: healed this much). Order: 赤, 黒, 胡麻, 白. */
-export const SPECIAL_NEED = [1000, 800, 1400, 900, 1200, 1000] as const
+export const SPECIAL_NEED = [1000, 800, 1400, 900, 1200, 1000, 600] as const
 export const CUT_TIME = 1.1
 /** After the cut-in the special strikes; its field effect plays for this long. */
 export const FX_TIME = 0.9
@@ -201,7 +201,9 @@ export const KIND_WHITE = 3
 /** ぶち柴 (the frisbee thrower) and どっしり柴 (the slow stomper). Free placement only. */
 export const KIND_DISC = 4
 export const KIND_BIG = 5
-export const KINDS = 6
+/** 応援柴: a golden shiba with a flag; it deals no damage, but every shiba near it bites faster. */
+export const KIND_CHEER = 6
+export const KINDS = 7
 /** Cards in a deck: the shop picks this many of the roster. */
 export const DECK_SIZE = 4
 export const DEFAULT_DECK = [0, 1, 2, 3] as const
@@ -364,4 +366,15 @@ export const HERO_REVIVE = 16
 export const HERO_TAP_Y = 420
 
 /** にゃんこ-style unlocks: a coat joins once this stage (index) has a star; -1 is open from the start. ぶち柴 after stage 2, どっしり柴 after stage 4. */
-export const COAT_UNLOCK = [-1, -1, -1, -1, 1, 3] as const
+export const COAT_UNLOCK = [-1, -1, -1, -1, 1, 3, 5] as const
+
+/** 応援柴 stats. It trails the nearest shiba; every shiba within CHEER_RADIUS attacks CHEER_HASTE× as often. Its gauge fills CHEER_CHARGE per second while it has a shiba in range. */
+export const HP_CHEER = 70
+export const DPS_CHEER = 0
+export const SPEED_CHEER = 40
+export const CHEER_RADIUS = 58
+export const CHEER_HASTE = 1.4
+export const CHEER_CHARGE = 24
+/** ワンワン!!: for WANWAN_T seconds every shiba on the field attacks WANWAN_HASTE× as often, and each gets 15% of its health back. */
+export const WANWAN_T = 6
+export const WANWAN_HASTE = 1.8

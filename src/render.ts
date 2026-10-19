@@ -1,4 +1,4 @@
-import { FUR_BLACK, FUR_BUCHI, FUR_CREAM, FUR_GRAY, FUR_RED, FUR_SESAME, heroCell, pawArt } from './art'
+import { FUR_BLACK, FUR_BUCHI, FUR_CREAM, FUR_GRAY, FUR_KINAKO, FUR_RED, FUR_SESAME, heroCell, pawArt } from './art'
 import {
   ATTACK_RANGE,
   BONE_X,
@@ -39,6 +39,8 @@ import {
   KIND_BLACK,
   KIND_TAN,
   KIND_BIG,
+  KIND_CHEER,
+  CHEER_RADIUS,
   KIND_DISC,
   KIND_SESAME,
   KIND_WHITE,
@@ -704,6 +706,17 @@ function drawRoleIcon(ctx: CanvasRenderingContext2D, kind: number, x: number, y:
     fillEllipse(ctx, x + 4, y + 4, 5, 3, LINE)
     fillEllipse(ctx, x + 4, y + 4, 4, 2, GOLD)
     fillEllipse(ctx, x + 4, y + 4, 2, 1, WHITE)
+  } else if (kind === KIND_CHEER) {
+    // A pennant on a pole.
+    ctx.fillStyle = LINE
+    ctx.fillRect(x + 1, y, 2, 9)
+    ctx.fillRect(x + 2, y, 6, 5)
+    ctx.fillStyle = WHITE
+    ctx.fillRect(x + 1, y + 1, 1, 8)
+    ctx.fillStyle = DANGER
+    ctx.fillRect(x + 3, y + 1, 4, 3)
+    ctx.fillStyle = DANGER_LIGHT
+    ctx.fillRect(x + 3, y + 1, 2, 1)
   } else if (kind === KIND_BIG) {
     fillEllipse(ctx, x + 4, y + 6, 4, 3, LINE)
     fillEllipse(ctx, x + 4, y + 6, 3, 2, WHITE_MID)
@@ -1283,6 +1296,24 @@ function drawShiba(ctx: CanvasRenderingContext2D, renderer: Renderer, sim: Sim, 
   }
   blitCrowd(ctx, renderer, furOf(unit.kind), pose, fighting ? beat : sim.time, unit.lane, 0, flash, dx, dy)
   if (unit.kind === KIND_SESAME) paintBark(ctx, sim.time - (renderer.shibaAct[index] ?? -9), dx + (CROWD_PX >> 1), dy)
+  if (sim.wanT > 0 && sim.free) {
+    // ワンワン!!: gold sparks rise off every shiba.
+    const k = Math.floor(sim.time * 10 + index) % 6
+    ctx.fillStyle = (k & 1) === 0 ? GOLD_LIGHT : WHITE
+    ctx.fillRect(dx + 3 + k * 2, dy + 4 - k * 2, 2, 2)
+  }
+  if (unit.kind === KIND_CHEER && sim.time - unit.bitAt < 0.5) {
+    // Its reach, as a dotted pink ring on the grass, each time it waves.
+    const r = at(CHEER_RADIUS)
+    const gx = dx + (CROWD_PX >> 1)
+    const gy = dy + CROWD_PX
+    ctx.fillStyle = DANGER_LIGHT
+    for (let k = 0; k < 28; k++) {
+      const a = (k / 28) * Math.PI * 2 + sim.time
+      ctx.fillRect(gx + Math.round(Math.cos(a) * r), gy + Math.round(Math.sin(a) * r * 0.45), 2, 1)
+    }
+  }
+  if (unit.kind === KIND_CHEER) drawPennant(ctx, dx + CROWD_PX - 6, dy - 6, sim.time, sim.time - unit.bitAt < 0.4)
   if (unit.kind === KIND_WHITE) {
     drawHeart(ctx, dx + CROWD_PX - 7, dy - 2)
     paintMend(ctx, sim.time - (renderer.shibaAct[index] ?? -9), dx + (CROWD_PX >> 1), dy)
@@ -1290,6 +1321,38 @@ function drawShiba(ctx: CanvasRenderingContext2D, renderer: Renderer, sim: Sim, 
 }
 
 /** 胡麻柴's bark: three widening bars rising off the helmet, ")))" turned upward. */
+/** 応援柴's flag, 7×12: a pole and a pink pennant that flaps; it jumps when it waves. */
+function drawPennant(ctx: CanvasRenderingContext2D, x: number, y: number, time: number, wave: boolean): void {
+  const lift = wave ? 2 : 0
+  const flap = Math.floor(time * 6) & 1
+  ctx.fillStyle = LINE
+  ctx.fillRect(x - 1, y - lift - 1, 3, 13)
+  ctx.fillRect(x + 1, y - lift - 1 + flap, 6, 6)
+  ctx.fillStyle = WHITE_MID
+  ctx.fillRect(x, y - lift, 1, 11)
+  ctx.fillStyle = DANGER
+  ctx.fillRect(x + 1, y - lift + flap, 5, 4)
+  ctx.fillStyle = DANGER_LIGHT
+  ctx.fillRect(x + 1, y - lift + flap, 2, 1)
+}
+
+/** ワンワン!!: pink and gold rings burst out from the middle of the pack. */
+function paintWanwan(ctx: CanvasRenderingContext2D, age: number): void {
+  if (age > 0.9) return
+  const cx = px(at(FIELD_X + FIELD_W / 2))
+  const cy = fpy(FIELD_H * 0.6)
+  for (let ring = 0; ring < 3; ring++) {
+    const t = age - ring * 0.15
+    if (t < 0) continue
+    const r = Math.round(t * 220)
+    ctx.fillStyle = ring === 1 ? GOLD_LIGHT : DANGER_LIGHT
+    for (let k = 0; k < 40; k++) {
+      const a = (k / 40) * Math.PI * 2
+      ctx.fillRect(cx + Math.round(Math.cos(a) * r), cy + Math.round(Math.sin(a) * r * 0.6), 3, 3)
+    }
+  }
+}
+
 /** 白 heal: a pink heart floats up off the healer. */
 function paintMend(ctx: CanvasRenderingContext2D, age: number, cx: number, top: number): void {
   if (age < 0 || age > 0.5) return
@@ -1433,6 +1496,7 @@ function furOf(kind: number): number {
   if (kind === KIND_WHITE) return FUR_CREAM
   if (kind === KIND_DISC) return FUR_BUCHI
   if (kind === KIND_BIG) return FUR_GRAY
+  if (kind === KIND_CHEER) return FUR_KINAKO
   return FUR_RED
 }
 
@@ -1657,8 +1721,8 @@ function paintBooms(ctx: CanvasRenderingContext2D, renderer: Renderer, sim: Sim)
   }
 }
 
-const COAT_DARK = [FUR_MID, NIGHT, WHITE_DARK, FUR_DARK, GOLD_DARK, NIGHT_2] as const
-const COAT_LIT = [FUR_BODY, NIGHT_2, WHITE_MID, FUR_MID, GOLD, NIGHT_3] as const
+const COAT_DARK = [FUR_MID, NIGHT, WHITE_DARK, FUR_DARK, GOLD_DARK, NIGHT_2, DANGER_DARK] as const
+const COAT_LIT = [FUR_BODY, NIGHT_2, WHITE_MID, FUR_MID, GOLD, NIGHT_3, DANGER] as const
 const CUT_H = 44
 const CUT_SLIDE = 0.12
 
@@ -1676,6 +1740,7 @@ function paintSpecialField(ctx: CanvasRenderingContext2D, renderer: Renderer, si
   } else if (sim.fxKind === KIND_WHITE) paintSasami(ctx, renderer, sim, age)
   else if (sim.fxKind === KIND_DISC) paintBoro(ctx, renderer, sim, age, fresh)
   else if (sim.fxKind === KIND_BIG) paintMilk(ctx, renderer, sim, age, fresh)
+  else if (sim.fxKind === KIND_CHEER) paintWanwan(ctx, age)
   else paintCheese(ctx, renderer, sim, age, fresh)
   paintFxHits(ctx, renderer, sim, age)
 }
@@ -2330,15 +2395,16 @@ function drawLetter(
 
 /** Between matches: what the match paid, the purse, a row per coat to buy a level, and START. */
 /** Where the result screen puts things, in internal px from its top. Short phones get a tight header and START floats at the bottom edge so it is always on screen. */
-function shopLayout(): { compact: boolean; cellTop: number; startY: number } {
+function shopLayout(): { compact: boolean; cellTop: number; startY: number; cellH: number } {
   const room = frame.internalH - frame.topDy
-  const compact = room < 372
+  // Seven coats need four rows of cells, so the header goes compact and the cells shrink to fit above START.
+  const rows = Math.ceil(KINDS / 2)
+  const compact = room < 372 || rows > 3
   const bh = at(START_H)
-  return {
-    compact,
-    cellTop: compact ? 74 : at(SHOP_Y0),
-    startY: compact ? room - bh - 4 : at(START_Y),
-  }
+  const cellTop = compact ? 74 : at(SHOP_Y0)
+  const startY = compact ? Math.min(room - bh - 4, at(START_Y) + 40) : at(START_Y)
+  const fit = Math.floor((startY - 6 - cellTop) / rows) - at(SHOP_GAP)
+  return { compact, cellTop, startY, cellH: Math.max(52, Math.min(at(SHOP_CELL_H), fit)) }
 }
 
 /** What a tap on the result screen hits, from a flat world point (see screenToWorld): START, a coat's deck zone, or its buy button. */
@@ -2352,8 +2418,8 @@ export function shopTarget(x: number, y: number, kinds: number): { type: 'start'
   if (ix >= bx - 2 && ix <= bx + at(START_W) + 2 && iy >= by - 4 && iy <= by + at(START_H) + 4) return { type: 'start', kind: -1 }
   for (let kind = 0; kind < kinds; kind++) {
     const cx = at(SHOP_X0 + (kind % 2) * (SHOP_CELL_W + SHOP_GAP))
-    const cy = lay.cellTop + Math.floor(kind / 2) * (at(SHOP_CELL_H) + at(SHOP_GAP))
-    if (ix < cx || ix > cx + at(SHOP_CELL_W) || iy < cy || iy > cy + at(SHOP_CELL_H)) continue
+    const cy = lay.cellTop + Math.floor(kind / 2) * (lay.cellH + at(SHOP_GAP))
+    if (ix < cx || ix > cx + at(SHOP_CELL_W) || iy < cy || iy > cy + lay.cellH) continue
     return { type: ix < cx + at(SHOP_PICK_W) ? 'pick' : 'buy', kind }
   }
   return { type: 'none', kind: -1 }
@@ -2366,7 +2432,7 @@ function paintShop(ctx: CanvasRenderingContext2D, renderer: Renderer, sim: Sim):
   const word = won ? CLEAR_WORD : LOSE_WORD
   const wx = (frame.internalW - word.length * 18) >> 1
   const lay = shopLayout()
-  const wy = lay.compact ? 14 : 28
+  const wy = lay.compact ? 15 : 28
   for (let i = 0; i < word.length; i++) drawLetter(ctx, word[i] ?? '', wx + i * 18, py(wy), 2, won ? GOLD_LIGHT : DANGER)
   // STAGE n and the stars won (empty outlines on a loss).
   const stw = STAGE_WORD.length * 10 + 14
@@ -2396,9 +2462,9 @@ function paintShop(ctx: CanvasRenderingContext2D, renderer: Renderer, sim: Sim):
     const slot = sim.deck.indexOf(kind)
     const inDeck = !sim.free || slot >= 0
     const x = px(at(SHOP_X0 + (kind % 2) * (SHOP_CELL_W + SHOP_GAP)))
-    const y = py(lay.cellTop + Math.floor(kind / 2) * (at(SHOP_CELL_H) + at(SHOP_GAP)))
+    const y = py(lay.cellTop + Math.floor(kind / 2) * (lay.cellH + at(SHOP_GAP)))
     const w = at(SHOP_CELL_W)
-    const h = at(SHOP_CELL_H)
+    const h = lay.cellH
     const pick = at(SHOP_PICK_W)
     ctx.fillStyle = inDeck ? NIGHT_2 : NIGHT_1
     ctx.fillRect(x, y, w, h)
@@ -2443,6 +2509,16 @@ function paintShop(ctx: CanvasRenderingContext2D, renderer: Renderer, sim: Sim):
       const byy = y + HERO_PX + 12
       const bww = pick - 8
       const bhh = h - HERO_PX - 16
+      if (bhh < 10) {
+        // Short cells: the deck number sits on the portrait's corner instead of a badge.
+        if (slot >= 0) {
+          ctx.fillStyle = LINE
+          ctx.fillRect(x + 4, y + HERO_PX - 4, 14, 14)
+          ctx.fillStyle = GOLD
+          ctx.fillRect(x + 5, y + HERO_PX - 3, 12, 12)
+          drawNumber(ctx, renderer, slot + 1, x + 6, y + HERO_PX - 2, false)
+        }
+      } else {
       ctx.fillStyle = LINE
       ctx.fillRect(bxx, byy, bww, bhh)
       ctx.fillStyle = slot >= 0 ? GOLD : NIGHT_1
@@ -2454,6 +2530,7 @@ function paintShop(ctx: CanvasRenderingContext2D, renderer: Renderer, sim: Sim):
       } else {
         const full = sim.deck.length >= DECK_SIZE
         drawLetter(ctx, '+', bxx + ((bww - 8) >> 1), byy + ((bhh - 10) >> 1), 1, full ? NIGHT_2 : GOLD_LIGHT)
+      }
       }
     }
     // The buy zone: level, then a button with the cost.
@@ -2483,9 +2560,16 @@ function paintShop(ctx: CanvasRenderingContext2D, renderer: Renderer, sim: Sim):
       ctx.fillStyle = GOLD_DARK
       ctx.fillRect(kx + 1, ky + kh - 3, kw - 2, 2)
     }
-    ctx.drawImage(renderer.sheets.bone, kx + ((kw - 12) >> 1), ky + 4)
     const cw = digitCount(cost) * 10
-    drawNumber(ctx, renderer, cost, kx + ((kw - cw) >> 1), ky + kh - 15, false)
+    if (kh < 34) {
+      // Short button: bone and cost side by side.
+      const rowW = 14 + cw
+      ctx.drawImage(renderer.sheets.bone, kx + ((kw - rowW) >> 1), ky + ((kh - 8) >> 1))
+      drawNumber(ctx, renderer, cost, kx + ((kw - rowW) >> 1) + 14, ky + ((kh - 10) >> 1), false)
+    } else {
+      ctx.drawImage(renderer.sheets.bone, kx + ((kw - 12) >> 1), ky + 4)
+      drawNumber(ctx, renderer, cost, kx + ((kw - cw) >> 1), ky + kh - 15, false)
+    }
   }
   const bx = px(at(START_X))
   const by = py(lay.startY)
