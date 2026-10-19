@@ -1907,7 +1907,8 @@ export function strikeSpecial(sim: Sim, kind: number): void {
     sim.rushT = RUSH_TIME
     for (const u of sim.shibas) if (u?.alive && u.kind === KIND_TAN) note(u, 2, false)
   } else if (kind === KIND_BLACK && sim.free) {
-    const targets = cats.filter((c) => c?.alive && c.fly !== 1 && c.hp > 0).sort((a, b) => b.y - a.y).slice(0, JERKY_TARGETS)
+    // シバドリル!!: the toughest dog on the field (the boss, a ブルドッグ…), not just the nearest.
+    const targets = cats.filter((c) => c?.alive && c.fly !== 1 && c.hp > 0).sort((a, b) => b.hp - a.hp).slice(0, JERKY_TARGETS)
     for (const cat of targets) {
       const hit = Math.min(Math.max(0, cat.hp), JERKY_FREE_HIT * scale)
       dealt += hit
@@ -1932,8 +1933,10 @@ export function strikeSpecial(sim: Sim, kind: number): void {
     for (let i = 0; i < sim.shibas.length; i++) {
       const unit = sim.shibas[i]
       if (!unit?.alive || unit.hp <= 0) continue
-      note(unit, unit.maxHp - unit.hp, true)
-      unit.hp = unit.maxHp
+      // ペロペロ!!: half of each shiba's health back (in free placement; ?lanes keeps the full heal).
+      const gain = sim.free ? Math.min(unit.maxHp * 0.5, unit.maxHp - unit.hp) : unit.maxHp - unit.hp
+      note(unit, Math.round(gain), true)
+      unit.hp += gain
       unit.mendAt = sim.time
     }
     sim.homeHp = Math.min(HOME_HP, sim.homeHp + SASAMI_HOME)
