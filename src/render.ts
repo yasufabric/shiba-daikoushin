@@ -183,6 +183,8 @@ export interface Renderer {
   fxSeen: number
   /** Sound is off; the speaker button shows a cross. */
   muted: boolean
+  /** 2× speed is on (drawn on the dock's speed button). */
+  fast: boolean
   /** Sim clock at the last draw; a drop means a new match began. */
   lastTime: number
 }
@@ -385,6 +387,7 @@ export function createRenderer(): Renderer {
     fxSeen: 0,
     lastTime: 0,
     muted: false,
+    fast: false,
     partX: new Int16Array(PARTS),
     partY: new Int16Array(PARTS),
     partVx: new Int8Array(PARTS),
@@ -608,6 +611,31 @@ function paintMute(ctx: CanvasRenderingContext2D, renderer: Renderer, y: number)
     ctx.fillStyle = GOLD_LIGHT
     ctx.fillRect(x + 12, y + 7, 2, 4)
     ctx.fillRect(x + 15, y + 5, 2, 8)
+  }
+}
+
+/** A tap on the 2× button, left of the speaker in the dock's top row (play only). */
+export function speedTarget(x: number, y: number): boolean {
+  const ix = x / 2
+  if (ix < INTERNAL_W - 48 || ix > INTERNAL_W - 24) return false
+  return y >= BONE_Y - 8 && y <= BONE_Y + 26
+}
+
+/** 2× speed, 20×18 like the speaker: two arrows, gold and blinking-fast when on. */
+function paintSpeed(ctx: CanvasRenderingContext2D, renderer: Renderer, sim: Sim, y: number): void {
+  const x = px(INTERNAL_W - 46)
+  ctx.fillStyle = LINE
+  ctx.fillRect(x, y, 20, 18)
+  ctx.fillStyle = renderer.fast ? GOLD_DARK : NIGHT_2
+  ctx.fillRect(x + 1, y + 1, 18, 16)
+  const fill = renderer.fast ? ((Math.floor(sim.time * 6) & 1) === 0 ? WHITE : GOLD_LIGHT) : WHITE
+  for (const ox of [3, 10]) {
+    for (let i = 0; i < 4; i++) {
+      ctx.fillStyle = LINE
+      ctx.fillRect(x + ox + i, y + 4 + i, 2, 10 - i * 2)
+      ctx.fillStyle = fill
+      ctx.fillRect(x + ox + i, y + 5 + i, 1, 8 - i * 2)
+    }
   }
 }
 
@@ -2039,6 +2067,7 @@ function paintDock(ctx: CanvasRenderingContext2D, renderer: Renderer, sim: Sim):
   ctx.fillStyle = NIGHT
   ctx.fillRect(0, y + 1, frame.internalW, Math.max(0, frame.internalH - y - 1))
   paintMute(ctx, renderer, pyDock(at(BONE_Y)) - 2)
+  paintSpeed(ctx, renderer, sim, pyDock(at(BONE_Y)) - 2)
   if (sim.free) {
     paintFieldCap(ctx, sim, px(at(BONE_X)), pyDock(at(BONE_Y)) + 1)
   } else {
