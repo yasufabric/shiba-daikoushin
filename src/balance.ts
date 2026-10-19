@@ -159,7 +159,9 @@ export const FREE_SIGHT_DOG = 100
 /** Centre-to-centre distance at which two foes bite. */
 export const FREE_REACH = 34
 /** Units of one side push apart below this distance. */
-export const FREE_SPACE = 25
+export const FREE_SPACE = 34
+/** A shiba and a dog never stand closer than this (centre to centre), so one is never drawn on top of the other. */
+export const FOE_SPACE = 28
 /** With nothing in sight, shibas walk up to this line and wait. */
 export const FREE_HOLD_Y = 250
 /** Shibas never chase above this line, so they can't camp the mansion gate. */
