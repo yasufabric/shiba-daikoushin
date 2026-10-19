@@ -190,6 +190,21 @@ import {
   BREED_BOSS,
   LEVEL_COST_BASE,
   LEVEL_STEP,
+  XP_BASE_GAIN,
+  XP_PER_STAGE,
+  XP_WIN,
+  XP_NEED_BASE,
+  XP_NEED_EXP,
+  FEED_COST,
+  FEED_SHARE,
+  PERK_A,
+  PERK_B,
+  PERK_B_CHARGE,
+  PERK_TAN_HASTE,
+  PERK_BLACK_PUSH,
+  PERK_WIDE,
+  PERK_DISC_RANGE,
+  PERK_BIG_STUN,
   LOSS_PAY,
   MAX_LEVEL,
   WIN_PAY,
@@ -317,6 +332,9 @@ export interface Sim {
   deck: number[]
   /** A coat this result unlocked (shown NEW! on the result screen), or -1. */
   newCoat: number
+  /** XP toward the next level per coat (free placement levels itself), saved; and the levels each coat gained from the last match. */
+  xp: number[]
+  gained: number[]
   /** Damage each coat has landed this match (the result screen crowns the top one). */
   dealt: number[]
   /** エンドレス: the most dogs beaten in one run, and whether the last run beat it. */
@@ -415,6 +433,8 @@ export interface SimOptions {
   best?: readonly number[]
   /** Saved エンドレス best (dogs beaten). */
   endlessBest?: number
+  /** Saved XP per coat. */
+  xp?: readonly number[]
   /** Saved bitmask of breeds already met. */
   seenBreeds?: number
   /** Open on the title screen. */
@@ -492,6 +512,8 @@ export function createSim(opts?: SimOptions): Sim {
     title: opts?.title === true,
     deck: [...DEFAULT_DECK],
     newCoat: -1,
+    xp: Array.from({ length: KINDS + 1 }, (_, i) => Math.max(0, Math.floor(opts?.xp?.[i] ?? 0))),
+    gained: Array.from({ length: KINDS + 1 }, () => 0),
     dealt: Array.from({ length: KINDS }, () => 0),
     endlessBest: Math.max(0, Math.floor(opts?.endlessBest ?? 0)),
     seenBreeds: (opts?.seenBreeds ?? 0) | (1 << BREED_CHIHUAHUA) | (1 << BREED_CORGI) | (1 << BREED_BULLDOG),
@@ -807,6 +829,7 @@ function stepHero(sim: Sim, dt: number, beat: number): void {
 
 function boot(sim: Sim): void {
   sim.newCoat = -1
+  sim.gained.fill(0)
   sim.dealt.fill(0)
   sim.introBreed = -1
   sim.introAt = -9
@@ -1125,6 +1148,14 @@ function pay(sim: Sim): void {
     }
   }
   sim.earned = base + sim.kills * BONE_PER_KILL + sim.callBonus
+  if (sim.free) {
+    const total = sim.deck.reduce((n, k) => n + (sim.dealt[k] ?? 0), 0)
+    const base = (XP_BASE_GAIN + XP_PER_STAGE * Math.min(sim.stage, STAGES.length)) * (sim.outcome === 'won' ? XP_WIN : 1)
+    for (const kind of sim.deck) {
+      const share = total > 0 ? (sim.dealt[kind] ?? 0) / total : 0
+      gainXp(sim, kind, Math.round(base * (1 + share)))
+    }
+  }
   sim.purse += sim.earned
   sim.saveSeq += 1
 }
@@ -1144,8 +1175,47 @@ export function power(sim: Sim, kind: number): number {
   return 1 + LEVEL_STEP * ((sim.levels[kind] ?? 1) - 1)
 }
 
+/** XP a coat needs to go from `level` to the next. */
+export function xpNeed(level: number): number {
+  return Math.round(XP_NEED_BASE * Math.pow(level, XP_NEED_EXP))
+}
+
+/** Add XP and level up as far as it reaches (capped at MAX_LEVEL); counts the levels in `gained`. */
+export function gainXp(sim: Sim, kind: number, amount: number): void {
+  if (kind < 0 || kind >= sim.xp.length || amount <= 0) return
+  let level = sim.levels[kind] ?? 1
+  if (level >= MAX_LEVEL) return
+  let xp = (sim.xp[kind] ?? 0) + amount
+  while (level < MAX_LEVEL && xp >= xpNeed(level)) {
+    xp -= xpNeed(level)
+    level += 1
+    sim.gained[kind] = (sim.gained[kind] ?? 0) + 1
+  }
+  sim.levels[kind] = level
+  sim.xp[kind] = level >= MAX_LEVEL ? 0 : xp
+  sim.saveSeq += 1
+}
+
+/** Has this coat reached a perk level? */
+export function perk(sim: Sim, kind: number, at: number): boolean {
+  return sim.free && (sim.levels[kind] ?? 1) >= at
+}
+
+/** おやつ: ホネ a feed costs for a coat at `level`. */
+export function feedCost(level: number): number {
+  return FEED_COST * level
+}
+
 export function buyLevel(sim: Sim, kind: number): boolean {
   if (kind < 0 || kind > HERO_SLOT || (kind === HERO_SLOT && !sim.free) || !coatOpen(sim, kind)) return false
+  if (sim.free) {
+    // Free placement: ホネ buy おやつ, which is XP, not a whole level.
+    const lv = sim.levels[kind] ?? 1
+    if (lv >= MAX_LEVEL || sim.purse < feedCost(lv)) return false
+    sim.purse -= feedCost(lv)
+    gainXp(sim, kind, Math.round(xpNeed(lv) * FEED_SHARE))
+    return true
+  }
   const level = sim.levels[kind] ?? 1
   if (level >= MAX_LEVEL) return false
   const cost = levelCost(level)
@@ -1424,7 +1494,7 @@ function hasteOf(sim: Sim, unit: Unit): number {
   let h = sim.wanT > 0 ? WANWAN_HASTE : 1
   for (const u of sim.shibas) {
     if (!u?.alive || u.kind !== KIND_CHEER || u === unit || u.hp <= 0) continue
-    if (Math.hypot(u.x - unit.x, u.y - unit.y) <= CHEER_RADIUS) {
+    if (Math.hypot(u.x - unit.x, u.y - unit.y) <= CHEER_RADIUS * (perk(sim, KIND_CHEER, PERK_A) ? PERK_WIDE : 1)) {
       h *= CHEER_HASTE
       break
     }
@@ -1455,7 +1525,9 @@ function cheerFree(sim: Sim, cheer: Unit, dt: number, beat: number): void {
     stepToward(cheer, cheer.x, FREE_HOLD_Y + 20, cheer.speed * dt)
   }
   if (near) {
-    sim.charge[KIND_CHEER] = (sim.charge[KIND_CHEER] ?? 0) + CHEER_CHARGE * power(sim, KIND_CHEER) * beat
+    const cheered = CHEER_CHARGE * power(sim, KIND_CHEER) * beat
+    sim.charge[KIND_CHEER] = (sim.charge[KIND_CHEER] ?? 0) + cheered * (perk(sim, KIND_CHEER, PERK_B) ? PERK_B_CHARGE : 1)
+    sim.dealt[KIND_CHEER] = (sim.dealt[KIND_CHEER] ?? 0) + cheered
     cheer.cd -= beat
     if (cheer.cd <= 0) {
       cheer.cd = 1.2
@@ -1501,7 +1573,7 @@ function mendFree(sim: Sim, healer: Unit, dt: number, beat: number): void {
   const amount = HEAL_AMOUNT * power(sim, KIND_WHITE)
   for (const u of sim.shibas) {
     if (!u?.alive || u.hp <= 0 || u.hp >= u.maxHp) continue
-    if (Math.hypot(u.x - healer.x, u.y - healer.y) > HEAL_RADIUS) continue
+    if (Math.hypot(u.x - healer.x, u.y - healer.y) > HEAL_RADIUS * (perk(sim, KIND_WHITE, PERK_A) ? PERK_WIDE : 1)) continue
     const gain = Math.min(amount, u.maxHp - u.hp)
     u.hp += gain
     u.mendAt = sim.time
@@ -1510,7 +1582,8 @@ function mendFree(sim: Sim, healer: Unit, dt: number, beat: number): void {
   healer.cd = HEAL_EVERY
   if (mended > 0) {
     healer.bitAt = sim.time
-    sim.charge[KIND_WHITE] = (sim.charge[KIND_WHITE] ?? 0) + mended
+    sim.charge[KIND_WHITE] = (sim.charge[KIND_WHITE] ?? 0) + mended * (perk(sim, KIND_WHITE, PERK_B) ? PERK_B_CHARGE : 1)
+    sim.dealt[KIND_WHITE] = (sim.dealt[KIND_WHITE] ?? 0) + mended
   }
 }
 
@@ -1573,7 +1646,7 @@ function throwDisc(sim: Sim, shiba: Unit, foe: Unit): void {
     const rx = dog.x - shiba.x
     const ry = dog.y - shiba.y
     const along = rx * ux + ry * uy
-    if (along < 0 || along > DISC_RANGE) continue
+    if (along < 0 || along > DISC_RANGE * (perk(sim, KIND_DISC, PERK_A) ? PERK_DISC_RANGE : 1)) continue
     if (Math.abs(rx * uy - ry * ux) <= DISC_WIDTH) hurt(sim, dog, hit, KIND_DISC)
   }
   shiba.aimX = shiba.x + ux * DISC_RANGE
@@ -1614,7 +1687,7 @@ function moveFree(sim: Sim, rawDt: number): void {
       cheerFree(sim, shiba, dt, beat)
       continue
     }
-    const haste = shiba.kind === KIND_TAN ? TAN_HASTE : 1
+    const haste = shiba.kind === KIND_TAN ? TAN_HASTE * (perk(sim, KIND_TAN, PERK_A) ? PERK_TAN_HASTE : 1) : 1
     const pace = (shiba.kind === KIND_TAN && sim.rushT > 0 ? 1.8 : 1) * haste
     // A dog out of sight is still hunted: no shiba stands idle far from the fight.
     const foe = nearest(sim.cats, shiba, FREE_SIGHT_SHIBA, true) ?? nearest(sim.cats, shiba, Infinity, true)
@@ -1634,6 +1707,7 @@ function moveFree(sim: Sim, rawDt: number): void {
       if (shiba.cd <= 0) {
         shiba.cd = HEAVY_EVERY
         hurt(sim, foe, HEAVY_HIT * power(sim, KIND_BLACK), KIND_BLACK)
+        if (perk(sim, KIND_BLACK, PERK_A) && foe.kind !== BREED_BOSS) foe.y = Math.max(16, foe.y - PERK_BLACK_PUSH)
         shiba.aimX = foe.x
         shiba.aimY = foe.y
         shiba.bitAt = sim.time
@@ -1651,7 +1725,9 @@ function moveFree(sim: Sim, rawDt: number): void {
         const hit = BIG_HIT * power(sim, KIND_BIG)
         for (const dog of sim.cats) {
           if (!dog?.alive || dog.fly === 1 || dog.hp <= 0) continue
-          if (Math.hypot(dog.x - shiba.x, dog.y - shiba.y) <= BIG_RADIUS) hurt(sim, dog, hit, KIND_BIG)
+          if (Math.hypot(dog.x - shiba.x, dog.y - shiba.y) > BIG_RADIUS) continue
+          hurt(sim, dog, hit, KIND_BIG)
+          if (perk(sim, KIND_BIG, PERK_A) && dog.kind !== BREED_BOSS) dog.stun = Math.max(dog.stun, PERK_BIG_STUN)
         }
         shiba.aimX = foe.x
         shiba.aimY = foe.y
@@ -1664,7 +1740,7 @@ function moveFree(sim: Sim, rawDt: number): void {
         const hit = BARK_HIT * power(sim, KIND_SESAME)
         for (const dog of sim.cats) {
           if (!dog?.alive || dog.fly === 1 || dog.hp <= 0) continue
-          if (Math.hypot(dog.x - foe.x, dog.y - foe.y) <= BARK_SPLASH) hurt(sim, dog, hit, KIND_SESAME)
+          if (Math.hypot(dog.x - foe.x, dog.y - foe.y) <= BARK_SPLASH * (perk(sim, KIND_SESAME, PERK_A) ? PERK_WIDE : 1)) hurt(sim, dog, hit, KIND_SESAME)
         }
         shiba.aimX = foe.x
         shiba.aimY = foe.y
@@ -1820,7 +1896,7 @@ function hurt(sim: Sim, cat: Unit, rawAmount: number, kind: number): number {
   const amount = cat.kind === BREED_GOLDEN ? Math.max(rawAmount / 3, rawAmount - GOLDEN_ARMOR) : rawAmount
   const landed = Math.min(Math.max(0, cat.hp), amount)
   cat.hp -= amount
-  sim.charge[kind] = (sim.charge[kind] ?? 0) + landed
+  sim.charge[kind] = (sim.charge[kind] ?? 0) + landed * (perk(sim, kind, PERK_B) ? PERK_B_CHARGE : 1)
   sim.dealt[kind] = (sim.dealt[kind] ?? 0) + landed
   return landed
 }

@@ -215,7 +215,7 @@ export const BONE_Y = 678
 export const CARD_Y = 714
 /** Between matches: ホネ saved across matches buy coat levels. Every level adds LEVEL_STEP to a coat's HP, bite, bark, and heal. */
 export const MAX_LEVEL = 10
-export const LEVEL_STEP = 0.12
+export const LEVEL_STEP = 0.07
 export const LEVEL_COST_BASE = 120
 /** Match pay: a win pays WIN_PAY, a loss LOSS_PAY, plus BONE_PER_KILL for every dog beaten. */
 export const WIN_PAY = 300
@@ -435,3 +435,23 @@ export const CANNON_TAP_UP = 30
 
 /** ヒーロー柴 is switched off for now (it got in the way: taps above the strip moved it instead of placing shibas). Flip to true to bring it, its level cell and its taps back. */
 export const HERO_ENABLED = false
+
+/** Free placement levels itself: after every match each deck coat gains XP_BASE_GAIN + XP_PER_STAGE × stage, × (1 + its share of the deck's damage, healing and cheering), × XP_WIN on a win. XP_NEED_BASE × level^XP_NEED_EXP takes it to the next level, so it gets steep. */
+export const XP_BASE_GAIN = 150
+export const XP_PER_STAGE = 25
+export const XP_WIN = 1.5
+export const XP_NEED_BASE = 300
+export const XP_NEED_EXP = 1.5
+/** おやつ: feeding a coat on the result screen trades ホネ for XP (FEED_COST × level ホネ for FEED_SHARE of the level's need). */
+export const FEED_COST = 50
+export const FEED_SHARE = 0.3
+/** Levels that unlock a coat's perks: PERK_A its own trick, PERK_B a faster special gauge (PERK_B_CHARGE×). */
+export const PERK_A = 5
+export const PERK_B = 10
+export const PERK_B_CHARGE = 1.3
+/** Perk A numbers: 赤 bites faster, 黒 knocks back, 胡麻 splashes wider, 白 heals wider, ぶち throws farther, どっしり stuns, 応援 reaches wider. */
+export const PERK_TAN_HASTE = 1.25
+export const PERK_BLACK_PUSH = 16
+export const PERK_WIDE = 1.3
+export const PERK_DISC_RANGE = 1.25
+export const PERK_BIG_STUN = 0.5

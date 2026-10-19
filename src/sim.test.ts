@@ -48,6 +48,8 @@ import {
   CANNON_CHARGE,
   CANNON_REACH,
   HERO_SLOT,
+  XP_NEED_BASE,
+  PERK_A,
   HERO_HP,
   HERO_SKILL_R,
   HERO_HIT,
@@ -89,6 +91,9 @@ import {
   canCall,
   strikeSpecial,
   buyLevel,
+  xpNeed,
+  gainXp,
+  perk,
   levelCost,
   NO_INPUT,
   phaseAt,
@@ -1127,7 +1132,8 @@ describe('soldiers', () => {
   it('buys ヒーロー柴 levels on the result screen, and a stronger hero comes out next match', () => {
     const sim = createSim({ tutorial: false, seed: 4, free: true, hero: true, purse: 9999 })
     expect(sim.hero.maxHp).toBe(HERO_HP)
-    expect(buyLevel(sim, HERO_SLOT)).toBe(true)
+    // Free placement feeds おやつ (XP), so a few feeds make a level.
+    for (let i = 0; i < 4; i++) expect(buyLevel(sim, HERO_SLOT)).toBe(true)
     expect(sim.levels[HERO_SLOT]).toBe(2)
     sim.outcome = 'lost'
     sim.rewardT = 0
@@ -1190,5 +1196,32 @@ describe('soldiers', () => {
     expect(near?.y ?? 0).toBeLessThan(y0 - 20)
     expect(far?.hp).toBe(999)
     expect(sim.cannonT).toBeLessThan(1)
+  })
+
+  it('levels coats by themselves: a match pays XP for what each did, levels get steeper, Lv5 opens a perk', () => {
+    const sim = createSim({ tutorial: false, seed: 4, free: true })
+    expect(xpNeed(2)).toBeGreaterThan(xpNeed(1))
+    expect(xpNeed(1)).toBe(XP_NEED_BASE)
+    sim.dealt[KIND_TAN] = 1000
+    for (const c of sim.cats) c.alive = false
+    sim.aliveCats = 0
+    sim.toSend = 0
+    sim.boss = true
+    sim.bossIndex = -1
+    for (let i = 0; i < 120 && sim.outcome === 'play'; i++) step(sim, 1 / 30, NO_INPUT)
+    expect(sim.outcome).toBe('won')
+    expect(sim.levels[KIND_TAN] ?? 1).toBeGreaterThan(1)
+    expect(sim.gained[KIND_TAN] ?? 0).toBeGreaterThan(0)
+    expect(perk(sim, KIND_TAN, PERK_A)).toBe(false)
+    gainXp(sim, KIND_TAN, 1e9)
+    expect(sim.levels[KIND_TAN]).toBe(10)
+    expect(perk(sim, KIND_TAN, PERK_A)).toBe(true)
+    const purse = sim.purse
+    const xp0 = sim.xp[KIND_BLACK] ?? 0
+    sim.purse = 1000
+    expect(buyLevel(sim, KIND_BLACK)).toBe(true)
+    expect((sim.xp[KIND_BLACK] ?? 0) > xp0 || (sim.levels[KIND_BLACK] ?? 1) > 1).toBe(true)
+    expect(sim.purse).toBeLessThan(1000)
+    void purse
   })
 })

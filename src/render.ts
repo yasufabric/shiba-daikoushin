@@ -61,6 +61,9 @@ import {
   CARD_XS,
   RECHARGE,
   MAX_LEVEL,
+  LEVEL_STEP,
+  PERK_A,
+  PERK_B,
   STAGES,
   SHOP_CELL_H,
   SHOP_CELL_W,
@@ -80,6 +83,7 @@ import {
   MAX_SHIBAS,
   PANEL_Y,
 } from './balance'
+import { drawJP, jpWidth } from './jp'
 import { BANNER_POP, BANNER_REST, CLEAR_WORD, glyphBit, LEVEL_WORD, letterBit, LOSE_WORD, START_WORD, POP_COL, POP_ROW, RUMBLE_WORD, SELECT_WORD, SPECIAL_WORDS, STAGE_WORD, TITLE_WORD, TAP_WORD, NEW_WORD, PAUSE_WORD } from './font'
 import {
   BOSS_H,
@@ -117,7 +121,7 @@ import {
   WHITE_DARK,
   WHITE_MID,
 } from './palette'
-import { canCall, costOf, deckReady, isEndless, mvpOf, stageOpen, coatOpen, spec, dogsLeft, levelCost, type Outcome, type Sim, type Unit } from './sim'
+import { canCall, costOf, deckReady, feedCost, isEndless, mvpOf, xpNeed, stageOpen, coatOpen, spec, dogsLeft, levelCost, type Outcome, type Sim, type Unit } from './sim'
 import { createSheets, type Sheets } from './sprites'
 
 const BUCKETS = 96
@@ -201,6 +205,8 @@ export interface Renderer {
   paused: boolean
   /** The 宝箱 state last drawn, and when (wall clock) it was seen opening. */
   chestState: number
+  /** The coat the result screen's info strip is about (-1: pick one). */
+  infoKind: number
   chestOpenAt: number
   /** Sim clock at the last draw; a drop means a new match began. */
   lastTime: number
@@ -412,6 +418,7 @@ export function createRenderer(): Renderer {
     fast: false,
     paused: false,
     chestState: 0,
+    infoKind: -1,
     chestOpenAt: -9,
     partX: new Int16Array(PARTS),
     partY: new Int16Array(PARTS),
@@ -510,6 +517,8 @@ const TITLE_TILE_W = 32
 const TITLE_TILE_H = 46
 const TITLE_TILE_GAP = 4
 const TITLE_ROW = 4
+/** Height of the result screen's info strip (coat name, level, what levelling does). */
+const SHOP_INFO_H = 26
 /** Stage tiles plus one for エンドレス. */
 const TITLE_TILES = STAGES.length + 1
 
@@ -2760,8 +2769,9 @@ function shopLayout(): { compact: boolean; cellTop: number; startY: number; cell
   const bh = at(START_H)
   const cellTop = compact ? 74 : at(SHOP_Y0)
   const startY = compact ? Math.min(room - bh - 4, at(START_Y) + 40) : at(START_Y)
-  const fit = Math.floor((startY - 6 - cellTop) / rows) - at(SHOP_GAP)
-  return { compact, cellTop, startY, cellH: Math.max(52, Math.min(at(SHOP_CELL_H), fit)) }
+  // Room for the info strip (what levelling a coat does) between the cells and START.
+  const fit = Math.floor((startY - 6 - SHOP_INFO_H - cellTop) / rows) - at(SHOP_GAP)
+  return { compact, cellTop, startY, cellH: Math.max(44, Math.min(at(SHOP_CELL_H), fit)) }
 }
 
 /** What a tap on the result screen hits, from a flat world point (see screenToWorld): START, a coat's deck zone, or its buy button. */
@@ -2832,7 +2842,7 @@ function paintShop(ctx: CanvasRenderingContext2D, renderer: Renderer, sim: Sim):
   for (let kind = 0; kind < shown; kind++) {
     const level = sim.levels[kind] ?? 1
     const maxed = level >= MAX_LEVEL
-    const cost = levelCost(level)
+    const cost = sim.free ? feedCost(level) : levelCost(level)
     const can = !maxed && sim.purse >= cost
     const isHero = kind === HERO_SLOT
     const slot = isHero ? -1 : sim.deck.indexOf(kind)
@@ -2929,10 +2939,27 @@ function paintShop(ctx: CanvasRenderingContext2D, renderer: Renderer, sim: Sim):
     drawLetter(ctx, LEVEL_WORD[0] ?? '', lx, y + 8, 1, WHITE)
     drawLetter(ctx, LEVEL_WORD[1] ?? '', lx + 9, y + 8, 1, WHITE)
     drawNumber(ctx, renderer, level, lx + 20, y + 8, false)
+    if ((sim.gained[kind] ?? 0) > 0) {
+      // Levelled up this match: a blinking UP! next to the level.
+      const c = GOLD_CYCLE[Math.floor(shopClock * 8) & 3] ?? GOLD
+      const ux = lx + 20 + digitCount(level) * 10 + 2
+      drawLetter(ctx, 'U', ux, y + 8, 1, c)
+      drawLetter(ctx, 'P', ux + 9, y + 8, 1, c)
+    }
     const kx = lx - 2
-    const ky = y + 24
     const kw = w - pick - 4
-    const kh = h - 28
+    if (sim.free) {
+      // XP toward the next level.
+      ctx.fillStyle = LINE
+      ctx.fillRect(kx, y + 20, kw, 4)
+      ctx.fillStyle = NIGHT_1
+      ctx.fillRect(kx + 1, y + 21, kw - 2, 2)
+      const share = maxed ? 1 : Math.min(1, (sim.xp[kind] ?? 0) / xpNeed(level))
+      ctx.fillStyle = maxed ? GOLD : SKY
+      ctx.fillRect(kx + 1, y + 21, Math.round((kw - 2) * share), 2)
+    }
+    const ky = y + (sim.free ? 26 : 24)
+    const kh = h - (sim.free ? 30 : 28)
     ctx.fillStyle = LINE
     ctx.fillRect(kx, ky, kw, kh)
     if (maxed) {
@@ -2962,6 +2989,7 @@ function paintShop(ctx: CanvasRenderingContext2D, renderer: Renderer, sim: Sim):
       drawNumber(ctx, renderer, cost, kx + ((kw - cw) >> 1), ky + kh - 15, false)
     }
   }
+  if (sim.free && sim.chest !== 1 && deckReady(sim)) paintCoatInfo(ctx, renderer, sim, py(lay.startY) - SHOP_INFO_H - 2)
   const bx = px(at(START_X))
   const by = py(lay.startY)
   const bw = at(START_W)
@@ -3011,6 +3039,40 @@ function paintShop(ctx: CanvasRenderingContext2D, renderer: Renderer, sim: Sim):
     drawLetter(ctx, '+', cx - (nw >> 1), ny, 1, GOLD_LIGHT)
     drawNumber(ctx, renderer, n, cx - (nw >> 1) + 12, ny, false)
   }
+}
+
+const COAT_NAMES = ['赤柴', '黒柴', '胡麻柴', '白柴', 'ぶち柴', 'どっしり柴', '応援柴'] as const
+const PERK_TEXT = ['かみつきが速くなる', 'かみつくと押し返す', 'ボールの範囲が広がる', '回復の範囲が広がる', 'フリスビーが遠くまで飛ぶ', 'ふみつけで少し止める', '応援の範囲が広がる'] as const
+
+/** The result screen's info strip, about the coat last tapped (or the first one that levelled up, else the first in the deck): its name and level, XP to go, and what the next level and the next perk give. */
+function paintCoatInfo(ctx: CanvasRenderingContext2D, renderer: Renderer, sim: Sim, y: number): void {
+  let kind = renderer.infoKind
+  if (kind < 0 || kind >= KINDS) {
+    kind = sim.gained.findIndex((g, k) => g > 0 && k < KINDS)
+    if (kind < 0) kind = sim.deck[0] ?? 0
+  }
+  const w = frame.internalW - 8
+  const x = 4
+  ctx.fillStyle = LINE
+  ctx.fillRect(x, y, w, SHOP_INFO_H)
+  ctx.fillStyle = NIGHT_1
+  ctx.fillRect(x + 1, y + 1, w - 2, SHOP_INFO_H - 2)
+  const level = sim.levels[kind] ?? 1
+  const maxed = level >= MAX_LEVEL
+  const head = `${COAT_NAMES[kind] ?? ''} Lv${level}`
+  let tx = x + 4
+  tx += drawJP(ctx, head, tx, y + 2, 10, WHITE) + 6
+  if (!maxed) drawJP(ctx, `あと${Math.max(0, xpNeed(level) - (sim.xp[kind] ?? 0))}けいけん`, tx, y + 3, 8, SKY_LIGHT)
+  else drawJP(ctx, 'MAX', tx, y + 3, 8, GOLD_LIGHT)
+  // Second line: the next perk, else what a level gives.
+  let line: string
+  if (level < PERK_A) line = `Lv${PERK_A}: ${PERK_TEXT[kind] ?? ''}`
+  else if (level < PERK_B) line = `Lv${PERK_B}: 必殺ゲージが早くたまる`
+  else line = '全部の力を引き出した!'
+  const sub = `Lvごとに 体力・攻撃 +${Math.round(LEVEL_STEP * 100)}%`
+  const lw = jpWidth(line, 8)
+  drawJP(ctx, line, x + 4, y + 14, 8, level < PERK_A || level < PERK_B ? GOLD_LIGHT : GOLD)
+  if (lw + jpWidth(sub, 8) + 14 < w) drawJP(ctx, sub, x + w - 4 - jpWidth(sub, 8), y + 14, 8, NIGHT_3)
 }
 
 /** 宝箱, 30×22, sealed: a wooden chest with gold bands and a lock; it hops while it waits, and its lid flies up when opened. `bottom` is its base line. */
