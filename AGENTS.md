@@ -261,3 +261,6 @@ Shibas wear a set face: brows `v` slanting down to the middle (dark on red; tan 
 
 ## Hits you can see
 Every unit keeps `hurtAt` (set in `hurt` for dogs and where a dog's bite lands on a shiba). For 0.1 s after a hit the unit draws from the flash sheet, and for 0.16 s it jolts a pixel side to side. Melee claw marks are bigger with a white impact star on the first frame, and a rival's bite shows a red crossed slash at its jaws.
+
+## Music
+`music.ts` is a small sequencer (play-test: the old two-voice loop sounded thin). Instruments are synthesized: 笛 flute lead (triangle, delayed vibrato, breath noise), 三味線 / 琴 plucks (filtered saw), a detuned pad, plucked bass, 太鼓, clap and shaker from shared noise; it all goes through a generated reverb (convolver) into the master, which now has a compressor. Songs are data (`BATTLE`, `BOSS`, `TITLE`, `RESULT`: bpm, one chord per bar, lead/counter per eighth with '-' holds, a 16-step drum pattern, a bass rhythm). `main.ts` calls `synth.setMusic` every frame (title / battle / boss / result); a change waits for the next bar. `prime(until)` schedules ahead so a track can be rendered offline.

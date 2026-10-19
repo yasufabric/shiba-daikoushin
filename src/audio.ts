@@ -1,3 +1,5 @@
+import { createMusic, type Music, type Track } from './music'
+
 export interface Synth {
   unlock(): void
   deploy(): void
@@ -14,6 +16,8 @@ export interface Synth {
   /** A star jingle: `count` rising notes. */
   stars(count: number): void
   setMuted(muted: boolean): void
+  /** Which piece of music should play (switches at the next bar). */
+  setMusic(track: Track): void
   isMuted(): boolean
 }
 
@@ -27,26 +31,12 @@ function readMuted(): boolean {
   }
 }
 
-/** The tune: four bars in C pentatonic, 16 sixteenth steps a bar. 0 = rest, else a note name from NOTE. */
-const MELODY = [
-  'E5', '', 'G5', '', 'A5', 'G5', 'E5', '',
-  'D5', '', 'E5', '', 'G5', 'E5', 'D5', '',
-  'C5', '', 'E5', '', 'G5', 'A5', 'G5', 'E5',
-  'D5', 'E5', 'D5', 'C5', 'A4', '', '', '',
-] as const
-const BASS = ['C3', 'C3', 'G2', 'G2', 'A2', 'A2', 'E2', 'E2', 'F2', 'F2', 'C3', 'C3', 'G2', 'G2', 'G2', 'D3'] as const
-const NOTE: Record<string, number> = {
-  D3: 146.83, C3: 130.81, G2: 98, A2: 110, E2: 82.41, F2: 87.31,
-  A4: 440, C5: 523.25, D5: 587.33, E5: 659.25, G5: 783.99, A5: 880,
-}
-
 export function createSynth(): Synth {
   let ctx: AudioContext | null = null
   let master: GainNode | null = null
   let muted = readMuted()
-  let timer: number | undefined
-  let nextTime = 0
-  let beat = 0
+  let music: Music | null = null
+  let wanted: Track = 'title'
 
   function context(): AudioContext | null {
     if (ctx) return ctx
@@ -55,7 +45,16 @@ export function createSynth(): Synth {
       ctx = new Ctor()
       master = ctx.createGain()
       master.gain.value = muted ? 0 : 1
-      master.connect(ctx.destination)
+      // A gentle compressor glues music and effects together and keeps peaks in check.
+      const comp = ctx.createDynamicsCompressor()
+      comp.threshold.value = -16
+      comp.ratio.value = 3
+      comp.attack.value = 0.005
+      comp.release.value = 0.2
+      master.connect(comp)
+      comp.connect(ctx.destination)
+      music = createMusic(ctx, master)
+      music.setTrack(wanted)
     } catch {
       ctx = null
     }
@@ -77,33 +76,13 @@ export function createSynth(): Synth {
     osc.stop(when + dur + 0.02)
   }
 
-  /** Keep the tune running a little ahead of the clock. Quiet, so the sound effects stay on top. */
-  function schedule(): void {
-    if (!ctx || muted) return
-    const step = 60 / 128 / 4
-    if (nextTime < ctx.currentTime) nextTime = ctx.currentTime + 0.05
-    while (nextTime < ctx.currentTime + 0.4) {
-      const i = beat % 64
-      const lead = MELODY[i % 32]
-      if (lead) tone(NOTE[lead] ?? 440, step * 1.6, 'triangle', 0.028, nextTime)
-      if (i % 4 === 0) {
-        const bass = BASS[(i >> 2) % 16]
-        if (bass) tone(NOTE[bass] ?? 110, step * 3, 'square', 0.014, nextTime)
-      }
-      nextTime += step
-      beat += 1
-    }
-  }
-
   function startMusic(): void {
-    if (timer !== undefined || !ctx || muted) return
-    nextTime = ctx.currentTime + 0.05
-    timer = window.setInterval(schedule, 120)
+    if (!ctx || muted) return
+    music?.start()
   }
 
   function stopMusic(): void {
-    if (timer !== undefined) window.clearInterval(timer)
-    timer = undefined
+    music?.stop()
   }
 
   return {
@@ -125,6 +104,10 @@ export function createSynth(): Synth {
     },
     isMuted() {
       return muted
+    },
+    setMusic(track: Track) {
+      wanted = track
+      music?.setTrack(track)
     },
     deploy() {
       const ac = context()
