@@ -56,7 +56,6 @@ import {
   CLASH_RAMP_FROM,
   BREACH,
   SPLASH_CHARGE,
-  JERKY_BOSS,
   CROWD_CAP,
   CROWD_CAP_TANK,
   CALL_BONE,
@@ -89,22 +88,15 @@ import {
   CHEER_RADIUS,
   CHEER_HASTE,
   CHEER_CHARGE,
-  WANWAN_T,
-  WANWAN_HASTE,
   KIND_DISC,
   DISC_EVERY,
   DISC_HIT,
   DISC_REACH,
   DISC_RANGE,
   DISC_WIDTH,
-  BORO_HIT,
-  BORO_BAND,
   BIG_EVERY,
   BIG_HIT,
   BIG_RADIUS,
-  MILK_HIT,
-  MILK_RADIUS,
-  MILK_STUN,
   HP_DISC,
   HP_BIG,
   DPS_DISC,
@@ -132,10 +124,6 @@ import {
   BARK_REACH,
   CHEESE_HIT,
   CHEESE_PUSH,
-  CHEESE_FREE_HIT,
-  CHEESE_FREE_PUSH,
-  CHEESE_STUN,
-  JERKY_FREE_HIT,
   COST_SESAME,
   COUNT_SESAME,
   CUT_TIME,
@@ -184,7 +172,6 @@ import {
   HEAL_SEEK_SPAN,
   TAN_HASTE,
   TAN_BITE_EVERY,
-  JERKY_TARGETS,
   FREE_RECHARGE,
   FREE_ZONE_Y,
   BITE_EVERY,
@@ -224,8 +211,33 @@ import {
   SPECIAL_GAP,
   WALL_HP,
   WALL_HALF,
+  SKILL_GAP,
+  SKILL_BOSS,
+  DASH_LEN,
+  DASH_WIDTH,
+  DASH_HIT,
+  BONE_WALL_AHEAD,
+  BONE_WALL_W,
+  BONE_WALL_HP,
+  BONE_WALL_T,
+  BALL_RADIUS,
+  BALL_HIT,
+  BALL_STUN,
+  LICK_RADIUS,
+  LICK_HEAL,
+  LICK_HOME,
+  BOOM_LEN,
+  BOOM_WIDTH,
+  BOOM_HIT,
+  BOOM_TIME,
+  STOMP_RADIUS,
+  STOMP_HIT,
+  STOMP_STUN,
+  FLAG_T,
+  FLAG_RADIUS,
+  FLAG_HASTE,
+  FLAG_REGEN,
   gridX,
-  PEROPERO_HEAL,
   SPEED_SESAME,
   STEP_SESAME,
 } from './balance'
@@ -256,7 +268,7 @@ export interface Unit {
   aimY: number
   /** Match time 白 last mended this unit, for the plus over its head. */
   mendAt: number
-  /** Seconds a dog stays frozen in place (チーズ!!). */
+  /** Seconds a unit stays frozen in place (skills' stuns, the boss howl). */
   stun: number
   /** Free placement: ordered home; walks to the 柴の家 and leaves the field there. */
   recall: boolean
@@ -282,7 +294,7 @@ export interface Input {
   heroSkill?: boolean
   /** Free placement: fire the 柴の家's おやつ砲 (when charged). */
   cannon?: boolean
-  /** Pick this card for the next field tap (-1 or left out for no change). */
+  /** Tap on a card: pick this coat for the next field tap (-1 or left out for no change). In free placement a card whose skill gauge is full fires that coat's skill instead and keeps the pick. */
   pick?: number
   /** 波を早く呼ぶ: send the next wave now for bonus ホネ. */
   callWave?: boolean
@@ -374,9 +386,6 @@ export interface Sim {
   stars: number
   /** ホネ banked this match by calling waves early. */
   callBonus: number
-  /** Where the last special landed, for 白 ボーロ (row y) and ミルク (point). */
-  fxX: number
-  fxY: number
   /** Pulse timer for the call button after a call. */
   callT: number
   rewardT: number
@@ -400,13 +409,16 @@ export interface Sim {
   /** Coat whose special struck this step, or -1. */
   sfxStrike: number
   rushT: number
-  /** ワンワン!! time left: every shiba attacks faster. */
-  wanT: number
-  /** Seconds before another special may fire (SPECIAL_GAP after each one lands), so specials never chain. */
+  /** Seconds before another special may fire (?lanes SPECIAL_GAP, free placement SKILL_GAP), so specials never chain. */
   spGapT: number
-  /** 柵 health, one per wall of the stage (0: broken), and when each was last bitten. */
-  wallHp: number[]
-  wallHitAt: number[]
+  /** 柵 standing on the field: the stage's fences, plus 黒's bone walls while they last. */
+  walls: Fence[]
+  /** Free placement skills cast so far this match (newest last, the latest few kept) and a counter that bumps on each. */
+  casts: Cast[]
+  castId: number
+  /** 応援's flags planted on the stage, and ぶち's boomerangs in flight. */
+  flags: Flag[]
+  booms: Boomerang[]
   /** おやつ砲 charge in seconds (full at CANNON_CHARGE), and when it last fired. */
   cannonT: number
   cannonAt: number
@@ -441,6 +453,54 @@ export interface Sim {
   laneC: Int16Array[]
   laneSN: Int16Array
   laneCN: Int16Array
+}
+
+/** A 柵 on the field, in field px: a stage fence, or 黒「ホネのカベ」(bone, gone at `until`). */
+export interface Fence {
+  x: number
+  y: number
+  /** Half its width. */
+  hw: number
+  hp: number
+  max: number
+  /** When it was last bitten, for the shake. */
+  hitAt: number
+  /** Match time it falls by itself (Infinity for a stage fence). */
+  until: number
+  bone: boolean
+}
+
+/** A skill cast in free placement: who, when, from where to where, and what it did to each unit it touched. */
+export interface Cast {
+  kind: number
+  at: number
+  x: number
+  y: number
+  /** The other end: the dash's end, the ball rain's centre, the boomerang's turn. */
+  tx: number
+  ty: number
+  hits: { x: number; y: number; v: number; heal: boolean }[]
+}
+
+/** 応援「おうえん旗」planted at x, y from `at` until `until`. */
+export interface Flag {
+  x: number
+  y: number
+  at: number
+  until: number
+}
+
+/** ぶち「ブーメラン」in flight: from x, y along ux, uy and back. Each dog is hit once on the way out and once on the way back. */
+export interface Boomerang {
+  x: number
+  y: number
+  ux: number
+  uy: number
+  at: number
+  hitOut: Unit[]
+  hitBack: Unit[]
+  /** The cast it belongs to, which collects its hits. */
+  cast: Cast
 }
 
 export interface Breach {
@@ -563,8 +623,6 @@ export function createSim(opts?: SimOptions): Sim {
     best: STAGES.map((_, i) => Math.min(3, Math.max(0, Math.floor(opts?.best?.[i] ?? 0)))),
     stars: 0,
     callBonus: 0,
-    fxX: 0,
-    fxY: 0,
     callT: 0,
     rewardT: 0,
     nextCat: CLASH_AT,
@@ -575,7 +633,7 @@ export function createSim(opts?: SimOptions): Sim {
     deny1: 0,
     deny2: 0,
     deny3: 0,
-    charge: [0, 0, 0, 0],
+    charge: Array.from({ length: KINDS }, () => 0),
     cutKind: -1,
     cutT: 0,
     fxKind: -1,
@@ -584,10 +642,12 @@ export function createSim(opts?: SimOptions): Sim {
     fxHits: [],
     sfxStrike: -1,
     rushT: 0,
-    wanT: 0,
     spGapT: 0,
-    wallHp: [],
-    wallHitAt: [],
+    walls: [],
+    casts: [],
+    castId: 0,
+    flags: [],
+    booms: [],
     cannonT: 0,
     cannonAt: -9,
     howlAt: -9,
@@ -927,11 +987,12 @@ function boot(sim: Sim): void {
   sim.fxT = 0
   sim.sfxStrike = -1
   sim.rushT = 0
-  sim.wanT = 0
   sim.spGapT = 0
-  const walls = spec(sim).walls ?? []
-  sim.wallHp = walls.map(() => WALL_HP * spec(sim).hp)
-  sim.wallHitAt = walls.map(() => -9)
+  const hp = WALL_HP * spec(sim).hp
+  sim.walls = (spec(sim).walls ?? []).map((w) => ({ x: gridX(w.x), y: w.y, hw: gridX(w.w) / 2, hp, max: hp, hitAt: -9, until: Infinity, bone: false }))
+  sim.casts = []
+  sim.flags = []
+  sim.booms = []
   sim.cannonT = 0
   sim.cannonAt = -9
   sim.howlAt = -9
@@ -1110,7 +1171,7 @@ export function step(sim: Sim, dt: number, input: Input = NO_INPUT): void {
     return
   }
 
-  if (input.pick !== undefined && input.pick >= 0 && input.pick < KINDS && (!sim.free || sim.deck.includes(input.pick))) sim.picked = input.pick
+  if (input.pick !== undefined && input.pick >= 0 && input.pick < KINDS && (!sim.free || sim.deck.includes(input.pick))) tapCard(sim, input.pick)
   if (input.cannon && sim.free && sim.cannonT >= CANNON_CHARGE) fireCannon(sim)
   if (input.heroSkill && sim.free && sim.hero.alive && sim.heroSkillT <= 0 && sim.hero.stun <= 0) heroSkill(sim)
   if (input.hero && sim.free && sim.hero.alive) sim.heroUsed = true
@@ -1144,8 +1205,13 @@ export function step(sim: Sim, dt: number, input: Input = NO_INPUT): void {
   }
   reap(sim)
   if (sim.rushT > 0) sim.rushT -= tick
-  if (sim.wanT > 0) sim.wanT -= tick
   if (sim.spGapT > 0) sim.spGapT -= tick
+  if (sim.free) {
+    flyBooms(sim)
+    reap(sim)
+    sim.walls = sim.walls.filter((w) => w.hp > 0 && sim.time < w.until)
+    sim.flags = sim.flags.filter((f) => sim.time < f.until)
+  }
   if (sim.free && CANNON_ENABLED && sim.cannonT < CANNON_CHARGE) sim.cannonT = Math.min(CANNON_CHARGE, sim.cannonT + tick)
   if (sim.fxT > 0) {
     sim.fxT -= tick
@@ -1160,7 +1226,8 @@ export function step(sim: Sim, dt: number, input: Input = NO_INPUT): void {
       reap(sim)
     }
   }
-  if (sim.cutT <= 0 && sim.fxT <= 0 && sim.spGapT <= 0) {
+  // ?lanes fires a full gauge on its own; free placement waits for a tap on the card.
+  if (!sim.free && sim.cutT <= 0 && sim.fxT <= 0 && sim.spGapT <= 0) {
     for (let kind = 0; kind < KINDS; kind++) {
       if ((sim.charge[kind] ?? 0) < (SPECIAL_NEED[kind] ?? Infinity)) continue
       fireSpecial(sim, kind)
@@ -1538,15 +1605,15 @@ function stepToward(unit: Unit, tx: number, ty: number, dist: number): void {
 
 /** Rocks and walls of the stage being stepped, in field px; set by moveFree. */
 let activeRocks: { x: number; y: number; r: number }[] = []
-let activeWalls: { x: number; y: number; hw: number; i: number }[] = []
-/** The wall the last walkAround pushed the unit off (-1: none), so a dog knows what is in its way. */
-let touchedWall = -1
+let activeWalls: Fence[] = []
+/** The wall the last walkAround pushed the unit off (null: none), so a dog knows what is in its way. */
+let touchedWall: Fence | null = null
 /** Shibas slide along a fence to its end; dogs (slideWalls false) just stop at it and bite. */
 let slideWalls = true
 
 /** Push a unit out of any rock or standing wall, sliding it along the edge so it walks around instead of sticking. */
 function walkAround(unit: Unit, step: number): void {
-  touchedWall = -1
+  touchedWall = null
   for (const rock of activeRocks) {
     const ox = unit.x - rock.x
     const oy = unit.y - rock.y
@@ -1570,7 +1637,7 @@ function walkAround(unit: Unit, step: number): void {
       if (Math.abs(oy) >= WALL_HALF + gap) continue
       unit.y = wall.y + (oy < 0 ? -1 : 1) * (WALL_HALF + gap)
       if (slideWalls) unit.x += (unit.x < wall.x ? -1 : 1) * step * 0.8
-      touchedWall = wall.i
+      touchedWall = wall
       continue
     }
     // Past an end: round it like a post.
@@ -1600,10 +1667,15 @@ function nearestTaunt(shibas: Unit[], dog: Unit, sight: number): Unit | undefine
   return best
 }
 
-/** 白: walk to the most-hurt shiba (else trail the nearest one from just behind), and every HEAL_EVERY mend every shiba inside HEAL_RADIUS. */
-/** How much faster this shiba attacks: near a 応援柴, and during ワンワン!!. */
+/** Is this shiba under a planted おうえん旗? */
+function underFlag(sim: Sim, unit: Unit): boolean {
+  for (const f of sim.flags) if (Math.hypot(f.x - unit.x, f.y - unit.y) <= FLAG_RADIUS) return true
+  return false
+}
+
+/** How much faster this shiba attacks: near a 応援柴, and under a おうえん旗. */
 function hasteOf(sim: Sim, unit: Unit): number {
-  let h = sim.wanT > 0 ? WANWAN_HASTE : 1
+  let h = underFlag(sim, unit) ? FLAG_HASTE : 1
   for (const u of sim.shibas) {
     if (!u?.alive || u.kind !== KIND_CHEER || u === unit || u.hp <= 0) continue
     if (Math.hypot(u.x - unit.x, u.y - unit.y) <= CHEER_RADIUS * (perk(sim, KIND_CHEER, PERK_A) ? PERK_WIDE : 1)) {
@@ -1648,6 +1720,7 @@ function cheerFree(sim: Sim, cheer: Unit, dt: number, beat: number): void {
   }
 }
 
+/** 白: walk to the most-hurt shiba (else trail the nearest one from just behind), and every HEAL_EVERY mend every shiba inside HEAL_RADIUS. */
 function mendFree(sim: Sim, healer: Unit, dt: number, beat: number): void {
   // Head for the shiba that needs it most (low HP share, nearer wins ties); with nobody hurt, trail the nearest shiba.
   let hurt: Unit | undefined
@@ -1792,12 +1865,12 @@ function throwDisc(sim: Sim, shiba: Unit, foe: Unit): void {
 /** A dog that the last step left pressed against a standing 柵 bites it. True if it did (or is winding up to). */
 function biteWall(sim: Sim, dog: Unit, beat: number): boolean {
   const w = touchedWall
-  if (w < 0 || (sim.wallHp[w] ?? 0) <= 0) return false
+  if (!w || w.hp <= 0) return false
   dog.bite -= beat
   if (dog.bite <= 0) {
     dog.bite += BITE_EVERY
-    sim.wallHp[w] = Math.max(0, (sim.wallHp[w] ?? 0) - dog.dps * BITE_EVERY)
-    sim.wallHitAt[w] = sim.time
+    w.hp = Math.max(0, w.hp - dog.dps * BITE_EVERY)
+    w.hitAt = sim.time
     dog.bitAt = sim.time
     dog.aimX = dog.x
     dog.aimY = dog.y + 10
@@ -1832,10 +1905,7 @@ function moveFree(sim: Sim, rawDt: number): void {
   const st = spec(sim)
   // Rocks and walls are authored on a 195-wide grid; the drawn rock is 2r field px wide.
   activeRocks = st.rocks.map((r) => ({ x: gridX(r.x), y: r.y, r: r.r * 1.6 }))
-  activeWalls = []
-  ;(st.walls ?? []).forEach((w, i) => {
-    if ((sim.wallHp[i] ?? 0) > 0) activeWalls.push({ x: gridX(w.x), y: w.y, hw: gridX(w.w) / 2, i })
-  })
+  activeWalls = sim.walls.filter((w) => w.hp > 0 && sim.time < w.until)
   // Movement runs slower; bites keep their beat.
   const dt = rawDt * FREE_PACE
   const beat = rawDt
@@ -1854,6 +1924,7 @@ function moveFree(sim: Sim, rawDt: number): void {
       }
       continue
     }
+    if (sim.flags.length > 0 && shiba.hp < shiba.maxHp && underFlag(sim, shiba)) shiba.hp = Math.min(shiba.maxHp, shiba.hp + shiba.maxHp * FLAG_REGEN * beat)
     if (shiba.stun > 0) {
       shiba.stun -= rawDt
       continue
@@ -2149,7 +2220,7 @@ function heal(sim: Sim, dt: number): void {
   }
 }
 
-/** Specials: 赤「サツマイモ!!」rush, 黒「ジャーキー!!」pierce, 胡麻「チーズ!!」shockwave, 白「ササミ!!」full heal. Firing starts the cut-in; strikeSpecial lands it. */
+/** ?lanes specials: 赤 rush, 黒 pierce, 胡麻 shockwave, 白 full heal. They fire on their own when a gauge fills; firing starts the cut-in and strikeSpecial lands it. Free placement uses castSkill instead. */
 export function fireSpecial(sim: Sim, kind: number): void {
   sim.charge[kind] = 0
   sim.cutKind = kind
@@ -2157,7 +2228,7 @@ export function fireSpecial(sim: Sim, kind: number): void {
   sim.sfxSpecial = kind
 }
 
-/** The cut-in is over: the special lands now, with its field effect. */
+/** ?lanes: the cut-in is over and the special lands now, with its field effect. */
 export function strikeSpecial(sim: Sim, kind: number): void {
   if (kind < 0) return
   sim.fxKind = kind
@@ -2168,24 +2239,11 @@ export function strikeSpecial(sim: Sim, kind: number): void {
   sim.fxHits = []
   let dealt = 0
   const cats = sim.cats
-  // Free placement dogs are tougher, so specials hit as much harder there.
-  const scale = sim.free ? FREE_DOG_HP : 1
   const note = (u: Unit, v: number, heal: boolean): void => {
     if (v > 0) sim.fxHits.push({ x: u.x, y: u.y, v, heal })
   }
   if (kind === KIND_TAN) {
     sim.rushT = RUSH_TIME
-    for (const u of sim.shibas) if (u?.alive && u.kind === KIND_TAN) note(u, 2, false)
-  } else if (kind === KIND_BLACK && sim.free) {
-    // シバドリル!!: the toughest dog on the field (the boss, a ブルドッグ…), not just the nearest.
-    const targets = cats.filter((c) => c?.alive && c.fly !== 1 && c.hp > 0).sort((a, b) => b.hp - a.hp).slice(0, JERKY_TARGETS)
-    for (const cat of targets) {
-      const full = JERKY_FREE_HIT * scale * (cat.kind === BREED_BOSS ? JERKY_BOSS : 1)
-      const hit = Math.min(Math.max(0, cat.hp), full)
-      dealt += hit
-      cat.hp -= full
-      note(cat, hit, false)
-    }
   } else if (kind === KIND_BLACK) {
     for (let lane = 0; lane < LANE_COUNT; lane++) {
       const n = Math.min(JERKY_DEPTH, sim.laneCN[lane] ?? 0)
@@ -2201,79 +2259,187 @@ export function strikeSpecial(sim: Sim, kind: number): void {
       }
     }
   } else if (kind === KIND_WHITE) {
-    for (let i = 0; i < sim.shibas.length; i++) {
-      const unit = sim.shibas[i]
+    for (const unit of sim.shibas) {
       if (!unit?.alive || unit.hp <= 0) continue
-      // ペロペロ!!: half of each shiba's health back (in free placement; ?lanes keeps the full heal).
-      const gain = sim.free ? Math.min(unit.maxHp * PEROPERO_HEAL, unit.maxHp - unit.hp) : unit.maxHp - unit.hp
-      note(unit, Math.round(gain), true)
-      unit.hp += gain
+      note(unit, Math.round(unit.maxHp - unit.hp), true)
+      unit.hp = unit.maxHp
       unit.mendAt = sim.time
     }
     sim.homeHp = Math.min(HOME_HP, sim.homeHp + SASAMI_HOME)
-  } else if (kind === KIND_DISC) {
-    // ボーロ!!: the whole row of the most advanced dog.
-    let front = -Infinity
-    for (const c of cats) if (c?.alive && c.fly !== 1 && c.hp > 0 && c.y > front) front = c.y
-    sim.fxY = front
-    for (const c of cats) {
-      if (!c?.alive || c.fly === 1 || c.hp <= 0 || Math.abs(c.y - front) > BORO_BAND) continue
-      const hit = Math.min(Math.max(0, c.hp), BORO_HIT * scale)
-      dealt += hit
-      c.hp -= BORO_HIT * scale
-      note(c, hit, false)
-    }
-  } else if (kind === KIND_CHEER) {
-    // ワンワン!!: the whole pack gets fired up; every shiba also gets a little health back.
-    sim.wanT = WANWAN_T
-    for (const u of sim.shibas) {
-      if (!u?.alive || u.hp <= 0) continue
-      const gain = Math.min(u.maxHp * 0.15, u.maxHp - u.hp)
-      u.hp += gain
-      note(u, Math.round(gain), true)
-    }
-  } else if (kind === KIND_BIG) {
-    // ミルク!!: the thickest knot of dogs.
-    let bestN = -1
-    let bx = FIELD_W / 2
-    let by = FIELD_H / 3
-    for (const a of cats) {
-      if (!a?.alive || a.fly === 1 || a.hp <= 0) continue
-      let n = 0
-      for (const b of cats) if (b?.alive && b.fly !== 1 && b.hp > 0 && Math.hypot(a.x - b.x, a.y - b.y) <= MILK_RADIUS) n += 1
-      if (n > bestN) {
-        bestN = n
-        bx = a.x
-        by = a.y
-      }
-    }
-    sim.fxX = bx
-    sim.fxY = by
-    for (const c of cats) {
-      if (!c?.alive || c.fly === 1 || c.hp <= 0 || Math.hypot(c.x - bx, c.y - by) > MILK_RADIUS) continue
-      const hit = Math.min(Math.max(0, c.hp), MILK_HIT * scale)
-      dealt += hit
-      c.hp -= MILK_HIT * scale
-      note(c, hit, false)
-      if (c.kind !== BREED_BOSS) c.stun = MILK_STUN
-    }
   } else {
-    for (let i = 0; i < cats.length; i++) {
-      const cat = cats[i]
+    for (const cat of cats) {
       if (!cat?.alive || cat.fly === 1) continue
-      const base = sim.free ? CHEESE_FREE_HIT : CHEESE_HIT
-      const hit = Math.min(Math.max(0, cat.hp), base * scale)
+      const hit = Math.min(Math.max(0, cat.hp), CHEESE_HIT)
       dealt += hit
-      cat.hp -= base * scale
+      cat.hp -= CHEESE_HIT
       note(cat, hit, false)
-      cat.y = Math.max(22, cat.y - (sim.free ? CHEESE_FREE_PUSH : CHEESE_PUSH))
-      if (sim.free && cat.kind !== BREED_BOSS) cat.stun = CHEESE_STUN
+      cat.y = Math.max(22, cat.y - CHEESE_PUSH)
     }
   }
   if (dealt > 0) {
     sim.floatDmg = dealt
     sim.floatT = FLOAT_TIME
   }
+}
+
+/** Is this coat's skill gauge full? */
+export function skillReady(sim: Sim, kind: number): boolean {
+  return (sim.charge[kind] ?? 0) >= (SPECIAL_NEED[kind] ?? Infinity)
+}
+
+/** Who casts a coat's skill: the unit of that coat nearest a dog (with no dogs out, the one furthest up). */
+export function casterOf(sim: Sim, kind: number): Unit | undefined {
+  let best: Unit | undefined
+  let bestD = Infinity
+  for (const u of sim.shibas) {
+    if (!u?.alive || u.hp <= 0 || u.recall || u.kind !== kind) continue
+    let d = Infinity
+    for (const dog of sim.cats) {
+      if (!dog?.alive || dog.fly === 1 || dog.hp <= 0) continue
+      d = Math.min(d, Math.hypot(dog.x - u.x, dog.y - u.y))
+    }
+    const score = d === Infinity ? 1e6 + u.y : d
+    if (score < bestD) {
+      bestD = score
+      best = u
+    }
+  }
+  return best
+}
+
+/** A tap on a card. Free placement: a full gauge with a caster on the field fires that coat's skill and keeps the pick (during SKILL_GAP the card shakes). Otherwise the tap picks the coat. */
+function tapCard(sim: Sim, kind: number): void {
+  if (sim.free && skillReady(sim, kind)) {
+    const caster = casterOf(sim, kind)
+    if (caster) {
+      if (sim.spGapT > 0) deny(sim, kind)
+      else castSkill(sim, kind, caster)
+      return
+    }
+  }
+  sim.picked = kind
+}
+
+function liveDogs(sim: Sim): Unit[] {
+  return sim.cats.filter((c) => c?.alive && c.fly !== 1 && c.hp > 0)
+}
+
+/** Free placement skills, one per coat, cast by `c` (the unit of that coat nearest a dog). Damage is × level power × the stage's dog hp. */
+export function castSkill(sim: Sim, kind: number, c: Unit): void {
+  sim.charge[kind] = 0
+  sim.spGapT = SKILL_GAP
+  sim.castId += 1
+  sim.sfxStrike = kind
+  sim.tutorial = false
+  const cast: Cast = { kind, at: sim.time, x: c.x, y: c.y, tx: c.x, ty: c.y, hits: [] }
+  sim.casts.push(cast)
+  if (sim.casts.length > 8) sim.casts.shift()
+  c.bitAt = sim.time
+  const p = power(sim, kind)
+  const scale = FREE_DOG_HP * spec(sim).hp * ramp(sim)
+  const dogs = liveDogs(sim)
+  const near = (r: number, x: number, y: number): Unit[] => dogs.filter((d) => Math.hypot(d.x - x, d.y - y) <= r)
+  if (kind === KIND_TAN) {
+    // シバダッシュ: straight up the field, biting everything along the way; the caster ends at the far end.
+    const ey = Math.max(FREE_SHIBA_TOP, c.y - DASH_LEN)
+    for (const d of dogs) {
+      const cy = Math.max(ey, Math.min(c.y, d.y))
+      if (Math.hypot(d.x - c.x, d.y - cy) <= DASH_WIDTH) skillHit(sim, cast, d, DASH_HIT * p * scale, 0)
+    }
+    c.y = ey
+    c.bite = 0
+    cast.ty = ey
+  } else if (kind === KIND_BLACK) {
+    // ホネのカベ: a bone 柵 just in front of the caster.
+    const hw = gridX(BONE_WALL_W) / 2
+    const x = Math.max(hw, Math.min(FIELD_W - hw, c.x))
+    const y = Math.max(40, c.y - BONE_WALL_AHEAD)
+    const hp = BONE_WALL_HP * spec(sim).hp * ramp(sim) * p
+    sim.walls.push({ x, y, hw, hp, max: hp, hitAt: -9, until: sim.time + BONE_WALL_T, bone: true })
+    cast.tx = x
+    cast.ty = y
+  } else if (kind === KIND_SESAME) {
+    // ボールの雨: on the thickest knot of dogs.
+    let bestN = 0
+    for (const a of dogs) {
+      const n = near(BALL_RADIUS, a.x, a.y).length
+      if (n > bestN) {
+        bestN = n
+        cast.tx = a.x
+        cast.ty = a.y
+      }
+    }
+    if (bestN === 0) cast.ty = c.y - 80
+    for (const d of near(BALL_RADIUS, cast.tx, cast.ty)) skillHit(sim, cast, d, BALL_HIT * p * scale, BALL_STUN)
+  } else if (kind === KIND_WHITE) {
+    // ペロペロ: everyone near the caster, and a little for the 柴の家.
+    for (const u of sim.shibas) {
+      if (!u?.alive || u.hp <= 0 || Math.hypot(u.x - c.x, u.y - c.y) > LICK_RADIUS) continue
+      const gain = Math.min(u.maxHp * LICK_HEAL, u.maxHp - u.hp)
+      u.hp += gain
+      u.mendAt = sim.time
+      sim.dealt[KIND_WHITE] = (sim.dealt[KIND_WHITE] ?? 0) + gain
+      if (gain >= 1) cast.hits.push({ x: u.x, y: u.y, v: Math.round(gain), heal: true })
+    }
+    sim.homeHp = Math.min(HOME_HP, sim.homeHp + LICK_HOME)
+  } else if (kind === KIND_DISC) {
+    // ブーメラン: toward the nearest dog and back (flyBooms lands the hits).
+    const foe = nearest(sim.cats, c, Infinity, true)
+    let ux = 0
+    let uy = -1
+    if (foe) {
+      const len = Math.max(1, Math.hypot(foe.x - c.x, foe.y - c.y))
+      ux = (foe.x - c.x) / len
+      uy = (foe.y - c.y) / len
+    }
+    sim.booms.push({ x: c.x, y: c.y, ux, uy, at: sim.time, hitOut: [], hitBack: [], cast })
+    cast.tx = c.x + ux * BOOM_LEN
+    cast.ty = c.y + uy * BOOM_LEN
+    flyBooms(sim)
+  } else if (kind === KIND_BIG) {
+    // ドスン: everything around the caster's paws, stunned.
+    for (const d of near(STOMP_RADIUS, c.x, c.y)) skillHit(sim, cast, d, STOMP_HIT * p * scale, STOMP_STUN)
+  } else if (kind === KIND_CHEER) {
+    // おうえん旗: planted where the caster stands.
+    sim.flags.push({ x: c.x, y: c.y, at: sim.time, until: sim.time + FLAG_T })
+  }
+}
+
+/** A skill's hit on one dog: the boss takes SKILL_BOSS of it and is never stunned. Counts as the coat's damage, but never fills a gauge. */
+function skillHit(sim: Sim, cast: Cast, dog: Unit, full: number, stun: number): void {
+  const boss = dog.kind === BREED_BOSS
+  const amount = full * (boss ? SKILL_BOSS : 1)
+  const landed = Math.min(Math.max(0, dog.hp), amount)
+  dog.hp -= amount
+  dog.hurtAt = sim.time
+  sim.dealt[cast.kind] = (sim.dealt[cast.kind] ?? 0) + landed
+  if (landed >= 1) cast.hits.push({ x: dog.x, y: dog.y, v: Math.round(landed), heal: false })
+  if (stun > 0 && !boss) dog.stun = Math.max(dog.stun, stun)
+}
+
+/** Where a boomerang is `age` seconds after the throw: out to BOOM_LEN at half time, then back. */
+export function boomPoint(b: Boomerang, age: number): { x: number; y: number; back: boolean } {
+  const f = Math.max(0, Math.min(1, age / BOOM_TIME))
+  const d = (f < 0.5 ? f * 2 : 2 - f * 2) * BOOM_LEN
+  return { x: b.x + b.ux * d, y: b.y + b.uy * d, back: f >= 0.5 }
+}
+
+/** Boomerangs in flight hit each dog they pass, once out and once back. */
+function flyBooms(sim: Sim): void {
+  if (sim.booms.length === 0) return
+  const p = power(sim, KIND_DISC)
+  const full = BOOM_HIT * p * FREE_DOG_HP * spec(sim).hp * ramp(sim)
+  for (const b of sim.booms) {
+    const at = boomPoint(b, sim.time - b.at)
+    const hit = at.back ? b.hitBack : b.hitOut
+    for (const d of sim.cats) {
+      if (!d?.alive || d.fly === 1 || d.hp <= 0 || hit.includes(d)) continue
+      if (Math.hypot(d.x - at.x, d.y - at.y) > BOOM_WIDTH) continue
+      hit.push(d)
+      skillHit(sim, b.cast, d, full, 0)
+    }
+  }
+  sim.booms = sim.booms.filter((b) => sim.time - b.at < BOOM_TIME)
 }
 
 function sortLane(indices: Int16Array, n: number, units: Unit[], ascending: boolean): void {

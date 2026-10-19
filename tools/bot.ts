@@ -12,12 +12,12 @@
  *   --seeds 3         seeds per cell
  *   --aim threat      where shibas go: threat (at the dog nearest the house) or random (anywhere in the deploy zone, like a new player)
  *   --tap 0.4         seconds between taps
- *   --nospecial       keep every special gauge empty
+ *   --nospecial       keep every skill gauge empty (skills never fire)
  *   --verbose         one line per match
  *
  * tsconfig only includes src/, so this file is not part of the build or the typecheck.
  */
-import { createSim, step, NO_INPUT, type Input, type Sim } from '../src/sim'
+import { createSim, step, NO_INPUT, skillReady, casterOf, type Input, type Sim } from '../src/sim'
 import { FIELD_W, FIELD_CAP, KINDS, HOME_HP, STAGES, KIND_SESAME, KIND_WHITE, KIND_CHEER } from '../src/balance'
 
 function arg(name: string, fallback: string): string {
@@ -53,7 +53,7 @@ export interface Result {
 
 /** One match: stage is 0-based. Every earlier stage counts as cleared, so its coats are open. */
 export interface Player {
-  /** Let specials fire (false keeps every gauge empty). */
+  /** Tap full skill gauges (false keeps every gauge empty). */
   specials?: boolean
   /** Seconds between taps. */
   tap?: number
@@ -108,9 +108,19 @@ export function play(stage: number, level: number, coats: readonly number[], see
         break
       }
     }
-    const cutBefore = sim.cutT
+    // Skills: tap a full card once its caster has a dog within reach.
+    if (specials && sim.spGapT <= 0) {
+      for (const k of sim.deck) {
+        if (!skillReady(sim, k)) continue
+        const c = casterOf(sim, k)
+        if (!c || !sim.cats.some((d) => d?.alive && d.fly !== 1 && d.hp > 0 && Math.hypot(d.x - c.x, d.y - c.y) < 120)) continue
+        input = { ...input, pick: k }
+        break
+      }
+    }
+    const castBefore = sim.castId
     step(sim, DT, input)
-    if (sim.cutKind >= 0 && cutBefore <= 0) fired[sim.cutKind] += 1
+    if (sim.castId > castBefore) fired[sim.casts[sim.casts.length - 1]?.kind ?? 0] += 1
   }
   return { won: sim.outcome === 'won', home: Math.max(0, sim.homeHp) / HOME_HP, time: sim.time, specials: fired }
 }

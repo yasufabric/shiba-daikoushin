@@ -128,35 +128,63 @@ export const HEAL_REACH = 180
 export const HEAVY_EVERY = 2.3
 export const HEAVY_HIT = 180
 
-/** Specials fire on their own once a coat has dealt this much damage (白: healed this much). Order: 赤, 黒, 胡麻, 白. */
-export const SPECIAL_NEED = [1750, 1400, 2400, 1600, 2100, 1750, 1100] as const
+/** Skill gauge per coat: damage it has landed (白: healed; 応援: cheered). Order: 赤, 黒, 胡麻, 白, ぶち, どっしり, 応援. ?lanes fires on its own at this; free placement waits for a tap on the full card. */
+export const SPECIAL_NEED = [2000, 1600, 3200, 1850, 2400, 2000, 1250] as const
 /** Splash and pass-through hits (胡麻's ball, どっしり's stomp, ぶち's disc) fill the gauge at this share; only the dog aimed at counts in full. */
 export const SPLASH_CHARGE = 0.3
-/** After a special lands, no other special fires for this many seconds (play-test round 4: specials still too strong, they chained). */
+/** ?lanes: after a special lands, no other special fires for this many seconds. */
 export const SPECIAL_GAP = 7
-/** ペロペロ!! in free placement gives back this share of each shiba's health. */
-export const PEROPERO_HEAL = 0.35
+/** ?lanes: the cut-in, then the strike's field effect. */
 export const CUT_TIME = 1.1
-/** After the cut-in the special strikes; its field effect plays for this long. */
 export const FX_TIME = 0.9
-/** 赤「サツマイモ!!」: every 赤 charges at double pace and double bite. */
+/** ?lanes 赤: every 赤 charges at double pace and double bite. */
 export const RUSH_TIME = 2
-/** 黒「ジャーキー!!」: the front three dogs of every lane, the boss included. */
+/** ?lanes 黒: the front three dogs of every lane, the boss included. */
 export const JERKY_HIT = 80
 export const JERKY_DEPTH = 3
-/** 白「ササミ!!」: every shiba back to full, and the 柴の家 mended by this much. */
+/** ?lanes 白: every shiba back to full, and the 柴の家 mended by this much. */
 export const SASAMI_HOME = 75
-/** 胡麻「チーズ!!」: a field-wide shockwave that also shoves cats back. */
+/** ?lanes 胡麻: a field-wide shockwave that also shoves dogs back. */
 export const CHEESE_HIT = 26
 export const CHEESE_PUSH = 60
-/** Free placement 胡麻「チーズ!!」is crowd control: light damage, a big shove, and every dog but the boss freezes. */
-export const CHEESE_FREE_HIT = 6
-export const CHEESE_FREE_PUSH = 30
-export const CHEESE_STUN = 0.8
-/** Free placement 黒「ジャーキー!!」is a few heavy single hits on the dogs nearest the 柴の家 (per FREE_DOG_HP). */
-export const JERKY_FREE_HIT = 130
-/** シバドリル on the boss lands this share. */
-export const JERKY_BOSS = 0.5
+
+/** Free placement skills: one per coat, fired by tapping its card when the gauge is full. The unit of that coat nearest a dog casts it. */
+export const SKILL_NAMES = ['シバダッシュ', 'ホネのカベ', 'ボールの雨', 'ペロペロ', 'ブーメラン', 'ドスン', 'おうえん旗'] as const
+/** No two skills within this many seconds. */
+export const SKILL_GAP = 2
+/** Skill damage is × the coat's level power × the stage's dog hp (× FREE_DOG_HP); the boss takes this share of it. */
+export const SKILL_BOSS = 0.5
+/** 赤「シバダッシュ」: the caster dashes this far up; every dog within DASH_WIDTH of the path takes DASH_HIT. */
+export const DASH_LEN = 150
+export const DASH_WIDTH = 26
+export const DASH_HIT = 150
+/** 黒「ホネのカベ」: a bone wall BONE_WALL_AHEAD px ahead of the caster, BONE_WALL_W wide on the 195 grid, BONE_WALL_HP × stage hp, for BONE_WALL_T s. */
+export const BONE_WALL_AHEAD = 50
+export const BONE_WALL_W = 60
+export const BONE_WALL_HP = 900
+export const BONE_WALL_T = 14
+/** 胡麻「ボールの雨」: balls rain on the thickest knot of dogs, everything within BALL_RADIUS. */
+export const BALL_RADIUS = 66
+export const BALL_HIT = 50
+export const BALL_STUN = 1.2
+/** 白「ペロペロ」: every shiba within LICK_RADIUS of the caster gets LICK_HEAL of its max hp back; the 柴の家 gets LICK_HOME. */
+export const LICK_RADIUS = 130
+export const LICK_HEAL = 0.6
+export const LICK_HOME = 75
+/** ぶち「ブーメラン」: a big frisbee flies BOOM_LEN toward the nearest dog and back in BOOM_TIME s, hitting each dog within BOOM_WIDTH once each way. */
+export const BOOM_LEN = 230
+export const BOOM_WIDTH = 18
+export const BOOM_HIT = 55
+export const BOOM_TIME = 1.1
+/** どっしり「ドスン」: every dog within STOMP_RADIUS takes STOMP_HIT and is stunned STOMP_STUN s. */
+export const STOMP_RADIUS = 84
+export const STOMP_HIT = 45
+export const STOMP_STUN = 2
+/** 応援「おうえん旗」: a flag for FLAG_T s; shibas within FLAG_RADIUS attack FLAG_HASTE× as often and regen FLAG_REGEN of max hp per second. */
+export const FLAG_T = 10
+export const FLAG_RADIUS = 96
+export const FLAG_HASTE = 1.6
+export const FLAG_REGEN = 0.03
 
 export const VIEW_W = 390
 export const VIEW_H = 844
@@ -201,8 +229,6 @@ export const HEAL_CLOSE = 0.5
 export const HEAL_SEEK_SPAN = 300
 /** 赤 in free placement walks this much faster than the others. */
 export const TAN_HASTE = 1.35
-/** 黒「ジャーキー!!」in free placement: a spear drops on each of the dogs nearest the 柴の家, this many. */
-export const JERKY_TARGETS = 1
 /** A dog this close to the 柴の家 door bites the house. */
 export const FREE_HOME_REACH = 60
 /** A dog with nothing in sight walks straight down and turns for the door only this close to the bottom. */
@@ -386,9 +412,6 @@ export const DISC_REACH = 125
 export const DISC_RANGE = 190
 /** Half-width of the disc's path. */
 export const DISC_WIDTH = 13
-/** ぶち「ボーロ!!」: a sweep across the whole row of the most advanced dog. */
-export const BORO_HIT = 70
-export const BORO_BAND = 34
 
 /** どっしり柴: slow and sturdy; every beat it stomps everything within reach of its own paws. */
 export const HP_BIG = 300
@@ -397,10 +420,6 @@ export const SPEED_BIG = 24
 export const BIG_EVERY = 2.2
 export const BIG_HIT = 52
 export const BIG_RADIUS = 44
-/** どっしり「ミルク!!」: a heavy pound on the thickest knot of dogs, stunning them. */
-export const MILK_HIT = 75
-export const MILK_RADIUS = 72
-export const MILK_STUN = 1
 
 /** ヒーロー柴: one extra shiba the player steers. Tap the field above the deploy strip and it walks there, spinning at every dog in reach; when it falls it comes back at the 柴の家 after HERO_REVIVE seconds. */
 export const HERO_HP = 320
@@ -422,9 +441,6 @@ export const SPEED_CHEER = 40
 export const CHEER_RADIUS = 58
 export const CHEER_HASTE = 1.4
 export const CHEER_CHARGE = 24
-/** ワンワン!!: for WANWAN_T seconds every shiba on the field attacks WANWAN_HASTE× as often, and each gets 15% of its health back. */
-export const WANWAN_T = 3
-export const WANWAN_HASTE = 1.5
 
 /** The boss howls every BOSS_HOWL_EVERY s (first one BOSS_HOWL_FIRST s after it walks out). From stage BOSS_CALL_FROM (index) the howl calls BOSS_CALL チワワ to its side; from BOSS_STUN_FROM it also freezes every shiba within BOSS_HOWL_R for BOSS_STUN s. */
 export const BOSS_HOWL_EVERY = 9

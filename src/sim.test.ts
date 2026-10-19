@@ -24,8 +24,6 @@ import {
   BARK_RANGE,
   BARK_SPLASH,
   HEAL_RADIUS,
-  JERKY_TARGETS,
-  CHEESE_STUN,
   RECHARGE,
   LEVEL_COST_BASE,
   LEVEL_STEP,
@@ -42,7 +40,6 @@ import {
   KIND_CHEER,
   BOSS_HOWL_FIRST,
   BOSS_STUN_FROM,
-  WANWAN_T,
   HERO_REVIVE,
   HERO_SKILL_CD,
   CANNON_CHARGE,
@@ -86,9 +83,26 @@ import {
   CLASH_RAMP_FROM,
   CROWD_CAP,
   FIELD_CAP,
-  JERKY_FREE_HIT,
-  JERKY_BOSS,
   FREE_DOG_HP,
+  SKILL_GAP,
+  SKILL_BOSS,
+  DASH_LEN,
+  DASH_HIT,
+  BONE_WALL_AHEAD,
+  BONE_WALL_T,
+  BALL_HIT,
+  BALL_STUN,
+  LICK_HEAL,
+  LICK_HOME,
+  BOOM_HIT,
+  BOOM_TIME,
+  STOMP_HIT,
+  STOMP_STUN,
+  FLAG_T,
+  FLAG_REGEN,
+  KIND_CHEER as KIND_FLAG,
+  KIND_WHITE as KIND_LICK,
+  BREED_CORGI as CORGI,
 } from './balance'
 import {
   costOf,
@@ -111,6 +125,9 @@ import {
   dogsLeft,
   step,
   clashRamp,
+  castSkill,
+  casterOf,
+  spec,
   type Input,
   type Unit,
   type Sim,
@@ -347,7 +364,7 @@ describe('胡麻柴', () => {
     expect(sim.charge[KIND_TAN]).toBe(0)
   })
 
-  it('brings every shiba back to full and mends the home with 「ササミ!!」', () => {
+  it('brings every shiba back to full and mends the home with the ?lanes 白 special', () => {
     const sim = createSim({ tutorial: false, seed: 6 })
     for (const unit of sim.shibas) if (unit.alive) unit.hp = 1
     sim.homeHp = 100
@@ -486,34 +503,6 @@ describe('free placement roles', () => {
     const taken = 1000 - dog.hp
     expect(taken).toBeGreaterThan(0)
     expect(taken).toBeLessThan(20 * 4 * 0.8)
-  })
-
-  it('aims 「シバドリル!!」 at the toughest dogs on the field and notes each hit', () => {
-    const sim = emptyField()
-    const dogs = sim.cats.slice(0, JERKY_TARGETS + 3)
-    dogs.forEach((dog, k) => Object.assign(dog, { alive: true, fly: 0, kind: BREED_BULLDOG, hp: 500 + k * 100, maxHp: 999, dps: 0, speed: 0, x: 20 + k * 25, y: 100 + k * 30 }))
-    sim.aliveCats = dogs.length
-    const before = dogs.map((d) => d.hp)
-    strikeSpecial(sim, KIND_BLACK)
-    const hit = dogs.filter((d, k) => d.hp < (before[k] ?? 0))
-    expect(hit.length).toBe(JERKY_TARGETS)
-    expect(hit.includes(dogs[dogs.length - 1] as (typeof dogs)[number])).toBe(true)
-    expect(sim.fxHits.length).toBe(JERKY_TARGETS)
-  })
-
-  it('freezes every dog but the boss with 「チーズ!!」 and thaws them after CHEESE_STUN', () => {
-    const sim = emptyField()
-    const dogs = sim.cats.slice(0, 2)
-    dogs.forEach((dog, k) => Object.assign(dog, { alive: true, fly: 0, kind: k === 0 ? BREED_BULLDOG : BREED_BOSS, hp: 999, maxHp: 999, dps: 0, speed: 40, x: 100 + k * 100, y: 300 }))
-    sim.aliveCats = 2
-    strikeSpecial(sim, KIND_SESAME)
-    expect(dogs[0]?.stun).toBe(CHEESE_STUN)
-    expect(dogs[1]?.stun).toBe(0)
-    const y = dogs[0]?.y ?? 0
-    play(sim, CHEESE_STUN - 0.5, () => NO_INPUT)
-    expect(dogs[0]?.y).toBeCloseTo(y, 5)
-    play(sim, 1.5, () => NO_INPUT)
-    expect(dogs[0]?.y).toBeGreaterThan(y)
   })
 
   it('lets a beaten dog fly off the top instead of pinning it by the mansion', () => {
@@ -725,7 +714,7 @@ describe('soldiers', () => {
     expect(sim.fxKind).toBe(-1)
   })
 
-  it('shoves every dog back with 白「チーズ!!」 and pierces the boss with 黒「ジャーキー!!」', () => {
+  it('?lanes specials: 胡麻 shoves every dog back and 黒 pierces the boss', () => {
     const sim = createSim({ tutorial: false, seed: 4 })
     play(sim, 70, () => NO_INPUT)
     const ys = sim.cats.filter((c) => c.alive && c.fly === 0).map((c) => c.y)
@@ -846,16 +835,16 @@ describe('soldiers', () => {
     const wall = STAGES[1]?.walls?.[0]
     expect(wall).toBeDefined()
     if (!wall) return
-    const full = sim.wallHp[0] ?? 0
+    const full = sim.walls[0]?.hp ?? 0
     expect(full).toBeGreaterThan(0)
     spawnCat(sim, 1, BREED_CORGI, { x: gridX(wall.x), y: wall.y - 40 })
     const dog = sim.cats.find((c) => c.alive)
     if (!dog) return
     for (let i = 0; i < 30 * 8; i++) step(sim, 1 / 30, NO_INPUT)
     expect(dog.y).toBeLessThan(wall.y)
-    expect(sim.wallHp[0] ?? 0).toBeLessThan(full)
-    for (let i = 0; i < 30 * 600 && (sim.wallHp[0] ?? 0) > 0; i++) step(sim, 1 / 30, NO_INPUT)
-    expect(sim.wallHp[0]).toBe(0)
+    expect(sim.walls[0]?.hp ?? 0).toBeLessThan(full)
+    for (let i = 0; i < 30 * 600 && sim.walls.length > 0; i++) step(sim, 1 / 30, NO_INPUT)
+    expect(sim.walls.length).toBe(0)
     for (let i = 0; i < 30 * 4; i++) step(sim, 1 / 30, NO_INPUT)
     expect(dog.y).toBeGreaterThan(wall.y)
   })
@@ -925,32 +914,6 @@ describe('soldiers', () => {
     const near = heavy.cats.filter((c) => c.alive && c.y > 250)
     expect(near.every((c) => c.hp < c.maxHp)).toBe(true)
     expect(heavy.cats.find((c) => c.alive && c.y < 250)?.hp).toBe(heavy.cats.find((c) => c.alive && c.y < 250)?.maxHp)
-  })
-
-  it('fires ボーロ across the front row and ミルク on the thickest knot', () => {
-    const sim = createSim({ tutorial: false, seed: 4, free: true })
-    for (const u of [...sim.shibas, ...sim.cats]) u.alive = false
-    sim.aliveShibas = 0
-    sim.aliveCats = 0
-    sim.nextCat = 1e9
-    spawnCat(sim, 0, BREED_CORGI, { x: 30, y: 300 })
-    spawnCat(sim, 0, BREED_CORGI, { x: 300, y: 310 })
-    spawnCat(sim, 0, BREED_CORGI, { x: 150, y: 100 })
-    strikeSpecial(sim, KIND_DISC)
-    const rows = sim.cats.filter((c) => c.alive && c.hp > 0)
-    expect(rows.filter((c) => c.y > 250).every((c) => c.hp < c.maxHp)).toBe(true)
-    expect(rows.find((c) => c.y < 150)?.hp).toBe(rows.find((c) => c.y < 150)?.maxHp)
-
-    const knot = createSim({ tutorial: false, seed: 4, free: true })
-    for (const u of [...knot.shibas, ...knot.cats]) u.alive = false
-    knot.aliveShibas = 0
-    knot.aliveCats = 0
-    knot.nextCat = 1e9
-    for (const [x, y] of [[100, 200], [120, 210], [110, 190], [330, 100]] as const) spawnCat(knot, 0, BREED_CORGI, { x, y })
-    strikeSpecial(knot, KIND_BIG)
-    const alive = knot.cats.filter((c) => c.alive)
-    expect(alive.filter((c) => c.x < 200).every((c) => c.stun > 0)).toBe(true)
-    expect(alive.find((c) => c.x > 300)?.stun).toBe(0)
   })
 
   it('opens on the title, locks stages until the one before is cleared, and goes home from the result screen', () => {
@@ -1047,7 +1010,7 @@ describe('soldiers', () => {
     expect(deckReady(sim)).toBe(true)
   })
 
-  it('応援柴 makes nearby shibas bite faster, fills its gauge, and ワンワン!! fires the whole pack up', () => {
+  it('応援柴 makes nearby shibas bite faster, and fills its gauge', () => {
     const run = (cheer: boolean): number => {
       const sim = createSim({ tutorial: false, seed: 7, free: true })
       for (const c of sim.cats) c.alive = false
@@ -1073,9 +1036,6 @@ describe('soldiers', () => {
     const plain = run(false)
     const cheered = run(true)
     expect(cheered).toBeGreaterThan(plain * 1.2)
-    const sim = createSim({ tutorial: false, seed: 7, free: true })
-    strikeSpecial(sim, KIND_CHEER)
-    expect(sim.wanT).toBe(WANWAN_T)
   })
 
   it('the boss howls: later stages call チワワ to its side and the last ones stun shibas near it', () => {
@@ -1335,15 +1295,6 @@ describe('balance curve (free placement)', () => {
     expect(late?.pass).toBe(true)
   })
 
-  it('シバドリル lands half on the boss', () => {
-    const sim = emptyField()
-    spawnCat(sim, 2, BREED_CORGI, { x: 100, y: 100 })
-    const boss = sim.cats.find((c) => c.alive)
-    Object.assign(boss ?? {}, { kind: BREED_BOSS, hp: 1e6, maxHp: 1e6 })
-    strikeSpecial(sim, KIND_BLACK)
-    expect(1e6 - (boss?.hp ?? 0)).toBeCloseTo(JERKY_FREE_HIT * FREE_DOG_HP * JERKY_BOSS, 5)
-  })
-
   it('a new player with 赤 and 黒 at Lv1 wins stage 1', () => {
     for (const seed of [1, 2, 3]) {
       const sim = createSim({ tutorial: false, seed, free: true })
@@ -1368,5 +1319,194 @@ describe('balance curve (free placement)', () => {
       expect(sim.outcome).toBe('won')
       expect(sim.homeHp).toBeGreaterThan(0)
     }
+  })
+})
+
+describe('skills (free placement)', () => {
+  function field(): Sim {
+    const sim = createSim({ tutorial: false, seed: 3, free: true, best: STAGES.map(() => 1) })
+    sim.deck = [KIND_TAN, KIND_BLACK, KIND_SESAME, KIND_LICK]
+    for (const u of [...sim.shibas, ...sim.cats]) u.alive = false
+    sim.aliveShibas = 0
+    sim.aliveCats = 0
+    sim.nextCat = 1e9
+    sim.walls = []
+    return sim
+  }
+  function shiba(sim: Sim, kind: number, x: number, y: number, still = true): Unit {
+    spawnShiba(sim, kind, 0, y)
+    const u = sim.shibas[(sim.cursorS - 1 + sim.shibas.length) % sim.shibas.length] as Unit
+    Object.assign(u, { x, y })
+    if (still) Object.assign(u, { speed: 0, cd: 99, bite: 99 })
+    return u
+  }
+  function dog(sim: Sim, x: number, y: number, kind = CORGI): Unit {
+    spawnCat(sim, 0, kind, { x, y })
+    const d = sim.cats[(sim.cursorC - 1 + sim.cats.length) % sim.cats.length] as Unit
+    Object.assign(d, { x, y, hp: 1e6, maxHp: 1e6, dps: 0, speed: 0 })
+    return d
+  }
+  const scale = (sim: Sim): number => FREE_DOG_HP * spec(sim).hp
+
+  it('a full gauge never fires by itself; tapping the full card fires it and keeps the pick', () => {
+    const sim = field()
+    shiba(sim, KIND_TAN, 100, 470)
+    dog(sim, 100, 380)
+    sim.picked = KIND_BLACK
+    sim.charge[KIND_TAN] = SPECIAL_NEED[KIND_TAN]
+    play(sim, 3, () => NO_INPUT)
+    expect(sim.castId).toBe(0)
+    expect(sim.cutKind).toBe(-1)
+    expect(sim.charge[KIND_TAN]).toBeGreaterThanOrEqual(SPECIAL_NEED[KIND_TAN])
+    step(sim, 1 / 30, { ...NO_INPUT, pick: KIND_TAN })
+    expect(sim.castId).toBe(1)
+    expect(sim.casts[0]?.kind).toBe(KIND_TAN)
+    expect(sim.charge[KIND_TAN]).toBe(0)
+    expect(sim.sfxStrike).toBe(KIND_TAN)
+    expect(sim.picked).toBe(KIND_BLACK)
+    // A card that is not full just picks.
+    step(sim, 1 / 30, { ...NO_INPUT, pick: KIND_TAN })
+    expect(sim.picked).toBe(KIND_TAN)
+    expect(sim.castId).toBe(1)
+  })
+
+  it('with no unit of that coat out, a full card only picks and the gauge stays full; skills keep SKILL_GAP apart', () => {
+    const sim = field()
+    dog(sim, 100, 380)
+    sim.charge[KIND_SESAME] = SPECIAL_NEED[KIND_SESAME]
+    step(sim, 1 / 30, { ...NO_INPUT, pick: KIND_SESAME })
+    expect(sim.castId).toBe(0)
+    expect(sim.picked).toBe(KIND_SESAME)
+    expect(sim.charge[KIND_SESAME]).toBe(SPECIAL_NEED[KIND_SESAME])
+    shiba(sim, KIND_SESAME, 100, 520)
+    shiba(sim, KIND_TAN, 200, 520)
+    sim.charge[KIND_TAN] = SPECIAL_NEED[KIND_TAN]
+    step(sim, 1 / 30, { ...NO_INPUT, pick: KIND_SESAME })
+    expect(sim.castId).toBe(1)
+    step(sim, 1 / 30, { ...NO_INPUT, pick: KIND_TAN })
+    expect(sim.castId).toBe(1)
+    expect(sim.charge[KIND_TAN]).toBe(SPECIAL_NEED[KIND_TAN])
+    play(sim, SKILL_GAP, () => NO_INPUT)
+    step(sim, 1 / 30, { ...NO_INPUT, pick: KIND_TAN })
+    expect(sim.castId).toBe(2)
+  })
+
+  it('the caster is the unit of that coat nearest a dog', () => {
+    const sim = field()
+    shiba(sim, KIND_TAN, 100, 600)
+    const front = shiba(sim, KIND_TAN, 300, 470)
+    shiba(sim, KIND_BLACK, 300, 460)
+    dog(sim, 300, 380)
+    expect(casterOf(sim, KIND_TAN)).toBe(front)
+    expect(casterOf(sim, KIND_SESAME)).toBe(undefined)
+  })
+
+  it('シバダッシュ bites every dog along the dash and the caster ends at its far end', () => {
+    const sim = field()
+    const c = shiba(sim, KIND_TAN, 100, 500)
+    const on = [dog(sim, 100, 450), dog(sim, 110, 380)]
+    const off = dog(sim, 200, 420)
+    castSkill(sim, KIND_TAN, c)
+    for (const d of on) expect(1e6 - d.hp).toBeCloseTo(DASH_HIT * scale(sim), 3)
+    expect(off.hp).toBe(1e6)
+    expect(c.y).toBe(500 - DASH_LEN)
+  })
+
+  it('ホネのカベ raises a bone wall that blocks dogs until it falls by itself', () => {
+    const sim = field()
+    const c = shiba(sim, KIND_BLACK, 180, 520)
+    Object.assign(c, { hp: 1e6, maxHp: 1e6 })
+    castSkill(sim, KIND_BLACK, c)
+    const wall = sim.walls.find((w) => w.bone)
+    expect(wall?.y).toBe(520 - BONE_WALL_AHEAD)
+    if (!wall) return
+    // The caster steps aside; a dog up the field walks straight down into the wall.
+    c.x = 30
+    const d = dog(sim, 180, 380)
+    Object.assign(d, { speed: 40, dps: 2 })
+    play(sim, 8, () => NO_INPUT)
+    expect(d.y).toBeLessThan(wall.y)
+    expect(wall.hp).toBeLessThan(wall.max)
+    play(sim, BONE_WALL_T - 8 + 0.2, () => NO_INPUT)
+    expect(sim.walls.some((w) => w.bone)).toBe(false)
+    play(sim, 3, () => NO_INPUT)
+    expect(d.y).toBeGreaterThan(wall.y)
+  })
+
+  it('ボールの雨 hits and stuns the thickest knot of dogs only', () => {
+    const sim = field()
+    const c = shiba(sim, KIND_SESAME, 100, 520)
+    const knot = [dog(sim, 100, 300), dog(sim, 130, 310), dog(sim, 110, 330)]
+    const lone = dog(sim, 320, 150)
+    castSkill(sim, KIND_SESAME, c)
+    for (const d of knot) {
+      expect(1e6 - d.hp).toBeCloseTo(BALL_HIT * scale(sim), 3)
+      expect(d.stun).toBe(BALL_STUN)
+    }
+    expect(lone.hp).toBe(1e6)
+    expect(lone.stun).toBe(0)
+  })
+
+  it('ペロペロ mends shibas near the caster and a little of the 柴の家', () => {
+    const sim = field()
+    const c = shiba(sim, KIND_LICK, 100, 520)
+    const near = shiba(sim, KIND_TAN, 150, 480)
+    const far = shiba(sim, KIND_TAN, 340, 300)
+    near.hp = 1
+    far.hp = 1
+    sim.homeHp = 500
+    castSkill(sim, KIND_LICK, c)
+    expect(near.hp).toBeCloseTo(1 + near.maxHp * LICK_HEAL, 5)
+    expect(far.hp).toBe(1)
+    expect(sim.homeHp).toBe(500 + LICK_HOME)
+  })
+
+  it('ブーメラン hits each dog on its line once out and once back', () => {
+    const sim = field()
+    const c = shiba(sim, KIND_DISC, 100, 520)
+    const line = [dog(sim, 100, 440), dog(sim, 100, 340)]
+    const off = dog(sim, 260, 440)
+    castSkill(sim, KIND_DISC, c)
+    play(sim, BOOM_TIME + 0.1, () => NO_INPUT)
+    for (const d of line) expect(1e6 - d.hp).toBeCloseTo(2 * BOOM_HIT * scale(sim), 3)
+    expect(off.hp).toBe(1e6)
+    expect(sim.booms.length).toBe(0)
+  })
+
+  it('ドスン stomps and stuns every dog around the caster; the boss takes a share and keeps walking', () => {
+    const sim = field()
+    const c = shiba(sim, KIND_BIG, 200, 450)
+    const close = dog(sim, 240, 420)
+    const boss = dog(sim, 160, 400)
+    boss.kind = BREED_BOSS
+    const far = dog(sim, 200, 250)
+    castSkill(sim, KIND_BIG, c)
+    expect(1e6 - close.hp).toBeCloseTo(STOMP_HIT * scale(sim), 3)
+    expect(close.stun).toBe(STOMP_STUN)
+    expect(1e6 - boss.hp).toBeCloseTo(STOMP_HIT * scale(sim) * SKILL_BOSS, 3)
+    expect(boss.stun).toBe(0)
+    expect(far.hp).toBe(1e6)
+  })
+
+  it('おうえん旗 plants a flag: shibas under it attack faster and regen, until it comes down', () => {
+    const run = (flag: boolean): { dealt: number; hp: number; sim: Sim } => {
+      const sim = field()
+      const d = dog(sim, 100, 300)
+      const tan = shiba(sim, KIND_TAN, 100, 330, false)
+      tan.speed = 0
+      tan.hp = 10
+      const cheer = shiba(sim, KIND_FLAG, 120, 360)
+      if (flag) castSkill(sim, KIND_FLAG, cheer)
+      play(sim, 4, () => NO_INPUT)
+      return { dealt: 1e6 - d.hp, hp: tan.hp, sim }
+    }
+    const plain = run(false)
+    const flagged = run(true)
+    expect(flagged.dealt).toBeGreaterThan(plain.dealt * 1.4)
+    expect(flagged.hp).toBeGreaterThan(10 + 3 * FLAG_REGEN * 40)
+    expect(plain.hp).toBe(10)
+    expect(flagged.sim.flags.length).toBe(1)
+    play(flagged.sim, FLAG_T, () => NO_INPUT)
+    expect(flagged.sim.flags.length).toBe(0)
   })
 })

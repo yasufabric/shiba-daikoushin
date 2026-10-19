@@ -55,8 +55,14 @@ import {
   KIND_SESAME,
   KIND_WHITE,
   BIG_RADIUS,
-  BORO_BAND,
-  MILK_RADIUS,
+  SKILL_NAMES,
+  BALL_RADIUS,
+  LICK_RADIUS,
+  STOMP_RADIUS,
+  FLAG_RADIUS,
+  BOOM_TIME,
+  BONE_WALL_W,
+  BONE_WALL_T,
   KINDS,
   CARD_XS,
   RECHARGE,
@@ -82,12 +88,11 @@ import {
   MAX_CATS,
   MAX_SHIBAS,
   PANEL_Y,
-  WALL_HP,
   gridX,
 } from './balance'
 import { drawJP, flushPlain, jpWidth, queuePlain } from './jp'
 import { finish as hdFinish, flash as hdFlash } from './hd'
-import { BANNER_POP, BANNER_REST, CLEAR_WORD, glyphBit, LEVEL_WORD, letterBit, LOSE_WORD, START_WORD, POP_COL, POP_ROW, RUMBLE_WORD, SELECT_WORD, SPECIAL_WORDS, STAGE_WORD, TITLE_WORD, TAP_WORD, NEW_WORD, PAUSE_WORD } from './font'
+import { BANNER_POP, BANNER_REST, CLEAR_WORD, glyphBit, LEVEL_WORD, letterBit, LOSE_WORD, START_WORD, POP_COL, POP_ROW, RUMBLE_WORD, SELECT_WORD, STAGE_WORD, TITLE_WORD, TAP_WORD, NEW_WORD, PAUSE_WORD } from './font'
 import {
   BOSS_H,
   BOSS_W,
@@ -124,7 +129,7 @@ import {
   WHITE_DARK,
   WHITE_MID,
 } from './palette'
-import { canCall, costOf, deckReady, deckSize, feedCost, isEndless, mvpOf, xpNeed, stageOpen, coatOpen, spec, dogsLeft, levelCost, type Outcome, type Sim, type Unit } from './sim'
+import { canCall, costOf, deckReady, deckSize, feedCost, isEndless, mvpOf, xpNeed, stageOpen, coatOpen, spec, dogsLeft, levelCost, skillReady, casterOf, boomPoint, type Cast, type Outcome, type Sim, type Unit } from './sim'
 import { createSheets, type Sheets } from './sprites'
 
 const BUCKETS = 96
@@ -200,6 +205,8 @@ export interface Renderer {
   boomsLeft: number
   /** Last special strike whose bursts were spawned. */
   fxSeen: number
+  /** Last skill cast whose bursts were spawned. */
+  castSeen: number
   /** Sound is off; the speaker button shows a cross. */
   muted: boolean
   /** 2× speed is on (drawn on the dock's speed button). */
@@ -421,6 +428,7 @@ export function createRenderer(): Renderer {
     boomOn: new Uint8Array(BOOMS),
     boomCursor: 0,
     fxSeen: 0,
+    castSeen: 0,
     lastTime: 0,
     muted: false,
     fast: false,
@@ -495,6 +503,7 @@ export function draw(
   paintHome(g, renderer)
   paintRocks(g, sim)
   paintWalls(g, sim)
+  if (sim.free) paintFlags(g, sim)
   paintUnits(g, renderer, sim)
   if (sim.free) paintRoles(g, sim)
   if (sim.free) paintAttacks(g, sim)
@@ -509,6 +518,7 @@ export function draw(
   }
   paintGhosts(g, renderer, sim)
   paintBooms(g, renderer, sim)
+  if (sim.free) paintCasts(g, renderer, sim)
   paintAir(g, sim)
   g.restore()
   paintSpecialField(g, renderer, sim)
@@ -946,6 +956,9 @@ function presentHd(ctx: CanvasRenderingContext2D, renderer: Renderer, sim: Sim, 
   hdFinish(ctx, renderer.view, frame.ox, frame.oy, destW, destH, light, 0, playing, fieldTop, fieldBottom)
   if (playing) {
     if (sim.fxT > 0) hdFlash(ctx, frame.ox, frame.oy, destW, destH, FX_TIME - sim.fxT, 0.35, true)
+    // A skill's flash covers the field only, so the HUD and the dock stay crisp.
+    const last = sim.casts[sim.casts.length - 1]
+    if (sim.free && last) hdFlash(ctx, frame.ox, frame.oy + fieldTop, destW, fieldBottom - fieldTop, sim.time - last.at, 0.25, true)
     hdFlash(ctx, frame.ox, frame.oy, destW, destH, sim.time - sim.cannonAt, 0.3, false)
   }
 }
@@ -1579,7 +1592,7 @@ function paintHpBars(ctx: CanvasRenderingContext2D, sim: Sim): void {
     const y = fpy(dog.y) - CAT_PX - 4
     drawHpBar(ctx, x, y, dog.hp / dog.maxHp, DANGER_DARK, DANGER, DANGER_LIGHT)
   }
-  // A frozen dog (チーズ!!) wears three gold stars circling over its head.
+  // A stunned dog (ボールの雨, ドスン) wears three gold stars circling over its head.
   const beat = Math.floor(sim.time * 8)
   for (let i = 0; i < sim.cats.length; i++) {
     const dog = sim.cats[i]
@@ -1764,12 +1777,6 @@ function drawShiba(ctx: CanvasRenderingContext2D, renderer: Renderer, sim: Sim, 
   }
   blitCrowd(ctx, renderer, furOf(unit.kind), pose, fighting ? beat : sim.time, unit.lane, 0, flash, dx, dy)
   if (unit.kind === KIND_SESAME) paintBark(ctx, sim.time - (renderer.shibaAct[index] ?? -9), dx + (CROWD_PX >> 1), dy)
-  if (sim.wanT > 0 && sim.free) {
-    // ワンワン!!: gold sparks rise off every shiba.
-    const k = Math.floor(sim.time * 10 + index) % 6
-    ctx.fillStyle = (k & 1) === 0 ? GOLD_LIGHT : WHITE
-    ctx.fillRect(dx + 3 + k * 2, dy + 4 - k * 2, 2, 2)
-  }
   if (unit.stun > 0) drawDizzy(ctx, dx + (CROWD_PX >> 1), dy - 3, sim.time)
   if (unit.kind === KIND_CHEER && sim.time - unit.bitAt < 0.5) {
     // Its reach, as a dotted pink ring on the grass, each time it waves.
@@ -1818,23 +1825,6 @@ function drawPennant(ctx: CanvasRenderingContext2D, x: number, y: number, time: 
   ctx.fillRect(x + 1, y - lift + flap, 5, 4)
   ctx.fillStyle = DANGER_LIGHT
   ctx.fillRect(x + 1, y - lift + flap, 2, 1)
-}
-
-/** ワンワン!!: pink and gold rings burst out from the middle of the pack. */
-function paintWanwan(ctx: CanvasRenderingContext2D, age: number): void {
-  if (age > 0.9) return
-  const cx = px(at(FIELD_X + FIELD_W / 2))
-  const cy = fpy(FIELD_H * 0.6)
-  for (let ring = 0; ring < 3; ring++) {
-    const t = age - ring * 0.15
-    if (t < 0) continue
-    const r = Math.round(t * 220)
-    ctx.fillStyle = ring === 1 ? GOLD_LIGHT : DANGER_LIGHT
-    for (let k = 0; k < 40; k++) {
-      const a = (k / 40) * Math.PI * 2
-      ctx.fillRect(cx + Math.round(Math.cos(a) * r), cy + Math.round(Math.sin(a) * r * 0.6), 3, 3)
-    }
-  }
 }
 
 /** 白 heal: a pink heart floats up off the healer. */
@@ -2000,6 +1990,7 @@ function forgetEffects(renderer: Renderer): void {
   renderer.hitstop = 0
   renderer.shakeUntil = 0
   renderer.fxSeen = 0
+  renderer.castSeen = 0
 }
 
 function noteDeaths(renderer: Renderer, sim: Sim): void {
@@ -2254,32 +2245,25 @@ const COAT_LIT = [FUR_BODY, NIGHT_2, WHITE_MID, FUR_MID, GOLD, NIGHT_3, DANGER] 
 const CUT_H = 44
 const CUT_SLIDE = 0.12
 
-/** A special's strike, once the cut-in is gone: 赤 sweet potatoes rain onto every 赤, 黒 jerky spears hit their dogs, 胡麻 a cheese wedge slams the middle and rings out, 白 hearts. Then each touched unit shows its share. */
+/** ?lanes: a special's strike, once the cut-in is gone: 赤 sweet potatoes rain onto every 赤, 黒 jerky spears hit their dogs, 胡麻 a cheese wedge slams the middle and rings out, 白 hearts. Then each touched unit shows its share. Free placement draws its skills in paintCasts. */
 function paintSpecialField(ctx: CanvasRenderingContext2D, renderer: Renderer, sim: Sim): void {
+  if (sim.free) return
   paintRushAura(ctx, sim)
   if (sim.fxKind < 0 || sim.fxT <= 0) return
   const age = FX_TIME - sim.fxT
   const fresh = renderer.fxSeen !== sim.fxId
   renderer.fxSeen = sim.fxId
   if (sim.fxKind === KIND_TAN) paintPotatoRain(ctx, renderer, sim, age)
-  else if (sim.fxKind === KIND_BLACK) {
-    if (sim.free) paintJerkyRain(ctx, renderer, sim, age)
-    else paintJerky(ctx, renderer, sim, age, fresh)
-  } else if (sim.fxKind === KIND_WHITE) paintSasami(ctx, renderer, sim, age)
-  else if (sim.fxKind === KIND_DISC) paintBoro(ctx, renderer, sim, age, fresh)
-  else if (sim.fxKind === KIND_BIG) paintMilk(ctx, renderer, sim, age, fresh)
-  else if (sim.fxKind === KIND_CHEER) paintWanwan(ctx, age)
+  else if (sim.fxKind === KIND_BLACK) paintJerky(ctx, renderer, sim, age, fresh)
+  else if (sim.fxKind === KIND_WHITE) paintSasami(ctx, renderer, sim, age)
   else paintCheese(ctx, renderer, sim, age, fresh)
-  paintFxHits(ctx, renderer, sim, age)
+  if (sim.fxKind !== KIND_TAN && age >= 0.12) paintHitNumbers(ctx, renderer, sim.fxHits, age - 0.12)
 }
 
-/** Over every unit a strike touched, its share floats up: gold digits for damage, a green plus and digits for a heal. 赤's rush gets no number; its trails say it. */
-function paintFxHits(ctx: CanvasRenderingContext2D, renderer: Renderer, sim: Sim, age: number): void {
-  if (sim.fxKind === KIND_TAN) return
-  const delay = sim.fxKind === KIND_BLACK && sim.free ? 0.3 : 0.12
-  if (age < delay) return
-  const rise = Math.floor((age - delay) * 30)
-  for (const hit of sim.fxHits) {
+/** Over every unit a strike touched, its share floats up: gold digits for damage, a green plus and digits for a heal. */
+function paintHitNumbers(ctx: CanvasRenderingContext2D, renderer: Renderer, hits: readonly { x: number; y: number; v: number; heal: boolean }[], age: number): void {
+  const rise = Math.floor(age * 30)
+  for (const hit of hits) {
     const v = Math.round(hit.v)
     if (v <= 0) continue
     const digits = digitCount(v)
@@ -2295,27 +2279,6 @@ function paintFxHits(ctx: CanvasRenderingContext2D, renderer: Renderer, sim: Sim
       ctx.fillRect(x + 3, y + 2, 1, 5)
     }
     drawNumber(ctx, renderer, v, x + (hit.heal ? 9 : 0), y, false)
-  }
-}
-
-/** 黒「ジャーキー!!」in free placement: a jerky spear drops straight onto each dog it targets and bursts there. */
-function paintJerkyRain(ctx: CanvasRenderingContext2D, renderer: Renderer, sim: Sim, age: number): void {
-  const fy = py(at(FIELD_Y))
-  for (let i = 0; i < sim.fxHits.length; i++) {
-    const hit = sim.fxHits[i]
-    if (!hit) continue
-    const land = 0.18 + (i % 4) * 0.03
-    const x = px(at(FIELD_X + hit.x)) - 6
-    const ground = fpy(hit.y) - 30
-    if (age < land) {
-      const y = Math.round(fy - 44 + ((ground - (fy - 44)) * age) / land)
-      ctx.fillStyle = GOLD_LIGHT
-      for (let t = y - 18; t > fy - 40; t -= 7) ctx.fillRect(x + 5, t, 2, 3)
-      drawJerky(ctx, x, y, 2)
-    } else if (age < land + 0.15) {
-      if (age - land < 0.04) spawnBoom(renderer, sim, x + 6, ground + 30)
-      drawJerky(ctx, x, ground + 6, 2)
-    }
   }
 }
 
@@ -2423,7 +2386,7 @@ function paintJerky(ctx: CanvasRenderingContext2D, renderer: Renderer, sim: Sim,
   }
 }
 
-/** 白「ササミ!!」: hearts burst up off every shiba and gold pluses ring the 柴の家. */
+/** ?lanes 白 full heal: hearts burst up off every shiba and gold pluses ring the 柴の家. */
 function paintSasami(ctx: CanvasRenderingContext2D, renderer: Renderer, sim: Sim, age: number): void {
   for (let i = 0; i < sim.shibas.length; i++) {
     const unit = sim.shibas[i]
@@ -2499,72 +2462,7 @@ function paintCheese(ctx: CanvasRenderingContext2D, renderer: Renderer, sim: Sim
   if (age < FX_TIME - 0.2) drawCheese(ctx, cx, mid - 36 + (age < fall + 0.06 ? 2 : 0), 2)
 }
 
-/** ぶち「ボーロ!!」: a row of round biscuits sweeps across the row of the front dog, then the band flashes. */
-function paintBoro(ctx: CanvasRenderingContext2D, renderer: Renderer, sim: Sim, age: number, fresh: boolean): void {
-  const w = frame.internalW
-  const cy = fpy(sim.fxY) - (CAT_PX >> 1)
-  const sweep = 0.45
-  const f = Math.min(1, age / sweep)
-  const head = Math.round(f * (w + 16)) - 8
-  if (fresh) spawnBoom(renderer, sim, 6, cy)
-  const half = Math.round(at(BORO_BAND))
-  for (let x = head; x > head - 70 && x >= 0; x -= 14) {
-    if (x > w) continue
-    for (const oy of [-half + 6, 0, half - 6]) {
-      ctx.fillStyle = LINE
-      ctx.fillRect(x - 4, cy + oy - 4, 9, 9)
-      ctx.fillStyle = x === head ? WHITE : GOLD_LIGHT
-      ctx.fillRect(x - 3, cy + oy - 3, 7, 7)
-      ctx.fillStyle = GOLD
-      ctx.fillRect(x - 1, cy + oy - 1, 3, 3)
-    }
-  }
-  if (age > sweep) {
-    const t = Math.min(1, (age - sweep) / 0.3)
-    ctx.fillStyle = t < 0.5 ? WHITE : GOLD_LIGHT
-    ctx.fillRect(0, cy - half, w, 2)
-    ctx.fillRect(0, cy + half - 2, w, 2)
-  }
-}
-
-/** どっしり「ミルク!!」: a milk bottle drops on the thickest knot of dogs and a white ring floods out. */
-function paintMilk(ctx: CanvasRenderingContext2D, renderer: Renderer, sim: Sim, age: number, fresh: boolean): void {
-  const fy = py(at(FIELD_Y))
-  const cx = px(at(FIELD_X + sim.fxX))
-  const cy = fpy(sim.fxY) - (CAT_PX >> 1)
-  const fall = 0.16
-  if (age < fall) {
-    drawMilk(ctx, cx, Math.round(fy - 30 + ((cy - 18 - (fy - 30)) * age) / fall))
-    return
-  }
-  if (fresh) spawnBoom(renderer, sim, cx, cy)
-  const t = Math.min(1, (age - fall) / 0.5)
-  const r = Math.round(at(MILK_RADIUS) * (0.25 + t * 0.75))
-  ctx.fillStyle = t < 0.5 ? WHITE : SKY_LIGHT
-  for (let k = 0; k < 30; k++) {
-    const a = (k / 30) * Math.PI * 2
-    ctx.fillRect(cx + Math.round(Math.cos(a) * r), cy + Math.round(Math.sin(a) * r * 0.6), 3, 3)
-  }
-  if (age < FX_TIME - 0.3) drawMilk(ctx, cx, cy - 18 + (age < fall + 0.06 ? 3 : 0))
-}
-
-/** A milk bottle, 10×16, outlined: white glass, a sky label, a gold cap. */
-function drawMilk(ctx: CanvasRenderingContext2D, cx: number, y: number): void {
-  const x = cx - 5
-  ctx.fillStyle = LINE
-  ctx.fillRect(x + 2, y, 6, 3)
-  ctx.fillRect(x, y + 3, 10, 14)
-  ctx.fillStyle = GOLD
-  ctx.fillRect(x + 3, y + 1, 4, 2)
-  ctx.fillStyle = WHITE
-  ctx.fillRect(x + 1, y + 4, 8, 12)
-  ctx.fillStyle = SKY
-  ctx.fillRect(x + 2, y + 8, 6, 4)
-  ctx.fillStyle = WHITE_MID
-  ctx.fillRect(x + 7, y + 4, 2, 12)
-}
-
-/** Small cut-in: a striped band slides in, the smug face shouts the food, and ゴゴゴ shakes above it. */
+/** ?lanes cut-in: a striped band slides in with the smug face, and ゴゴゴ shakes above it. Free placement has no cut-in. */
 function paintCutIn(ctx: CanvasRenderingContext2D, renderer: Renderer, sim: Sim): void {
   const kind = sim.cutKind
   if (kind < 0 || sim.cutT <= 0) return
@@ -2592,12 +2490,6 @@ function paintCutIn(ctx: CanvasRenderingContext2D, renderer: Renderer, sim: Sim)
   ctx.fillRect(hx - 2, y + 4, HERO_PX + 4, HERO_PX + 4)
   frameRect(ctx, hx - 2, y + 4, HERO_PX + 4, HERO_PX + 4, GOLD_LIGHT)
   ctx.drawImage(renderer.sheets.hero, col * HERO_PX, 0, HERO_PX, HERO_PX, hx, y + 6, HERO_PX, HERO_PX)
-  const word = SPECIAL_WORDS[kind] ?? ''
-  const shake = age < 0.3 ? (Math.floor(age * 30) & 1) : 0
-  const tx = hx + HERO_PX + 8
-  for (let i = 0; i < word.length; i++) {
-    drawLetter(ctx, word[i] ?? '', tx + i * 18 + shake, y + 12, 2, GOLD_LIGHT)
-  }
   if (slide !== 0) return
   const jitter = Math.floor(age * 16) & 1
   for (let i = 0; i < RUMBLE_WORD.length; i++) {
@@ -2695,54 +2587,360 @@ function fillEllipse(ctx: CanvasRenderingContext2D, cx: number, cy: number, rx: 
   }
 }
 
-/** 柵: a sealed wooden fence of posts and two rails. It shakes when bitten, cracks under half health, and is gone at zero. */
+/** 柵: a sealed wooden fence of posts and two rails, or 黒's bone wall. It shakes when bitten, cracks under half health, and is gone at zero. */
 function paintWalls(ctx: CanvasRenderingContext2D, sim: Sim): void {
   if (!sim.free) return
-  const walls = spec(sim).walls ?? []
-  walls.forEach((wall, i) => {
-    const hp = sim.wallHp[i] ?? 0
-    if (hp <= 0) return
-    const full = WALL_HP * spec(sim).hp
-    const hurt = sim.time - (sim.wallHitAt[i] ?? -9) < 0.12
-    const w = at(gridX(wall.w))
-    const x = px(at(FIELD_X + gridX(wall.x))) - (w >> 1) + (hurt ? 1 : 0)
-    const y = fpy(wall.y) - 5
-    // Shadow, then outline and wood.
-    ctx.fillStyle = MEADOW_DARK
-    ctx.fillRect(x + 1, y + 10, w, 2)
-    ctx.fillStyle = LINE
-    ctx.fillRect(x, y + 2, w, 3)
-    ctx.fillRect(x, y + 6, w, 3)
+  for (const wall of sim.walls) {
+    const hp = wall.hp
+    if (hp <= 0) continue
+    const full = wall.max
+    const hurt = sim.time - wall.hitAt < 0.12
+    const w = at(wall.hw * 2)
+    const x = px(at(FIELD_X + wall.x)) - (w >> 1) + (hurt ? 1 : 0)
+    let y = fpy(wall.y) - 5
     const cracked = hp < full * 0.5
-    for (let px0 = x; px0 < x + w - 2; px0 += 7) {
-      ctx.fillStyle = LINE
-      ctx.fillRect(px0, y - 1, 4, 12)
-      ctx.fillStyle = hurt ? WHITE : FUR_BODY
-      ctx.fillRect(px0 + 1, y, 2, 10)
-      ctx.fillStyle = FUR_LIGHT
-      ctx.fillRect(px0 + 1, y, 1, 1)
+    if (wall.bone) {
+      // It pops up out of the ground, and blinks in its last two seconds.
+      const born = BONE_RISE - (sim.time - (wall.until - BONE_WALL_T))
+      if (born > 0) y += Math.ceil((born / BONE_RISE) * 6)
+      if (wall.until - sim.time < 2 && (Math.floor(sim.time * 8) & 1) === 1) continue
+      paintBoneWall(ctx, x, y, w, hurt, cracked)
+    } else {
+      paintFence(ctx, x, y, w, hurt, cracked)
     }
-    ctx.fillStyle = LINE
-    ctx.fillRect(x + w - 4, y - 1, 4, 12)
-    ctx.fillStyle = hurt ? WHITE : FUR_BODY
-    ctx.fillRect(x + w - 3, y, 2, 10)
-    ctx.fillStyle = hurt ? WHITE : FUR_MID
-    ctx.fillRect(x + 1, y + 3, w - 2, 1)
-    ctx.fillRect(x + 1, y + 7, w - 2, 1)
-    if (cracked) {
-      ctx.fillStyle = LINE
-      ctx.fillRect(x + (w >> 1) - 1, y + 3, 1, 1)
-      ctx.fillRect(x + (w >> 1), y + 7, 2, 1)
-      ctx.fillRect(x + (w >> 2), y + 3, 2, 1)
-    }
-    // Health: a thin bar over the fence once it has been bitten.
+    // Health: a thin bar over the wall once it has been bitten.
     if (hp < full) {
       ctx.fillStyle = LINE
-      ctx.fillRect(x + (w >> 1) - 11, y - 5, 22, 3)
+      ctx.fillRect(x + (w >> 1) - 11, y - 6, 22, 3)
       ctx.fillStyle = cracked ? DANGER : GOLD_LIGHT
-      ctx.fillRect(x + (w >> 1) - 10, y - 4, Math.max(1, Math.round((20 * hp) / full)), 1)
+      ctx.fillRect(x + (w >> 1) - 10, y - 5, Math.max(1, Math.round((20 * hp) / full)), 1)
     }
-  })
+  }
+}
+
+/** The stage's wooden 柵: posts and two rails. */
+function paintFence(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, hurt: boolean, cracked: boolean): void {
+  ctx.fillStyle = MEADOW_DARK
+  ctx.fillRect(x + 1, y + 10, w, 2)
+  ctx.fillStyle = LINE
+  ctx.fillRect(x, y + 2, w, 3)
+  ctx.fillRect(x, y + 6, w, 3)
+  for (let px0 = x; px0 < x + w - 2; px0 += 7) {
+    ctx.fillStyle = LINE
+    ctx.fillRect(px0, y - 1, 4, 12)
+    ctx.fillStyle = hurt ? WHITE : FUR_BODY
+    ctx.fillRect(px0 + 1, y, 2, 10)
+    ctx.fillStyle = FUR_LIGHT
+    ctx.fillRect(px0 + 1, y, 1, 1)
+  }
+  ctx.fillStyle = LINE
+  ctx.fillRect(x + w - 4, y - 1, 4, 12)
+  ctx.fillStyle = hurt ? WHITE : FUR_BODY
+  ctx.fillRect(x + w - 3, y, 2, 10)
+  ctx.fillStyle = hurt ? WHITE : FUR_MID
+  ctx.fillRect(x + 1, y + 3, w - 2, 1)
+  ctx.fillRect(x + 1, y + 7, w - 2, 1)
+  if (cracked) {
+    ctx.fillStyle = LINE
+    ctx.fillRect(x + (w >> 1) - 1, y + 3, 1, 1)
+    ctx.fillRect(x + (w >> 1), y + 7, 2, 1)
+    ctx.fillRect(x + (w >> 2), y + 3, 2, 1)
+  }
+}
+
+/** 黒「ホネのカベ」: a sealed row of upright white bones on a dark rail. */
+function paintBoneWall(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, hurt: boolean, cracked: boolean): void {
+  ctx.fillStyle = MEADOW_DARK
+  ctx.fillRect(x + 1, y + 12, w, 2)
+  ctx.fillStyle = LINE
+  ctx.fillRect(x, y + 3, w, 6)
+  ctx.fillStyle = WHITE_DARK
+  ctx.fillRect(x + 1, y + 5, w - 2, 2)
+  const n = Math.max(2, Math.floor((w + 1) / 7))
+  const stride = (w - 7) / (n - 1)
+  for (let i = 0; i < n; i++) {
+    const bx = x + Math.round(i * stride)
+    // Outline: two knobs and a shaft.
+    ctx.fillStyle = LINE
+    ctx.fillRect(bx, y - 2, 7, 5)
+    ctx.fillRect(bx, y + 9, 7, 5)
+    ctx.fillRect(bx + 1, y + 2, 5, 8)
+    ctx.fillStyle = hurt ? GOLD_HOT : WHITE
+    ctx.fillRect(bx + 1, y - 1, 2, 3)
+    ctx.fillRect(bx + 4, y - 1, 2, 3)
+    ctx.fillRect(bx + 1, y + 10, 2, 3)
+    ctx.fillRect(bx + 4, y + 10, 2, 3)
+    ctx.fillRect(bx + 2, y + 1, 3, 10)
+    ctx.fillStyle = hurt ? GOLD_LIGHT : WHITE_MID
+    ctx.fillRect(bx + 4, y + 2, 1, 8)
+    ctx.fillRect(bx + 5, y + 11, 1, 2)
+    if (cracked && i % 3 === 1) {
+      ctx.fillStyle = LINE
+      ctx.fillRect(bx + 2, y + 4, 2, 1)
+      ctx.fillRect(bx + 3, y + 5, 2, 1)
+    }
+  }
+}
+
+/** 応援「おうえん旗」: the zone as a dotted pink ring on the grass, and a sealed flag that waves. */
+function paintFlags(ctx: CanvasRenderingContext2D, sim: Sim): void {
+  for (const f of sim.flags) {
+    const gx = px(at(FIELD_X + f.x))
+    const gy = fpy(f.y)
+    const r = at(FLAG_RADIUS)
+    for (let k = 0; k < 40; k++) {
+      const a = (k / 40) * Math.PI * 2
+      ctx.fillStyle = (k & 1) === 0 ? DANGER : DANGER_LIGHT
+      ctx.fillRect(gx + Math.round(Math.cos(a) * r), gy + Math.round(Math.sin(a) * r * 0.45), 3, 2)
+    }
+    if (f.until - sim.time < 2 && (Math.floor(sim.time * 8) & 1) === 1) continue
+    const age = sim.time - f.at
+    const drop = age < 0.2 ? Math.round((1 - age / 0.2) * 30) : 0
+    drawFlag(ctx, gx, gy - drop, sim.time)
+  }
+}
+
+/** A planted flag, 22×36 from its foot: a pale pole with a gold knob and a pink cloth with a white paw, waving column by column. */
+function drawFlag(ctx: CanvasRenderingContext2D, gx: number, gy: number, time: number): void {
+  const top = gy - 32
+  softShadow(ctx, gx + 4, gy, 6)
+  ctx.fillStyle = LINE
+  ctx.fillRect(gx - 1, top - 1, 4, 34)
+  ctx.fillRect(gx - 2, top - 6, 6, 6)
+  ctx.fillStyle = WHITE_MID
+  ctx.fillRect(gx, top, 2, 32)
+  ctx.fillStyle = WHITE
+  ctx.fillRect(gx, top, 1, 32)
+  ctx.fillStyle = GOLD_LIGHT
+  ctx.fillRect(gx - 1, top - 5, 4, 4)
+  ctx.fillStyle = GOLD
+  ctx.fillRect(gx + 1, top - 3, 2, 2)
+  const beat = Math.floor(time * 6)
+  for (let c = 0; c < 19; c++) {
+    const off = FLAG_WAVE[(beat + Math.floor(c / 5)) & 3] ?? 0
+    const cx = gx + 3 + c
+    ctx.fillStyle = LINE
+    ctx.fillRect(cx, top + off - 1, 1, 15)
+    if (c === 18) continue
+    ctx.fillStyle = DANGER
+    ctx.fillRect(cx, top + off, 1, 13)
+    ctx.fillStyle = DANGER_LIGHT
+    ctx.fillRect(cx, top + off, 1, 2)
+    ctx.fillStyle = DANGER_DARK
+    ctx.fillRect(cx, top + off + 11, 1, 2)
+    // A white paw in the middle of the cloth: a pad and three toes.
+    ctx.fillStyle = WHITE
+    if (c >= 6 && c <= 11) ctx.fillRect(cx, top + off + 6, 1, c === 6 || c === 11 ? 3 : 4)
+    if (c === 5 || c === 6 || c === 8 || c === 9 || c === 11 || c === 12) ctx.fillRect(cx, top + off + 2, 1, 2)
+  }
+}
+const FLAG_WAVE = [0, 1, 1, 0] as const
+const BONE_RISE = 0.18
+
+/** Free placement skills: the name pops over the caster, a ring flashes there, and each skill draws what it does. Then each touched unit shows its share. */
+function paintCasts(ctx: CanvasRenderingContext2D, renderer: Renderer, sim: Sim): void {
+  const fresh = renderer.castSeen !== sim.castId
+  renderer.castSeen = sim.castId
+  for (const c of sim.casts) {
+    const age = sim.time - c.at
+    if (age < 0 || age > 1.6) continue
+    const x = px(at(FIELD_X + c.x))
+    const y = fpy(c.y)
+    const tx = px(at(FIELD_X + c.tx))
+    const ty = fpy(c.ty)
+    const newest = fresh && c === sim.casts[sim.casts.length - 1]
+    if (newest) spawnBoom(renderer, sim, x, y - 10)
+    if (c.kind === KIND_TAN) paintDash(ctx, renderer, x, y, ty, age)
+    else if (c.kind === KIND_BLACK) {
+      if (newest) spawnBoom(renderer, sim, tx, ty)
+      castRing(ctx, tx, ty, age, 10, at(gridX(BONE_WALL_W) / 2), 0.3, WHITE)
+    } else if (c.kind === KIND_SESAME) paintBallRain(ctx, tx, ty, age)
+    else if (c.kind === KIND_WHITE) paintLick(ctx, renderer, c, x, y, age)
+    else if (c.kind === KIND_DISC) paintBoomerang(ctx, sim, c, x, y, tx, ty, age)
+    else if (c.kind === KIND_BIG) paintStomp(ctx, x, y, age)
+    if (c.kind !== KIND_BIG) castRing(ctx, x, y - 8, age, 6, 26, 0.25, GOLD_LIGHT)
+    const delay = c.kind === KIND_SESAME ? 0.15 : c.kind === KIND_TAN ? 0.08 : 0.12
+    if (age >= delay && age < delay + 1) paintHitNumbers(ctx, renderer, c.hits, age - delay)
+    if (age < 1) {
+      // The skill's name in plain bold over the caster (the dash: over where it ends).
+      const name = SKILL_NAMES[c.kind] ?? ''
+      const nx = Math.max(30, Math.min(frame.internalW - 30, c.kind === KIND_TAN ? tx : x))
+      const ny = Math.max(py(at(FIELD_Y)) + 4, (c.kind === KIND_TAN ? ty : y) - CROWD_PX - 16 - (age < 0.1 ? 0 : Math.min(4, Math.floor((age - 0.1) * 16))))
+      queuePlain(name, nx, ny - (age < 0.08 ? 1 : 0), age < 0.08 ? 14 : 12, age < 0.08 ? WHITE : GOLD_LIGHT, 'center', true, LINE)
+    }
+  }
+}
+
+
+/** A dotted ring growing from r0 to r1 over `dur` seconds, flattened onto the grass. */
+function castRing(ctx: CanvasRenderingContext2D, cx: number, cy: number, age: number, r0: number, r1: number, dur: number, color: string): void {
+  if (age >= dur) return
+  const r = Math.round(r0 + (r1 - r0) * (age / dur))
+  ctx.fillStyle = color
+  const n = Math.max(12, Math.round(r * 1.4))
+  for (let k = 0; k < n; k++) {
+    const a = (k / n) * Math.PI * 2
+    ctx.fillRect(cx + Math.round(Math.cos(a) * r) - 1, cy + Math.round(Math.sin(a) * r * 0.6) - 1, 2, 2)
+  }
+}
+
+/** 赤「シバダッシュ」: speed lines up the path and white afterimages of the shiba along it. */
+function paintDash(ctx: CanvasRenderingContext2D, renderer: Renderer, x: number, y: number, ty: number, age: number): void {
+  if (age > 0.5) return
+  const scroll = Math.floor(age * 160)
+  for (let k = 0; k < 5; k++) {
+    const lx = x - 10 + k * 5
+    ctx.fillStyle = k === 2 ? WHITE : (k & 1) === 0 ? GOLD_LIGHT : WHITE_MID
+    for (let sy = ty + ((scroll + k * 7) % 14); sy < y; sy += 14) ctx.fillRect(lx, sy, 1, 7)
+  }
+  for (let i = 1; i <= 3; i++) {
+    if (age > 0.12 + i * 0.07) continue
+    const gy = Math.round(y + ((ty - y) * i) / 4)
+    blitCrowd(ctx, renderer, FUR_RED, 'walk', age * 4 + i, 0, 0, true, x - (CROWD_PX >> 1), gy - CROWD_PX)
+  }
+}
+
+/** 胡麻「ボールの雨」: white balls fall on the knot, each bursting where it lands, and the rain's reach rings out. */
+function paintBallRain(ctx: CanvasRenderingContext2D, cx: number, cy: number, age: number): void {
+  const r = at(BALL_RADIUS)
+  for (let i = 0; i < 11; i++) {
+    const a = i * 2.4
+    const d = i === 0 ? 0 : r * (0.3 + ((i * 37) % 60) / 100)
+    const bx = cx + Math.round(Math.cos(a) * d)
+    const gy = cy + Math.round(Math.sin(a) * d * 0.6) - 4
+    const land = 0.04 + i * 0.022
+    if (age < land) {
+      const by = gy - Math.round((1 - age / land) * 50)
+      ctx.fillStyle = NIGHT
+      ctx.fillRect(bx - 1, gy + 3, 3, 1)
+      drawBall(ctx, bx, by)
+    } else if (age < land + 0.14) {
+      const t = age - land
+      ctx.fillStyle = t < 0.06 ? WHITE : GOLD_LIGHT
+      const s = t < 0.06 ? 3 : 5
+      ctx.fillRect(bx - s, gy, 2, 2)
+      ctx.fillRect(bx + s - 1, gy, 2, 2)
+      ctx.fillRect(bx, gy - s, 2, 2)
+      ctx.fillRect(bx, gy + s - 1, 2, 2)
+    }
+  }
+  if (age > 0.05) castRing(ctx, cx, cy, age - 0.05, r * 0.4, r, 0.4, WHITE)
+}
+
+/** A ball, 5×5, outlined, lit from the top left. */
+function drawBall(ctx: CanvasRenderingContext2D, x: number, y: number): void {
+  ctx.fillStyle = LINE
+  ctx.fillRect(x - 1, y - 3, 4, 7)
+  ctx.fillRect(x - 2, y - 2, 6, 5)
+  ctx.fillStyle = WHITE
+  ctx.fillRect(x - 1, y - 2, 4, 5)
+  ctx.fillStyle = WHITE_MID
+  ctx.fillRect(x + 1, y + 1, 2, 1)
+  ctx.fillRect(x + 2, y, 1, 1)
+}
+
+/** 白「ペロペロ」: a big tongue licks at the caster, hearts rise off everyone it mended, and its reach rings out pink. */
+function paintLick(ctx: CanvasRenderingContext2D, renderer: Renderer, c: { hits: readonly { x: number; y: number; heal: boolean }[] }, x: number, y: number, age: number): void {
+  castRing(ctx, x, y - 6, age, 10, at(LICK_RADIUS), 0.4, DANGER_LIGHT)
+  if (age < 0.6) {
+    // The lick: a pink tongue swings side to side under the caster's nose.
+    const swing = (Math.floor(age * 12) & 1) === 0 ? -4 : 4
+    const lx = x + swing - 5
+    const ly = y - 10
+    ctx.fillStyle = LINE
+    ctx.fillRect(lx, ly, 11, 13)
+    ctx.fillRect(lx + 1, ly + 13, 9, 1)
+    ctx.fillStyle = DANGER_LIGHT
+    ctx.fillRect(lx + 1, ly + 1, 9, 11)
+    ctx.fillRect(lx + 2, ly + 12, 7, 1)
+    ctx.fillStyle = DANGER
+    ctx.fillRect(lx + 5, ly + 2, 1, 8)
+    ctx.fillRect(lx + 7, ly + 9, 2, 3)
+    ctx.fillStyle = WHITE
+    ctx.fillRect(lx + 2, ly + 2, 2, 2)
+  }
+  let i = 0
+  for (const hit of c.hits) {
+    const lag = (i % 5) * 0.05
+    i += 1
+    if (!hit.heal || age < lag || age > lag + 0.7) continue
+    const rise = Math.floor((age - lag) * 36)
+    const hx = px(at(FIELD_X + hit.x))
+    drawHeart(ctx, hx - 3 + ((i & 1) === 1 ? 5 : -5), fpy(hit.y) - CROWD_PX - rise)
+  }
+  // The 柴の家 gets its share: three hearts off the roof.
+  const hx = frame.internalW >> 1
+  const hy = fpy(FIELD_H) - renderer.sheets.home.height
+  for (let k = 0; k < 3; k++) {
+    const t = age - 0.15 - k * 0.08
+    if (t < 0 || t > 0.6) continue
+    drawHeart(ctx, hx - 14 + k * 11, hy - Math.floor(t * 30))
+  }
+}
+
+/** ぶち「ブーメラン」: its path as gold dashes out to the turn, and a big spinning frisbee flying out and back. */
+function paintBoomerang(ctx: CanvasRenderingContext2D, sim: Sim, c: Cast, x: number, y: number, tx: number, ty: number, age: number): void {
+  if (age >= BOOM_TIME) return
+  const len = Math.max(1, Math.hypot(tx - x, ty - y))
+  ctx.fillStyle = GOLD_LIGHT
+  for (let d = 6; d < len; d += 9) {
+    const dx = x + Math.round(((tx - x) * d) / len)
+    const dy = y - 8 + Math.round(((ty - y) * d) / len)
+    ctx.fillStyle = LINE
+    ctx.fillRect(dx - 1, dy - 1, 4, 4)
+    ctx.fillStyle = GOLD_LIGHT
+    ctx.fillRect(dx, dy, 2, 2)
+  }
+  const b = sim.booms.find((m) => m.cast === c)
+  if (!b) return
+  for (let k = 2; k >= 0; k--) {
+    const at0 = boomPoint(b, age - k * 0.04)
+    const fx = px(at(FIELD_X + at0.x))
+    const fy = fpy(at0.y) - 10
+    if (k > 0) {
+      ctx.fillStyle = k === 1 ? WHITE : GOLD_LIGHT
+      ctx.fillRect(fx - 4, fy - 1, 8, 3)
+      continue
+    }
+    // A big frisbee, 25×13, outlined: white with a gold rim band that flips as it spins.
+    fillEllipse(ctx, fx, fy, 12, 6, LINE)
+    fillEllipse(ctx, fx, fy, 11, 5, WHITE)
+    const spin = Math.floor(age * 20) & 1
+    fillEllipse(ctx, fx, fy + (spin ? 1 : -1), 7, 2, GOLD)
+    fillEllipse(ctx, fx, fy + (spin ? 1 : -1), 4, 1, GOLD_LIGHT)
+    ctx.fillStyle = WHITE_MID
+    ctx.fillRect(fx - 7, fy + 4, 15, 1)
+  }
+}
+
+/** どっしり「ドスン」: the ground cracks out from its paws and a shockwave rolls out to the stun reach. */
+function paintStomp(ctx: CanvasRenderingContext2D, x: number, y: number, age: number): void {
+  if (age < 1.1) {
+    const grow = Math.min(1, age / 0.12)
+    const reach = at(STOMP_RADIUS) * 0.55 * grow
+    for (let r = 0; r < 7; r++) {
+      const a = r * 0.9 + 0.3
+      let cx = x
+      let cy = y
+      for (let s = 0; s < reach; s += 3) {
+        const zig = ((s / 3 + r) & 1) === 0 ? 1 : -1
+        cx = x + Math.round(Math.cos(a) * s - Math.sin(a) * zig)
+        cy = y + Math.round((Math.sin(a) * s + Math.cos(a) * zig) * 0.6)
+        ctx.fillStyle = LINE
+        ctx.fillRect(cx - 1, cy, 3, 2)
+      }
+      ctx.fillStyle = MEADOW_DARK
+      ctx.fillRect(cx - 1, cy - 1, 3, 1)
+    }
+  }
+  castRing(ctx, x, y, age, 8, at(STOMP_RADIUS), 0.35, WHITE)
+  castRing(ctx, x, y, age - 0.08, 8, at(STOMP_RADIUS), 0.35, GOLD_LIGHT)
+  if (age < 0.4) {
+    // Dust kicked up by the stomp.
+    const h = Math.floor(age * 30)
+    ctx.fillStyle = WHITE_MID
+    for (let k = 0; k < 6; k++) ctx.fillRect(x - 14 + k * 6, y - 2 - ((h + k * 3) % 8), 2, 2)
+  }
 }
 
 /** 岩 and 池: sealed with the 1px outline, lit from the top left. They sit on the meadow under the units. */
@@ -2806,6 +3004,7 @@ function paintDock(ctx: CanvasRenderingContext2D, renderer: Renderer, sim: Sim):
     const ready = sim.free ? sim.aliveShibas < FIELD_CAP : sim.bones >= cost
     paintCard(ctx, renderer, x, kind, cost, ready && wait <= 0, false, sim.time, kind === sim.picked, wait)
     paintGauge(ctx, x, kind, sim)
+    if (sim.free && skillReady(sim, kind)) paintSkillReady(ctx, x, kind, sim, kind === sim.picked)
   }
 }
 
@@ -2904,6 +3103,35 @@ function paintGauge(ctx: CanvasRenderingContext2D, x: number, kind: number, sim:
     ctx.fillStyle = GOLD_LIGHT
     ctx.fillRect(x + 4, y, fill, 1)
   }
+}
+
+/** A full skill gauge: the card's border pulses through the golds with a white flash, and the skill's name sits in the card's foot. The name dims while no unit of that coat is out to cast it. */
+function paintSkillReady(ctx: CanvasRenderingContext2D, x: number, kind: number, sim: Sim, picked: boolean): void {
+  const y = pyDock(at(CARD_Y)) - (picked ? 3 : 0)
+  const w = at(CARD_W)
+  const h = at(CARD_H)
+  const phase = Math.floor(sim.time * 8) & 3
+  const castable = casterOf(sim, kind) !== undefined
+  // A plate for the name in the card's foot: pulsing gold when it can fire, night while no caster is out.
+  ctx.fillStyle = LINE
+  ctx.fillRect(x + 2, y + h - 15, w - 4, 13)
+  ctx.fillStyle = castable ? ((phase & 2) === 0 ? GOLD : GOLD_DARK) : NIGHT_2
+  ctx.fillRect(x + 3, y + h - 14, w - 6, 11)
+  ctx.fillStyle = castable ? GOLD_LIGHT : NIGHT_3
+  ctx.fillRect(x + 3, y + h - 14, w - 6, 1)
+  if (castable) {
+    frameRect(ctx, x - 1, y - 1, w + 2, h + 2, phase === 0 ? WHITE : (GOLD_CYCLE[phase] ?? GOLD_LIGHT))
+    frameRect(ctx, x, y, w, h, GOLD_CYCLE[(phase + 1) & 3] ?? GOLD)
+    frameRect(ctx, x + 1, y + 1, w - 2, h - 2, GOLD_CYCLE[(phase + 2) & 3] ?? GOLD_LIGHT)
+    // Sparks run round the corners.
+    ctx.fillStyle = WHITE
+    const k = Math.floor(sim.time * 10) % 4
+    const cx = k === 0 || k === 3 ? x - 2 : x + w
+    const cy = k < 2 ? y - 2 : y + h
+    ctx.fillRect(cx, cy, 2, 2)
+  }
+  const name = SKILL_NAMES[kind] ?? ''
+  queuePlain(name, x + (w >> 1), y + h - 13, name.length > 5 ? 7 : 8, castable ? WHITE : WHITE_DARK, 'center', true, LINE)
 }
 
 function frameRect(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, color: string): void {
