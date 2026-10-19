@@ -20,7 +20,7 @@ import {
   HERO_TAP_Y,
 } from './balance'
 import { createSim, dogsLeft, fillMarch, spawnCat, spawnShiba, NO_INPUT, step, type Input, type Outcome } from './sim'
-import { createRenderer, draw, muteTarget, speedTarget, screenToWorld, shopTarget, titleTarget, type ScreenInsets } from './render'
+import { createRenderer, draw, muteTarget, pauseButtonTarget, pauseTarget, speedTarget, screenToWorld, shopTarget, titleTarget, type ScreenInsets } from './render'
 
 const canvasEl = document.querySelector<HTMLCanvasElement>('#game')
 if (!canvasEl) throw new Error('canvas unavailable')
@@ -115,6 +115,11 @@ let timeScale = 1
 const SPEED_KEY = 'shiba-daikoushin-speed'
 /** Player's 2× toggle, on top of the dev scale. Saved. */
 let fast = false
+/** The pause menu is up: the match clock stops. */
+let paused = false
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden && !sim.title && sim.outcome === 'play') paused = true
+})
 try {
   fast = localStorage.getItem(SPEED_KEY) === '1'
 } catch {
@@ -271,7 +276,7 @@ function blockScroll(ev: Event): void {
 function toLogical(ev: PointerEvent): { x: number; y: number } {
   const rect = canvas.getBoundingClientRect()
   // The result screen is drawn from the top without the dock squeeze, so its taps map flat.
-  return screenToWorld(ev.clientX, ev.clientY, rect.left, rect.top, sim.title || sim.outcome !== 'play')
+  return screenToWorld(ev.clientX, ev.clientY, rect.left, rect.top, sim.title || sim.outcome !== 'play' || paused)
 }
 
 function hitCard(x: number, y: number, cardX: number): boolean {
@@ -284,6 +289,17 @@ canvas.addEventListener('pointerdown', (ev) => {
   const p = toLogical(ev)
   if (muteTarget(p.x, p.y, sim.title || sim.outcome !== 'play')) {
     synth.setMuted(!synth.isMuted())
+    synth.tap()
+    return
+  }
+  if (paused) {
+    paused = false
+    if (pauseTarget(p.x, p.y) === 'home') input.quit = true
+    synth.tap()
+    return
+  }
+  if (!sim.title && sim.outcome === 'play' && pauseButtonTarget(p.x, p.y)) {
+    paused = true
     synth.tap()
     return
   }
@@ -444,6 +460,7 @@ function advance(dt: number): void {
   input.levelUp = undefined
   input.toggleDeck = undefined
   input.pickStage = undefined
+  input.quit = undefined
   input.home = undefined
   if (sim.saveSeq !== savedSeq) {
     savedSeq = sim.saveSeq
@@ -471,10 +488,11 @@ function frame(now: number): void {
   if (renderer.hitstop > 0) {
     renderer.hitstop -= dt
     if (renderer.hitstop < 0) renderer.hitstop = 0
-  } else {
+  } else if (!paused) {
     advance(dt)
   }
   renderer.fast = fast
+  renderer.paused = paused
   renderer.muted = synth.isMuted()
   if (sim.heroUsed && !heroSaved) {
     heroSaved = true

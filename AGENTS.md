@@ -208,3 +208,6 @@ Seven coats need four rows on the result screen: `shopLayout` goes compact and d
 
 ## Boss howl
 In free placement the boss howls every `BOSS_HOWL_EVERY` s (first after `BOSS_HOWL_FIRST`; `cd` is its timer, `sim.howlAt` the last one). From stage index `BOSS_CALL_FROM` it calls `BOSS_CALL` チワワ beside it; from `BOSS_STUN_FROM` every shiba (and the hero) within `BOSS_HOWL_R` gets `stun` for `BOSS_STUN` s. Stunned shibas skip their turn in `moveFree` and show `drawDizzy` stars; the boss shakes and rolls rings out to the stun reach; `battleSounds` growls and shakes the screen.
+
+## Pause
+A ❚❚ button sits left of 2× in the dock's top row (`pauseButtonTarget`). While paused `main.ts` stops calling `advance`, taps map flat, and `paintPause` dithers the field with night pixels under PAUSE, a gold play button and the kennel (`pauseTarget`: the kennel sends `Input.quit`, which drops the match back to the title; any other tap resumes). Hiding the page (`visibilitychange`) pauses a match.

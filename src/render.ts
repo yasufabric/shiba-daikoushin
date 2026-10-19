@@ -72,7 +72,7 @@ import {
   MAX_SHIBAS,
   PANEL_Y,
 } from './balance'
-import { BANNER_POP, BANNER_REST, CLEAR_WORD, glyphBit, LEVEL_WORD, letterBit, LOSE_WORD, START_WORD, POP_COL, POP_ROW, RUMBLE_WORD, SELECT_WORD, SPECIAL_WORDS, STAGE_WORD, TITLE_WORD, TAP_WORD, NEW_WORD } from './font'
+import { BANNER_POP, BANNER_REST, CLEAR_WORD, glyphBit, LEVEL_WORD, letterBit, LOSE_WORD, START_WORD, POP_COL, POP_ROW, RUMBLE_WORD, SELECT_WORD, SPECIAL_WORDS, STAGE_WORD, TITLE_WORD, TAP_WORD, NEW_WORD, PAUSE_WORD } from './font'
 import {
   BOSS_H,
   BOSS_W,
@@ -189,6 +189,8 @@ export interface Renderer {
   muted: boolean
   /** 2× speed is on (drawn on the dock's speed button). */
   fast: boolean
+  /** The pause menu is up. */
+  paused: boolean
   /** Sim clock at the last draw; a drop means a new match began. */
   lastTime: number
 }
@@ -392,6 +394,7 @@ export function createRenderer(): Renderer {
     lastTime: 0,
     muted: false,
     fast: false,
+    paused: false,
     partX: new Int16Array(PARTS),
     partY: new Int16Array(PARTS),
     partVx: new Int8Array(PARTS),
@@ -478,6 +481,7 @@ export function draw(
   if (sim.outcome !== 'play' && sim.rewardT <= 0) paintShop(g, renderer, sim)
   else if (sim.outcome === 'won' || sim.outcome === 'lost') paintBanner(g, sim)
   else if (sim.tutorial) paintPaw(g, renderer, sim.time, sim.free)
+  if (renderer.paused && sim.outcome === 'play') paintPause(g, renderer)
 
   presentView(ctx, renderer, dpr)
 }
@@ -616,6 +620,82 @@ function paintMute(ctx: CanvasRenderingContext2D, renderer: Renderer, y: number)
     ctx.fillRect(x + 12, y + 7, 2, 4)
     ctx.fillRect(x + 15, y + 5, 2, 8)
   }
+}
+
+/** A tap on the pause button, left of 2× in the dock's top row. */
+export function pauseButtonTarget(x: number, y: number): boolean {
+  const ix = x / 2
+  if (ix < INTERNAL_W - 72 || ix > INTERNAL_W - 48) return false
+  return y >= BONE_Y - 8 && y <= BONE_Y + 26
+}
+
+function paintPauseButton(ctx: CanvasRenderingContext2D, y: number): void {
+  const x = px(INTERNAL_W - 70)
+  ctx.fillStyle = LINE
+  ctx.fillRect(x, y, 20, 18)
+  ctx.fillStyle = NIGHT_2
+  ctx.fillRect(x + 1, y + 1, 18, 16)
+  for (const ox of [5, 11]) {
+    ctx.fillStyle = LINE
+    ctx.fillRect(x + ox - 1, y + 3, 5, 12)
+    ctx.fillStyle = WHITE
+    ctx.fillRect(x + ox, y + 4, 3, 10)
+  }
+}
+
+const PAUSE_PLAY_Y = 150
+const PAUSE_HOME_Y = 210
+const PAUSE_BTN_W = 70
+const PAUSE_BTN_H = 34
+
+/** On the pause menu (flat taps): the kennel gives up and goes home; anything else resumes. */
+export function pauseTarget(x: number, y: number): 'home' | 'resume' {
+  const ix = x / 2
+  const iy = y / 2
+  const bx = (INTERNAL_W - PAUSE_BTN_W) >> 1
+  if (ix >= bx && ix <= bx + PAUSE_BTN_W && iy >= PAUSE_HOME_Y && iy <= PAUSE_HOME_Y + PAUSE_BTN_H) return 'home'
+  return 'resume'
+}
+
+/** Pause: the field under a dither of night, PAUSE, a big gold play button, and the kennel to give up. */
+function paintPause(ctx: CanvasRenderingContext2D, renderer: Renderer): void {
+  ctx.fillStyle = NIGHT
+  for (let y = 0; y < frame.internalH; y++) {
+    for (let x = y & 1; x < frame.internalW; x += 2) ctx.fillRect(x, y, 1, 1)
+  }
+  const ww = PAUSE_WORD.length * 18
+  const wx = (frame.internalW - ww) >> 1
+  for (let i = 0; i < PAUSE_WORD.length; i++) drawLetter(ctx, PAUSE_WORD[i] ?? '', wx + i * 18, py(96), 2, WHITE)
+  const bx = px((INTERNAL_W - PAUSE_BTN_W) >> 1)
+  const bob = BOB[Math.floor(renderer.lastTime * 4) & 7] ?? 0
+  const by = py(PAUSE_PLAY_Y) - (bob >> 1)
+  ctx.fillStyle = LINE
+  ctx.fillRect(bx, by, PAUSE_BTN_W, PAUSE_BTN_H)
+  ctx.fillStyle = GOLD
+  ctx.fillRect(bx + 1, by + 1, PAUSE_BTN_W - 2, PAUSE_BTN_H - 2)
+  ctx.fillStyle = GOLD_LIGHT
+  ctx.fillRect(bx + 1, by + 1, PAUSE_BTN_W - 2, 2)
+  // A right-pointing play triangle, 10 wide, outlined.
+  const tx = bx + (PAUSE_BTN_W >> 1) - 5
+  const cy = by + (PAUSE_BTN_H >> 1)
+  for (let i = 0; i < 10; i++) {
+    const h = 19 - i * 2
+    ctx.fillStyle = LINE
+    ctx.fillRect(tx + i - 1, cy - (h >> 1) - 1, 2, h + 2)
+  }
+  ctx.fillRect(tx + 9, cy - 1, 2, 3)
+  for (let i = 0; i < 9; i++) {
+    const h = 17 - i * 2
+    ctx.fillStyle = WHITE
+    ctx.fillRect(tx + i, cy - (h >> 1), 1, h)
+  }
+  const hx = px((INTERNAL_W - PAUSE_BTN_W) >> 1)
+  const hy = py(PAUSE_HOME_Y)
+  ctx.fillStyle = LINE
+  ctx.fillRect(hx, hy, PAUSE_BTN_W, PAUSE_BTN_H)
+  ctx.fillStyle = NIGHT_2
+  ctx.fillRect(hx + 1, hy + 1, PAUSE_BTN_W - 2, PAUSE_BTN_H - 2)
+  paintHomeButton(ctx, hx + (PAUSE_BTN_W >> 1) - 11, hy + 7)
 }
 
 /** A tap on the 2× button, left of the speaker in the dock's top row (play only). */
@@ -2169,6 +2249,7 @@ function paintDock(ctx: CanvasRenderingContext2D, renderer: Renderer, sim: Sim):
   ctx.fillRect(0, y + 1, frame.internalW, Math.max(0, frame.internalH - y - 1))
   paintMute(ctx, renderer, pyDock(at(BONE_Y)) - 2)
   paintSpeed(ctx, renderer, sim, pyDock(at(BONE_Y)) - 2)
+  paintPauseButton(ctx, pyDock(at(BONE_Y)) - 2)
   if (sim.free) {
     paintFieldCap(ctx, sim, px(at(BONE_X)), pyDock(at(BONE_Y)) + 1)
   } else {
