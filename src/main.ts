@@ -18,6 +18,7 @@ import {
   RECALL_LIFT,
   RECALL_TAP,
   HERO_TAP_Y,
+  HERO_ENABLED,
   CANNON_CHARGE,
   CANNON_TAP,
   CANNON_TAP_UP,
@@ -99,7 +100,7 @@ const saved = loadSave()
 const devOn = new URLSearchParams(location.search).has('dev')
 // Free placement is the game; ?lanes keeps the older five-path game for comparison.
 const freeOn = !new URLSearchParams(location.search).has('lanes')
-const sim = createSim({ tutorial: !seenTutorial(), levels: saved?.levels, purse: saved?.purse, free: freeOn, hero: true, title: freeOn && !devOn, stage: saved?.stage, best: saved?.best, deck: saved?.deck, endlessBest: saved?.endless, seenBreeds: saved?.seen })
+const sim = createSim({ tutorial: !seenTutorial(), levels: saved?.levels, purse: saved?.purse, free: freeOn, hero: HERO_ENABLED, title: freeOn && !devOn, stage: saved?.stage, best: saved?.best, deck: saved?.deck, endlessBest: saved?.endless, seenBreeds: saved?.seen })
 const HERO_KEY = 'shiba-daikoushin-hero'
 try {
   sim.heroUsed = localStorage.getItem(HERO_KEY) === '1'
@@ -341,7 +342,7 @@ canvas.addEventListener('pointerdown', (ev) => {
   }
   if (sim.outcome !== 'play') {
     if (sim.rewardT > 0) return
-    const hit = shopTarget(p.x, p.y, sim.free ? KINDS + 1 : 4)
+    const hit = shopTarget(p.x, p.y, sim.free ? KINDS + (HERO_ENABLED ? 1 : 0) : 4)
     if (hit.type === 'start') {
       if (sim.chest === 1) input.openChest = true
       else input.restart = true

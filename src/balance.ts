@@ -432,3 +432,6 @@ export const CANNON_PUSH = 40
 /** Taps within this of the house's middle (field coords, measured from the floor up CANNON_TAP_UP) fire it. */
 export const CANNON_TAP = 40
 export const CANNON_TAP_UP = 30
+
+/** ヒーロー柴 is switched off for now (it got in the way: taps above the strip moved it instead of placing shibas). Flip to true to bring it, its level cell and its taps back. */
+export const HERO_ENABLED = false

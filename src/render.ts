@@ -43,6 +43,7 @@ import {
   KIND_CHEER,
   CHEER_RADIUS,
   HERO_SLOT,
+  HERO_ENABLED,
   BOSS_DARK_FROM,
   CANNON_CHARGE,
   CANNON_REACH,
@@ -2754,7 +2755,7 @@ function drawLetter(
 function shopLayout(): { compact: boolean; cellTop: number; startY: number; cellH: number } {
   const room = frame.internalH - frame.topDy
   // Seven coats need four rows of cells, so the header goes compact and the cells shrink to fit above START.
-  const rows = Math.ceil((KINDS + 1) / 2)
+  const rows = Math.ceil((KINDS + (HERO_ENABLED ? 1 : 0)) / 2)
   const compact = room < 372 || rows > 3
   const bh = at(START_H)
   const cellTop = compact ? 74 : at(SHOP_Y0)
@@ -2827,7 +2828,7 @@ function paintShop(ctx: CanvasRenderingContext2D, renderer: Renderer, sim: Sim):
   drawNumber(ctx, renderer, sim.purse, pxl + 14, py(purseY), true)
   paintHomeButton(ctx, px(4), py(4))
   paintMute(ctx, renderer, py(4))
-  const shown = sim.free ? KINDS + 1 : 4
+  const shown = sim.free ? KINDS + (HERO_ENABLED ? 1 : 0) : 4
   for (let kind = 0; kind < shown; kind++) {
     const level = sim.levels[kind] ?? 1
     const maxed = level >= MAX_LEVEL
