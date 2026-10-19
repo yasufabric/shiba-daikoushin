@@ -84,6 +84,7 @@ import {
   PANEL_Y,
 } from './balance'
 import { drawJP, jpWidth } from './jp'
+import { finish as hdFinish, flash as hdFlash } from './hd'
 import { BANNER_POP, BANNER_REST, CLEAR_WORD, glyphBit, LEVEL_WORD, letterBit, LOSE_WORD, START_WORD, POP_COL, POP_ROW, RUMBLE_WORD, SELECT_WORD, SPECIAL_WORDS, STAGE_WORD, TITLE_WORD, TAP_WORD, NEW_WORD, PAUSE_WORD } from './font'
 import {
   BOSS_H,
@@ -203,6 +204,8 @@ export interface Renderer {
   fast: boolean
   /** The pause menu is up. */
   paused: boolean
+  /** The 2D-HD finishing pass (light, bloom, depth of field) is on. */
+  hd: boolean
   /** The 宝箱 state last drawn, and when (wall clock) it was seen opening. */
   chestState: number
   /** The coat the result screen's info strip is about (-1: pick one). */
@@ -417,6 +420,7 @@ export function createRenderer(): Renderer {
     muted: false,
     fast: false,
     paused: false,
+    hd: true,
     chestState: 0,
     infoKind: -1,
     chestOpenAt: -9,
@@ -470,7 +474,7 @@ export function draw(
   g.fillRect(0, 0, frame.internalW, frame.internalH)
   if (sim.title) {
     paintTitle(g, renderer, sim)
-    presentView(ctx, renderer, dpr)
+    presentView(ctx, renderer, dpr, sim)
     return
   }
   g.save()
@@ -496,6 +500,7 @@ export function draw(
   }
   paintGhosts(g, renderer, sim)
   paintBooms(g, renderer, sim)
+  paintAir(g, sim)
   g.restore()
   paintSpecialField(g, renderer, sim)
   paintCall(g, renderer, sim)
@@ -510,7 +515,7 @@ export function draw(
   else if (sim.tutorial) paintPaw(g, renderer, sim.time, sim.free)
   if (renderer.paused && sim.outcome === 'play') paintPause(g, renderer)
 
-  presentView(ctx, renderer, dpr)
+  presentView(ctx, renderer, dpr, sim)
 }
 
 const TITLE_TILE_W = 32
@@ -873,7 +878,7 @@ function drawRoleIcon(ctx: CanvasRenderingContext2D, kind: number, x: number, y:
   }
 }
 
-function presentView(ctx: CanvasRenderingContext2D, renderer: Renderer, dpr: number): void {
+function presentView(ctx: CanvasRenderingContext2D, renderer: Renderer, dpr: number, sim: Sim): void {
   const destW = frame.internalW * frame.scale
   const destH = frame.internalH * frame.scale
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
@@ -881,6 +886,18 @@ function presentView(ctx: CanvasRenderingContext2D, renderer: Renderer, dpr: num
   ctx.fillStyle = NIGHT
   ctx.fillRect(0, 0, frame.cssW, frame.cssH)
   ctx.drawImage(renderer.view, frame.ox, frame.oy, destW, destH)
+  if (!renderer.hd) return
+  // 2D-HD finish: in play the full pass (depth of field over the sky and kennel, bloom, light, vignette); menus get light and vignette only, so text stays crisp.
+  const playing = !sim.title && sim.outcome === 'play' && !renderer.paused
+  const light = sim.title ? 'day' : themeOf(sim)
+  // No depth-of-field band: the HUD shares the top with the kennel and must stay sharp. Glow and light cover the field only.
+  const fieldTop = sim.title ? 0 : py(at(FIELD_Y)) * frame.scale
+  const fieldBottom = sim.title ? destH : pyDock(at(PANEL_Y)) * frame.scale
+  hdFinish(ctx, renderer.view, frame.ox, frame.oy, destW, destH, light, 0, playing, fieldTop, fieldBottom)
+  if (playing) {
+    if (sim.fxT > 0) hdFlash(ctx, frame.ox, frame.oy, destW, destH, FX_TIME - sim.fxT, 0.35, true)
+    hdFlash(ctx, frame.ox, frame.oy, destW, destH, sim.time - sim.cannonAt, 0.3, false)
+  }
 }
 
 /** One path's strip of daytime meadow. No stripes and no motion: grass tufts and darker patches stay put. */
@@ -1611,8 +1628,7 @@ function drawShiba(ctx: CanvasRenderingContext2D, renderer: Renderer, sim: Sim, 
   const dx = px(at(FIELD_X + unit.x)) - (CROWD_PX >> 1) + jolt
   const hop = celebrateHop(sim, index)
   const dy = fpy(unit.y) - CROWD_PX - hop - lunge(sim, unit.bitAt)
-  ctx.fillStyle = NIGHT
-  ctx.fillRect(dx + 3, dy + hop + CROWD_PX - 2, CROWD_PX - 6, 2)
+  softShadow(ctx, dx + (CROWD_PX >> 1), dy + hop + CROWD_PX - 1, (CROWD_PX >> 1) - 1)
   const cd = unit.cd
   if (seen && cd > (renderer.shibaCd[index] ?? 0) + 0.5) {
     renderer.shibaAct[index] = sim.time
@@ -1754,8 +1770,7 @@ function drawCat(ctx: CanvasRenderingContext2D, renderer: Renderer, sim: Sim, in
     return
   }
   renderer.catFly[index] = 0
-  ctx.fillStyle = NIGHT
-  ctx.fillRect(dx + 3, dy + CAT_PX - 2, CAT_PX - 6, 2)
+  softShadow(ctx, dx + (CAT_PX >> 1), dy + CAT_PX - 1, (CAT_PX >> 1) - 1)
   const prev = renderer.catY[index] ?? 0
   const prevX = renderer.catX[index] ?? 0
   const seen = renderer.catSeen[index] === 1
@@ -2482,7 +2497,57 @@ function paintDamage(ctx: CanvasRenderingContext2D, renderer: Renderer, sim: Sim
 }
 
 /** A filled pixel ellipse, one row at a time so every edge stays on whole pixels. */
-function fillEllipse(ctx: CanvasRenderingContext2D, cx: number, cy: number, rx: number, ry: number, color: string): void {
+/** A unit's shadow on the grass: a dithered night ellipse with a solid core, so it reads soft without leaving the palette. */
+function softShadow(ctx: CanvasRenderingContext2D, cx: number, cy: number, rx: number): void {
+  fillEllipse(ctx, cx, cy, rx + 1, 2, dither(ctx, NIGHT, 2) ?? NIGHT)
+  fillEllipse(ctx, cx, cy, rx - 2, 1, NIGHT)
+}
+
+/** Drifting motes over the field, by time of day: sakura petals by day, embers at dusk, fireflies at night. Wall-clock driven, so they keep drifting while the match is paused or over. */
+function paintAir(ctx: CanvasRenderingContext2D, sim: Sim): void {
+  if (!sim.free) return
+  const theme = themeOf(sim)
+  const t = performance.now() / 1000
+  const fx = px(at(FIELD_X))
+  const fw = at(FIELD_W)
+  const fy = py(at(FIELD_Y))
+  const fh = at(FIELD_H)
+  const n = theme === 'night' ? 12 : 14
+  for (let i = 0; i < n; i++) {
+    const seed = i * 97.13
+    if (theme === 'day') {
+      // Petals fall slowly and sway.
+      const fall = (t * (10 + (i % 4) * 3) + seed * 7) % (fh + 20)
+      const x = fx + ((seed * 13 + t * 6 + Math.sin(t * 1.3 + i) * 10) % fw + fw) % fw
+      const y = fy - 10 + fall
+      const flip = Math.floor(t * 4 + i) & 1
+      ctx.fillStyle = DANGER_LIGHT
+      ctx.fillRect(Math.round(x), Math.round(y), flip ? 2 : 1, flip ? 1 : 2)
+      ctx.fillStyle = WHITE
+      ctx.fillRect(Math.round(x), Math.round(y), 1, 1)
+    } else if (theme === 'dusk') {
+      // Embers rise and wink out.
+      const rise = (t * (8 + (i % 3) * 4) + seed * 5) % (fh * 0.8)
+      const x = fx + ((seed * 17 + Math.sin(t * 0.9 + i) * 6) % fw + fw) % fw
+      const y = fy + fh - rise
+      ctx.fillStyle = (Math.floor(t * 6 + i) & 3) === 0 ? GOLD_HOT : GOLD
+      ctx.fillRect(Math.round(x), Math.round(y), 1, 1)
+    } else {
+      // Fireflies wander and pulse.
+      const x = fx + ((seed * 11 + Math.sin(t * 0.5 + i * 1.7) * 30) % fw + fw) % fw
+      const y = fy + 40 + ((seed * 23 + Math.cos(t * 0.4 + i) * 24) % (fh - 60) + (fh - 60)) % (fh - 60)
+      const on = Math.sin(t * 2.2 + i * 1.3) > 0.2
+      if (!on) continue
+      ctx.fillStyle = GOLD_LIGHT
+      ctx.fillRect(Math.round(x) - 1, Math.round(y), 3, 1)
+      ctx.fillRect(Math.round(x), Math.round(y) - 1, 1, 3)
+      ctx.fillStyle = GOLD_HOT
+      ctx.fillRect(Math.round(x), Math.round(y), 1, 1)
+    }
+  }
+}
+
+function fillEllipse(ctx: CanvasRenderingContext2D, cx: number, cy: number, rx: number, ry: number, color: string | CanvasPattern): void {
   ctx.fillStyle = color
   for (let dy = -ry; dy <= ry; dy++) {
     const half = Math.round(rx * Math.sqrt(Math.max(0, 1 - (dy * dy) / (ry * ry + 0.5))))

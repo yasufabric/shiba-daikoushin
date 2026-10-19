@@ -112,6 +112,8 @@ try {
 let heroSaved = sim.heroUsed
 let savedSeq = sim.saveSeq
 const renderer = createRenderer()
+// ?nohd turns off the 2D-HD finishing pass (to compare, or on a slow phone).
+renderer.hd = !new URLSearchParams(location.search).has('nohd')
 const synth = createSynth()
 const input: Input = { card: -1, restart: false }
 
