@@ -44,6 +44,8 @@ import {
   CHEER_RADIUS,
   HERO_SLOT,
   BOSS_DARK_FROM,
+  CANNON_CHARGE,
+  CANNON_REACH,
   HERO_SKILL_R,
   HERO_SKILL_CD,
   BOSS_HOWL_R,
@@ -1188,6 +1190,34 @@ function paintHomeBar(ctx: CanvasRenderingContext2D, renderer: Renderer, sim: Si
   ctx.fillRect(barX, barY, fill, 4)
   ctx.fillStyle = GOLD_LIGHT
   ctx.fillRect(barX, barY, fill, 1)
+  if (!sim.free) return
+  // おやつ砲: a sky-blue charge bar over the health bar; when full the house blinks and says TAP!.
+  const cy = barY - 6
+  const ready = sim.cannonT >= CANNON_CHARGE
+  ctx.fillStyle = LINE
+  ctx.fillRect(barX - 1, cy - 1, barW + 2, 5)
+  ctx.fillStyle = NIGHT_2
+  ctx.fillRect(barX, cy, barW, 3)
+  const cf = Math.round((barW * sim.cannonT) / CANNON_CHARGE)
+  ctx.fillStyle = ready ? ((Math.floor(sim.time * 8) & 1) === 0 ? WHITE : SKY) : SKY
+  ctx.fillRect(barX, cy, cf, 3)
+  if (ready && sim.outcome === 'play') {
+    const bob = (Math.floor(sim.time * 3) & 1) * 2
+    for (let i = 0; i < TAP_WORD.length; i++) drawLetter(ctx, TAP_WORD[i] ?? '', barX + 2 + i * 9, cy - 14 - bob, 1, SKY_LIGHT)
+  }
+  const age = sim.time - sim.cannonAt
+  if (age >= 0 && age < 0.6) {
+    // The shot: a bright band runs up the field to the cannon's reach, with a trail.
+    const floor = fpy(FIELD_H)
+    const top = fpy(FIELD_H - CANNON_REACH)
+    const yb = Math.round(floor - (floor - top) * Math.min(1, age / 0.35))
+    ctx.fillStyle = WHITE
+    ctx.fillRect(px(at(FIELD_X)), yb, at(FIELD_W), 3)
+    ctx.fillStyle = SKY_LIGHT
+    ctx.fillRect(px(at(FIELD_X)), yb + 3, at(FIELD_W), 2)
+    ctx.fillStyle = SKY
+    for (let k = 0; k < 24; k++) ctx.fillRect(px(at(FIELD_X)) + ((k * 37) % at(FIELD_W)), yb + 6 + ((k * 13) % 20), 2, 2)
+  }
 }
 
 /** Free placement role cues: a dotted pink ring around every 白 shows who its heal reaches, a ring pulses out when it heals, a green plus floats over each shiba it mended, and 胡麻's bark travels to the dog it hit as gold arcs. */
