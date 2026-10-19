@@ -58,6 +58,7 @@ interface Save {
   best: number[]
   deck: number[]
   endless: number
+  seen: number
 }
 
 function loadSave(): Save | null {
@@ -68,7 +69,7 @@ function loadSave(): Save | null {
     if (!data || typeof data !== 'object') return null
     const { levels, purse } = data as Partial<Save>
     if (!Array.isArray(levels) || typeof purse !== 'number') return null
-    const { stage, best, deck, endless } = data as Partial<Save>
+    const { stage, best, deck, endless, seen } = data as Partial<Save>
     return {
       levels: levels.map((n) => (typeof n === 'number' ? n : 1)),
       purse,
@@ -76,6 +77,7 @@ function loadSave(): Save | null {
       best: Array.isArray(best) ? best.map((n) => (typeof n === 'number' ? n : 0)) : [],
       deck: Array.isArray(deck) ? deck.map((n) => (typeof n === 'number' ? n : -1)) : [],
       endless: typeof endless === 'number' ? endless : 0,
+      seen: typeof seen === 'number' ? seen : 0,
     }
   } catch {
     return null
@@ -84,7 +86,7 @@ function loadSave(): Save | null {
 
 function storeSave(): void {
   try {
-    localStorage.setItem(SAVE_KEY, JSON.stringify({ levels: sim.levels, purse: sim.purse, stage: sim.stage, best: sim.best, deck: sim.deck, endless: sim.endlessBest }))
+    localStorage.setItem(SAVE_KEY, JSON.stringify({ levels: sim.levels, purse: sim.purse, stage: sim.stage, best: sim.best, deck: sim.deck, endless: sim.endlessBest, seen: sim.seenBreeds }))
   } catch {
     // Private mode can reject storage. Levels still hold for this visit.
   }
@@ -94,7 +96,7 @@ const saved = loadSave()
 const devOn = new URLSearchParams(location.search).has('dev')
 // Free placement is the game; ?lanes keeps the older five-path game for comparison.
 const freeOn = !new URLSearchParams(location.search).has('lanes')
-const sim = createSim({ tutorial: !seenTutorial(), levels: saved?.levels, purse: saved?.purse, free: freeOn, hero: true, title: freeOn && !devOn, stage: saved?.stage, best: saved?.best, deck: saved?.deck, endlessBest: saved?.endless })
+const sim = createSim({ tutorial: !seenTutorial(), levels: saved?.levels, purse: saved?.purse, free: freeOn, hero: true, title: freeOn && !devOn, stage: saved?.stage, best: saved?.best, deck: saved?.deck, endlessBest: saved?.endless, seenBreeds: saved?.seen })
 const HERO_KEY = 'shiba-daikoushin-hero'
 try {
   sim.heroUsed = localStorage.getItem(HERO_KEY) === '1'

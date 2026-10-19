@@ -1155,4 +1155,17 @@ describe('soldiers', () => {
     expect(sim.endlessBest).toBe(12)
     expect(sim.endlessRecord).toBe(true)
   })
+
+  it('the first meeting with a breed flags it for a NEW! card, once', () => {
+    const sim = createSim({ tutorial: false, free: true })
+    spawnCat(sim, 0, BREED_CORGI, { x: 50, y: 40 })
+    expect(sim.introBreed).toBe(-1)
+    spawnCat(sim, 0, BREED_POODLE, { x: 80, y: 40 })
+    expect(sim.introBreed).toBe(BREED_POODLE)
+    const at = sim.introAt
+    sim.time += 5
+    spawnCat(sim, 0, BREED_POODLE, { x: 90, y: 40 })
+    expect(sim.introAt).toBe(at)
+    expect(createSim({ tutorial: false, free: true, seenBreeds: sim.seenBreeds }).seenBreeds & (1 << BREED_POODLE)).toBeGreaterThan(0)
+  })
 })

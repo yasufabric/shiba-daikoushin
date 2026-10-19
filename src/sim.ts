@@ -313,6 +313,10 @@ export interface Sim {
   newCoat: number
   /** エンドレス: the most dogs beaten in one run, and whether the last run beat it. */
   endlessBest: number
+  /** Bit per breed the player has met (saved); the first meeting shows a NEW! card for that breed (introBreed at introAt). */
+  seenBreeds: number
+  introBreed: number
+  introAt: number
   endlessRecord: boolean
   /** 宝箱 on the result screen: 0 none, 1 waiting to be opened, 2 opened. chestBones is what it pays. */
   chest: number
@@ -400,6 +404,8 @@ export interface SimOptions {
   best?: readonly number[]
   /** Saved エンドレス best (dogs beaten). */
   endlessBest?: number
+  /** Saved bitmask of breeds already met. */
+  seenBreeds?: number
   /** Open on the title screen. */
   title?: boolean
   /** Saved deck: coat numbers in dock order. */
@@ -476,6 +482,9 @@ export function createSim(opts?: SimOptions): Sim {
     deck: [...DEFAULT_DECK],
     newCoat: -1,
     endlessBest: Math.max(0, Math.floor(opts?.endlessBest ?? 0)),
+    seenBreeds: (opts?.seenBreeds ?? 0) | (1 << BREED_CHIHUAHUA) | (1 << BREED_CORGI) | (1 << BREED_BULLDOG),
+    introBreed: -1,
+    introAt: -9,
     endlessRecord: false,
     chest: 0,
     chestBones: 0,
@@ -757,6 +766,8 @@ function stepHero(sim: Sim, dt: number, beat: number): void {
 
 function boot(sim: Sim): void {
   sim.newCoat = -1
+  sim.introBreed = -1
+  sim.introAt = -9
   sim.endlessRecord = false
   sim.chest = 0
   sim.chestBones = 0
@@ -867,6 +878,12 @@ export function fillMarch(sim: Sim, count: number): number {
 export function spawnCat(sim: Sim, lane: number, breed: number, at?: { x: number; y: number }): boolean {
   const unit = acquire(sim.cats, sim, 'c')
   if (!unit) return false
+  if (sim.free && breed >= 0 && breed < BREED_BOSS && (sim.seenBreeds & (1 << breed)) === 0) {
+    sim.seenBreeds |= 1 << breed
+    sim.introBreed = breed
+    sim.introAt = sim.time
+    sim.saveSeq += 1
+  }
   const laneW = FIELD_W / LANE_COUNT
   unit.alive = true
   unit.lane = lane
