@@ -195,6 +195,9 @@ export interface Renderer {
   fast: boolean
   /** The pause menu is up. */
   paused: boolean
+  /** The 宝箱 state last drawn, and when (wall clock) it was seen opening. */
+  chestState: number
+  chestOpenAt: number
   /** Sim clock at the last draw; a drop means a new match began. */
   lastTime: number
 }
@@ -399,6 +402,8 @@ export function createRenderer(): Renderer {
     muted: false,
     fast: false,
     paused: false,
+    chestState: 0,
+    chestOpenAt: -9,
     partX: new Int16Array(PARTS),
     partY: new Int16Array(PARTS),
     partVx: new Int8Array(PARTS),
@@ -2654,6 +2659,8 @@ export function shopTarget(x: number, y: number, kinds: number): { type: 'start'
 }
 
 function paintShop(ctx: CanvasRenderingContext2D, renderer: Renderer, sim: Sim): void {
+  // The match clock stands still on this screen, so blinks and bobs run on the wall clock.
+  const shopClock = performance.now() / 1000
   ctx.fillStyle = NIGHT
   ctx.fillRect(0, 0, frame.internalW, frame.internalH)
   const won = sim.outcome === 'won'
@@ -2724,12 +2731,12 @@ function paintShop(ctx: CanvasRenderingContext2D, renderer: Renderer, sim: Sim):
     // The portrait zone: a lit stage under the face, and the deck badge below it.
     ctx.fillStyle = inDeck ? NIGHT_3 : NIGHT_2
     ctx.fillRect(x + 4, y + 4, pick - 8, HERO_PX + 4)
-    const blink = inDeck && (Math.floor(sim.time * 2 + kind) & 1) === 1
+    const blink = inDeck && (Math.floor(shopClock * 2 + kind) & 1) === 1
     ctx.drawImage(renderer.sheets.hero, heroCell(kind, blink ? 'blink' : 'open') * HERO_PX, 0, HERO_PX, HERO_PX, x + 4 + ((pick - 8 - HERO_PX) >> 1), y + 6, HERO_PX, HERO_PX)
     drawRoleIcon(ctx, kind, x + pick - 15, y + 8)
     if (sim.newCoat === kind) {
       // Just unlocked: a blinking NEW! over the portrait.
-      const c = GOLD_CYCLE[Math.floor(sim.time * 8) & 3] ?? GOLD
+      const c = GOLD_CYCLE[Math.floor(shopClock * 8) & 3] ?? GOLD
       for (let i = 0; i < NEW_WORD.length; i++) drawLetter(ctx, NEW_WORD[i] ?? '', x + 6 + i * 9, y + 2, 1, c)
     }
     if (sim.free) {
@@ -2773,7 +2780,7 @@ function paintShop(ctx: CanvasRenderingContext2D, renderer: Renderer, sim: Sim):
     ctx.fillStyle = LINE
     ctx.fillRect(kx, ky, kw, kh)
     if (maxed) {
-      ctx.fillStyle = GOLD_CYCLE[Math.floor(sim.time * 8) & 3] ?? GOLD
+      ctx.fillStyle = GOLD_CYCLE[Math.floor(shopClock * 8) & 3] ?? GOLD
       ctx.fillRect(kx + 1, ky + 1, kw - 2, kh - 2)
       ctx.fillStyle = LINE
       ctx.fillRect(kx + (kw >> 1) - 4, ky + (kh >> 1) - 1, 9, 3)
@@ -2803,8 +2810,17 @@ function paintShop(ctx: CanvasRenderingContext2D, renderer: Renderer, sim: Sim):
   const by = py(lay.startY)
   const bw = at(START_W)
   const bh = at(START_H)
+  // The 宝箱 waits where START goes; once opened, its ホネ burst up for a moment.
+  const wall = performance.now() / 1000
+  if (sim.chest === 2 && renderer.chestState === 1) renderer.chestOpenAt = wall
+  renderer.chestState = sim.chest
+  if (sim.chest === 1) {
+    paintChest(ctx, bx + (bw >> 1), by + bh, wall, false)
+    for (let i = 0; i < TAP_WORD.length; i++) drawLetter(ctx, TAP_WORD[i] ?? '', bx + (bw >> 1) + 36 + i * 9, by + 4 - ((Math.floor(wall * 3) & 1) << 1), 1, GOLD_LIGHT)
+    return
+  }
   const ready = deckReady(sim)
-  const bob = ready ? (BOB[Math.floor(sim.time * 4) & 7] ?? 0) : 0
+  const bob = ready ? (BOB[Math.floor(shopClock * 4) & 7] ?? 0) : 0
   ctx.fillStyle = ready ? GOLD : NIGHT_2
   ctx.fillRect(bx, by - (bob >> 1), bw, bh)
   frameRect(ctx, bx, by - (bob >> 1), bw, bh, LINE)
@@ -2820,6 +2836,74 @@ function paintShop(ctx: CanvasRenderingContext2D, renderer: Renderer, sim: Sim):
     const hx = (frame.internalW - (SELECT_WORD.length * 10 + 14)) >> 1
     for (let i = 0; i < SELECT_WORD.length; i++) drawLetter(ctx, SELECT_WORD[i] ?? '', hx + i * 10, by - 14, 1, DANGER)
     drawNumber(ctx, renderer, DECK_SIZE, hx + SELECT_WORD.length * 10 + 4, by - 14, false)
+  }
+  const openAge = wall - renderer.chestOpenAt
+  if (sim.chest === 2 && openAge >= 0 && openAge < 1.4) {
+    const cx = bx + (bw >> 1)
+    if (openAge < 0.5) paintChest(ctx, cx, by - 4, wall, true)
+    // Bones fly out in an arc, then +N rises.
+    for (let k = 0; k < 8; k++) {
+      const a = -Math.PI / 2 + (k - 3.5) * 0.32
+      const r = openAge * 140
+      const bxk = Math.round(cx + Math.cos(a) * r) - 6
+      const byk = Math.round(by + Math.sin(a) * r + openAge * openAge * 120)
+      ctx.drawImage(renderer.sheets.bone, bxk, byk)
+    }
+    const n = sim.chestBones
+    const nw = 14 + digitCount(n) * 10
+    const ny = by - 20 - Math.floor(openAge * 20)
+    drawLetter(ctx, '+', cx - (nw >> 1), ny, 1, GOLD_LIGHT)
+    drawNumber(ctx, renderer, n, cx - (nw >> 1) + 12, ny, false)
+  }
+}
+
+/** 宝箱, 30×22, sealed: a wooden chest with gold bands and a lock; it hops while it waits, and its lid flies up when opened. `bottom` is its base line. */
+function paintChest(ctx: CanvasRenderingContext2D, cx: number, bottom: number, wall: number, open: boolean): void {
+  // Drawn on a 30×24 grid at 2×, so every block stays an integer number of pixels.
+  const k = 2
+  const ox = cx - 30
+  const oy = bottom - 48
+  const box = (x: number, y: number, w: number, h: number): void => ctx.fillRect(ox + x * k, oy + y * k, w * k, h * k)
+  const hop = open ? 0 : (BOB[Math.floor(wall * 6) & 7] ?? 0) >> 1
+  const w = 30
+  const x = 0
+  const y = -hop
+  const c = 15
+  // Glow under it.
+  ctx.fillStyle = (Math.floor(wall * 4) & 1) === 0 ? GOLD_LIGHT : GOLD
+  box(x - 4, 23, w + 8, 1)
+  // Body.
+  ctx.fillStyle = LINE
+  box(x, y + 9, w, 14)
+  ctx.fillStyle = FUR_MID
+  box(x + 1, y + 10, w - 2, 12)
+  ctx.fillStyle = FUR_DARK
+  box(x + 1, y + 20, w - 2, 2)
+  ctx.fillStyle = GOLD
+  box(x + 4, y + 10, 3, 12)
+  box(x + w - 7, y + 10, 3, 12)
+  // Lid: shut, or thrown up and back.
+  const ly = open ? y - 8 : y
+  ctx.fillStyle = LINE
+  box(x, ly, w, 10)
+  ctx.fillStyle = FUR_BODY
+  box(x + 1, ly + 1, w - 2, 8)
+  ctx.fillStyle = FUR_LIGHT
+  box(x + 1, ly + 1, w - 2, 2)
+  ctx.fillStyle = GOLD
+  box(x + 4, ly + 1, 3, 8)
+  box(x + w - 7, ly + 1, 3, 8)
+  if (open) {
+    ctx.fillStyle = GOLD_HOT
+    box(x + 2, y + 10, w - 4, 3)
+  } else {
+    // Lock.
+    ctx.fillStyle = LINE
+    box(c - 3, y + 7, 7, 7)
+    ctx.fillStyle = GOLD_LIGHT
+    box(c - 2, y + 8, 5, 5)
+    ctx.fillStyle = LINE
+    box(c, y + 10, 1, 2)
   }
 }
 

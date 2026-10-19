@@ -119,6 +119,7 @@ const SPEED_KEY = 'shiba-daikoushin-speed'
 let fast = false
 /** The pause menu is up: the match clock stops. */
 let paused = false
+let lastChest = 0
 document.addEventListener('visibilitychange', () => {
   if (document.hidden && !sim.title && sim.outcome === 'play') paused = true
 })
@@ -139,6 +140,8 @@ interface ShibaDev {
   seek: (seconds: number) => void
   setScale: (scale: number) => void
   fill: (count: number) => void
+  /** Clear the field and skip to the end: the match is won within a frame or two. */
+  win: () => void
   special: (kind: number) => void
   /** Drop a shiba or a rival dog right where you want it, for screenshots. */
   place: (side: 's' | 'c', kind: number, x: number, y: number) => void
@@ -180,6 +183,13 @@ if (devOn) {
     setScale(scale: number) {
       timeScale = scale > 0 ? scale : 1
       dev.scale = timeScale
+    },
+    win() {
+      for (const c of sim.cats) c.alive = false
+      sim.aliveCats = 0
+      sim.toSend = 0
+      sim.boss = true
+      sim.bossIndex = -1
     },
     fill(count: number) {
       fillMarch(sim, count)
@@ -325,7 +335,10 @@ canvas.addEventListener('pointerdown', (ev) => {
   if (sim.outcome !== 'play') {
     if (sim.rewardT > 0) return
     const hit = shopTarget(p.x, p.y, sim.free ? KINDS : 4)
-    if (hit.type === 'start') input.restart = true
+    if (hit.type === 'start') {
+      if (sim.chest === 1) input.openChest = true
+      else input.restart = true
+    }
     else if (hit.type === 'home') input.home = true
     else if (hit.type === 'pick') input.toggleDeck = hit.kind
     else if (hit.type === 'buy') input.levelUp = hit.kind
@@ -474,6 +487,7 @@ function advance(dt: number): void {
   input.toggleDeck = undefined
   input.pickStage = undefined
   input.quit = undefined
+  input.openChest = undefined
   input.heroSkill = undefined
   input.home = undefined
   if (sim.saveSeq !== savedSeq) {
@@ -505,6 +519,8 @@ function frame(now: number): void {
   } else if (!paused) {
     advance(dt)
   }
+  if (sim.chest === 2 && lastChest === 1) synth.fanfare(true)
+  lastChest = sim.chest
   renderer.fast = fast
   renderer.paused = paused
   renderer.muted = synth.isMuted()

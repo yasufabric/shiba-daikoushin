@@ -1097,4 +1097,26 @@ describe('soldiers', () => {
     for (let i = 0; i < 60; i++) step(sim, 1 / 30, NO_INPUT)
     expect(pom?.y ?? 999).toBeLessThan(y0 - 20)
   })
+
+  it('a win leaves a 宝箱: the first START opens it for ホネ, the next one starts', () => {
+    const sim = createSim({ tutorial: false, seed: 4, free: true })
+    for (const c of sim.cats) c.alive = false
+    sim.aliveCats = 0
+    sim.toSend = 0
+    sim.boss = true
+    sim.bossIndex = -1
+    for (let i = 0; i < 120 && sim.outcome === 'play'; i++) step(sim, 1 / 30, NO_INPUT)
+    expect(sim.outcome).toBe('won')
+    expect(sim.chest).toBe(1)
+    expect(sim.chestBones).toBeGreaterThan(0)
+    sim.rewardT = 0
+    const purse = sim.purse
+    step(sim, 1 / 30, { ...NO_INPUT, openChest: true })
+    expect(sim.chest).toBe(2)
+    expect(sim.purse).toBe(purse + sim.chestBones)
+    expect(sim.outcome).toBe('won')
+    step(sim, 1 / 30, { ...NO_INPUT, restart: true })
+    expect(sim.outcome).toBe('play')
+    expect(sim.chest).toBe(0)
+  })
 })
