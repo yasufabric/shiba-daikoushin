@@ -478,11 +478,18 @@ export function draw(
 const TITLE_TILE_W = 32
 const TITLE_TILE_H = 46
 const TITLE_TILE_GAP = 4
+const TITLE_ROW = 4
 
 /** Internal-px box of a stage tile on the title screen, from the top of the screen. */
 function titleTile(stage: number): { x: number; y: number } {
-  const total = STAGES.length * TITLE_TILE_W + (STAGES.length - 1) * TITLE_TILE_GAP
-  return { x: ((frame.internalW - total) >> 1) + stage * (TITLE_TILE_W + TITLE_TILE_GAP), y: Math.max(150, frame.internalH - frame.topDy - 150) }
+  // Up to TITLE_ROW tiles per row; later stages wrap to a second row.
+  const row = Math.floor(stage / TITLE_ROW)
+  const col = stage % TITLE_ROW
+  const inRow = Math.min(TITLE_ROW, STAGES.length - row * TITLE_ROW)
+  const total = inRow * TITLE_TILE_W + (inRow - 1) * TITLE_TILE_GAP
+  const rows = Math.ceil(STAGES.length / TITLE_ROW)
+  const base = Math.max(150, frame.internalH - frame.topDy - 150 - (rows - 1) * 26)
+  return { x: ((frame.internalW - total) >> 1) + col * (TITLE_TILE_W + TITLE_TILE_GAP), y: base + row * (TITLE_TILE_H + 6) }
 }
 
 /** What a tap on the title screen picks: a stage tile, or -1. `x`, `y` are flat world points. */

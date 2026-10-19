@@ -192,3 +192,6 @@ Cards and deck cells carry a 9×9 role icon (`drawRoleIcon`): claws, slam ring, 
 
 ## ヒーロー柴
 One steered shiba (`sim.hero`, a `Unit` kept outside the pools; enabled by `createSim({ hero: true })`, which only `main.ts` passes, so unit tests about the cards are unaffected). A field tap above `HERO_TAP_Y` (420, i.e. above the deploy strip) while it is alive sends it there (`Input.hero` → `sim.heroGo`); taps in the strip still deploy and taps on a shiba still recall it. `stepHero` walks to the tap, else toward a dog in sight, and spins every `HERO_EVERY` s for `HERO_HIT` to every dog within `HERO_RADIUS` (`sim.heroSpinAt` drives the ring). Dogs treat it like a shiba (nearest foe wins; it has no taunt). At 0 hp it vanishes and returns at the strip after `HERO_REVIVE` s with full health. Drawn by `paintHero` (red coat, gold crown, gold ring, destination cross, own hp bar).
+
+## Eight stages
+`STAGES` has 8 entries; 6-8 push hp/dps scaling (2.15/2.45/2.8) and lean on プードル and ダックス. The title lays stage tiles out `TITLE_ROW` (4) per row and wraps, shifting the block up 26 px per extra row.
