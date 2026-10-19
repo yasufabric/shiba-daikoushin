@@ -187,7 +187,7 @@ export function createSynth(): Synth {
       tone(70, 0.4, 'sawtooth', 0.05, t, 55)
       tone(620, 0.06, 'square', 0.05, t + 0.05, 380)
       tone(620, 0.06, 'square', 0.05, t + 0.16, 380)
-      const root = [392, 330, 523, 440, 494, 294][kind] ?? 392
+      const root = [392, 330, 523, 440, 494, 294, 587][kind] ?? 392
       const notes = [root, root * 1.25, root * 1.5, root * 2]
       for (let i = 0; i < notes.length; i++) tone(notes[i] ?? root, 0.1, 'square', 0.04, t + 0.28 + i * 0.06)
     },
@@ -204,6 +204,11 @@ export function createSynth(): Synth {
         tone(240, 0.35, 'sawtooth', 0.05, t, 1600)
       } else if (kind === 3) {
         for (let i = 0; i < 4; i++) tone(660 * (1 + i * 0.25), 0.16, 'sine', 0.05, t + i * 0.06)
+      } else if (kind === 6) {
+        // ワンワン!!: two barks, then a bright major chord.
+        tone(700, 0.08, 'square', 0.05, t, 420)
+        tone(760, 0.08, 'square', 0.05, t + 0.14, 440)
+        for (const f of [587, 740, 880]) tone(f, 0.35, 'triangle', 0.04, t + 0.3)
       } else {
         tone(110, 0.3, 'sawtooth', 0.07, t, 40)
         tone(440, 0.08, 'square', 0.04, t + 0.02, 220)
