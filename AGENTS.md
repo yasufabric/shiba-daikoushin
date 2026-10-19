@@ -211,3 +211,6 @@ In free placement the boss howls every `BOSS_HOWL_EVERY` s (first after `BOSS_HO
 
 ## Pause
 A ❚❚ button sits left of 2× in the dock's top row (`pauseButtonTarget`). While paused `main.ts` stops calling `advance`, taps map flat, and `paintPause` dithers the field with night pixels under PAUSE, a gold play button and the kennel (`pauseTarget`: the kennel sends `Input.quit`, which drops the match back to the title; any other tap resumes). Hiding the page (`visibilitychange`) pauses a match.
+
+## Stage themes
+`themeOf`: stages 1-3 day, 4-6 dusk (pink/gold sky bands), 7-8 night (NIGHT_1 sky with twinkling stars). Dusk and night shade the grass with a palette dither (`dither(ctx, color, step)`, a cached 2×2/4×4 `CanvasPattern`) drawn right after the lanes, so units, rocks and effects on top stay bright. The pause overlay uses the same pattern instead of per-pixel rects.

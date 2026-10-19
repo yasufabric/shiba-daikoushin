@@ -450,7 +450,7 @@ export function draw(
   }
   g.save()
   g.translate(sx, sy)
-  paintBackdrop(g)
+  paintBackdrop(g, sim)
   paintCastle(g, renderer, sim)
   g.save()
   g.beginPath()
@@ -659,10 +659,8 @@ export function pauseTarget(x: number, y: number): 'home' | 'resume' {
 
 /** Pause: the field under a dither of night, PAUSE, a big gold play button, and the kennel to give up. */
 function paintPause(ctx: CanvasRenderingContext2D, renderer: Renderer): void {
-  ctx.fillStyle = NIGHT
-  for (let y = 0; y < frame.internalH; y++) {
-    for (let x = y & 1; x < frame.internalW; x += 2) ctx.fillRect(x, y, 1, 1)
-  }
+  ctx.fillStyle = dither(ctx, NIGHT, 2) ?? NIGHT
+  ctx.fillRect(0, 0, frame.internalW, frame.internalH)
   const ww = PAUSE_WORD.length * 18
   const wx = (frame.internalW - ww) >> 1
   for (let i = 0; i < PAUSE_WORD.length; i++) drawLetter(ctx, PAUSE_WORD[i] ?? '', wx + i * 18, py(96), 2, WHITE)
@@ -887,17 +885,73 @@ function paintLanes(
   }
 }
 
-function paintBackdrop(ctx: CanvasRenderingContext2D): void {
+/** A dither pattern of one palette colour: every `step`-th pixel on alternating rows, tiled. Cached per colour and step. */
+const ditherCache = new Map<string, CanvasPattern | null>()
+function dither(ctx: CanvasRenderingContext2D, color: string, step: 2 | 4): CanvasPattern | null {
+  const key = `${color}/${step}`
+  if (ditherCache.has(key)) return ditherCache.get(key) ?? null
+  const tile = document.createElement('canvas')
+  tile.width = step
+  tile.height = step
+  const t = tile.getContext('2d')
+  let pattern: CanvasPattern | null = null
+  if (t) {
+    t.fillStyle = color
+    if (step === 2) {
+      t.fillRect(0, 0, 1, 1)
+      t.fillRect(1, 1, 1, 1)
+    } else {
+      t.fillRect(0, 0, 1, 1)
+      t.fillRect(2, 2, 1, 1)
+    }
+    pattern = ctx.createPattern(tile, 'repeat')
+  }
+  ditherCache.set(key, pattern)
+  return pattern
+}
+
+type Theme = 'day' | 'dusk' | 'night'
+/** Stages 1-3 by day, 4-6 at dusk, 7-8 at night. */
+function themeOf(sim: Sim): Theme {
+  if (!sim.free) return 'day'
+  return sim.stage < 3 ? 'day' : sim.stage < 6 ? 'dusk' : 'night'
+}
+
+function paintBackdrop(ctx: CanvasRenderingContext2D, sim: Sim): void {
+  const theme = themeOf(sim)
   const width = frame.internalW
   const fx = px(at(FIELD_X))
   const fy = py(at(FIELD_Y))
   const fw = at(FIELD_W)
   const fieldExtra = frame.dockDy > 0 ? frame.dockDy : 0
   const fh = at(FIELD_H) + fieldExtra
-  ctx.fillStyle = SKY
-  ctx.fillRect(0, 0, width, fy)
-  ctx.fillStyle = SKY_LIGHT
-  ctx.fillRect(0, fy - 6, width, 2)
+  if (theme === 'day') {
+    ctx.fillStyle = SKY
+    ctx.fillRect(0, 0, width, fy)
+    ctx.fillStyle = SKY_LIGHT
+    ctx.fillRect(0, fy - 6, width, 2)
+  } else if (theme === 'dusk') {
+    // Sunset bands: pink up top, gold at the horizon.
+    ctx.fillStyle = DANGER_LIGHT
+    ctx.fillRect(0, 0, width, fy)
+    ctx.fillStyle = GOLD_LIGHT
+    ctx.fillRect(0, fy >> 1, width, fy - (fy >> 1))
+    ctx.fillStyle = GOLD_HOT
+    ctx.fillRect(0, fy - 6, width, 2)
+  } else {
+    ctx.fillStyle = NIGHT_1
+    ctx.fillRect(0, 0, width, fy)
+    // Fixed stars that twinkle in turn.
+    const tw = Math.floor(performance.now() / 400)
+    for (let k = 0; k < 14; k++) {
+      const sx = (k * 53 + 11) % width
+      const sy = (k * 29 + 5) % Math.max(1, fy - 10)
+      ctx.fillStyle = (k + tw) % 5 === 0 ? GOLD_LIGHT : WHITE_MID
+      ctx.fillRect(sx, sy, 1, 1)
+    }
+    ctx.fillStyle = NIGHT_3
+    ctx.fillRect(0, fy - 6, width, 2)
+  }
   ctx.fillStyle = MEADOW_HOT
   ctx.fillRect(0, fy - 2, width, 2)
   const panel = pyDock(at(PANEL_Y))
@@ -906,6 +960,12 @@ function paintBackdrop(ctx: CanvasRenderingContext2D): void {
   ctx.fillRect(0, fy, width, groundH)
   const rows = fieldExtra > 0 ? Math.ceil(fh / 12) + 2 : 28
   paintLanes(ctx, fx, fy, fw, fh, rows, frame.internalW)
+  // Dusk and night lay a sparse dither over the grass; units drawn after stay bright.
+  const shade = theme === 'dusk' ? dither(ctx, MEADOW_DARK, 4) : theme === 'night' ? dither(ctx, NIGHT, 2) : null
+  if (shade) {
+    ctx.fillStyle = shade
+    ctx.fillRect(0, fy, width, groundH)
+  }
   ctx.fillStyle = LINE
   ctx.fillRect(0, panel, width, 1)
 }
