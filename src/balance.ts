@@ -378,3 +378,12 @@ export const CHEER_CHARGE = 24
 /** ワンワン!!: for WANWAN_T seconds every shiba on the field attacks WANWAN_HASTE× as often, and each gets 15% of its health back. */
 export const WANWAN_T = 6
 export const WANWAN_HASTE = 1.8
+
+/** The boss howls every BOSS_HOWL_EVERY s (first one BOSS_HOWL_FIRST s after it walks out). From stage BOSS_CALL_FROM (index) the howl calls BOSS_CALL チワワ to its side; from BOSS_STUN_FROM it also freezes every shiba within BOSS_HOWL_R for BOSS_STUN s. */
+export const BOSS_HOWL_EVERY = 9
+export const BOSS_HOWL_FIRST = 5
+export const BOSS_CALL_FROM = 2
+export const BOSS_CALL = 3
+export const BOSS_STUN_FROM = 5
+export const BOSS_HOWL_R = 64
+export const BOSS_STUN = 1.5

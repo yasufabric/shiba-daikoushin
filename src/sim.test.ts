@@ -39,6 +39,8 @@ import {
   BREED_POODLE,
   COAT_UNLOCK,
   KIND_CHEER,
+  BOSS_HOWL_FIRST,
+  BOSS_STUN_FROM,
   WANWAN_T,
   HERO_REVIVE,
   HERO_HIT,
@@ -1021,5 +1023,26 @@ describe('soldiers', () => {
     const sim = createSim({ tutorial: false, seed: 7, free: true })
     strikeSpecial(sim, KIND_CHEER)
     expect(sim.wanT).toBe(WANWAN_T)
+  })
+
+  it('the boss howls: later stages call チワワ to its side and the last ones stun shibas near it', () => {
+    const sim = createSim({ tutorial: false, seed: 8, free: true, stage: BOSS_STUN_FROM })
+    for (const c of sim.cats) c.alive = false
+    for (const u of sim.shibas) u.alive = false
+    sim.aliveCats = 0
+    sim.aliveShibas = 0
+    sim.nextCat = 1e9
+    spawnCat(sim, 0, BREED_BOSS, { x: 97, y: 200 })
+    const boss = sim.cats.find((c) => c.alive)
+    Object.assign(boss ?? {}, { cd: BOSS_HOWL_FIRST, speed: 0, dps: 0, hp: 99999, maxHp: 99999 })
+    spawnShiba(sim, KIND_BLACK, 0, 0)
+    const shiba = sim.shibas.find((u) => u.alive)
+    Object.assign(shiba ?? {}, { x: 97, y: 240, speed: 0, dps: 0, hp: 9999, maxHp: 9999 })
+    const before = sim.cats.filter((c) => c.alive).length
+    for (let i = 0; i < (BOSS_HOWL_FIRST + 0.5) * 30; i++) step(sim, 1 / 30, NO_INPUT)
+    expect(sim.howlAt).toBeGreaterThan(0)
+    expect(sim.cats.filter((c) => c.alive && c.kind === BREED_CHIHUAHUA).length).toBeGreaterThan(0)
+    expect(sim.cats.filter((c) => c.alive).length).toBeGreaterThan(before)
+    expect((shiba?.stun ?? 0) > 0).toBe(true)
   })
 })

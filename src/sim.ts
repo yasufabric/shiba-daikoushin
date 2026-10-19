@@ -53,6 +53,13 @@ import {
   HP_TAN,
   KIND_BIG,
   KIND_CHEER,
+  BOSS_HOWL_EVERY,
+  BOSS_HOWL_FIRST,
+  BOSS_CALL_FROM,
+  BOSS_CALL,
+  BOSS_STUN_FROM,
+  BOSS_HOWL_R,
+  BOSS_STUN,
   HP_CHEER,
   DPS_CHEER,
   SPEED_CHEER,
@@ -320,6 +327,8 @@ export interface Sim {
   rushT: number
   /** ワンワン!! time left: every shiba attacks faster. */
   wanT: number
+  /** Match time of the boss's last howl (for the rings and the growl), -9 for none. */
+  howlAt: number
   /** ヒーロー柴: a steered shiba kept outside the pools. alive=false while it waits to come back (heroT seconds). */
   hero: Unit
   heroT: number
@@ -461,6 +470,7 @@ export function createSim(opts?: SimOptions): Sim {
     sfxStrike: -1,
     rushT: 0,
     wanT: 0,
+    howlAt: -9,
     hero: makePool(1)[0] as Unit,
     heroT: 0,
     heroOn: opts?.hero === true,
@@ -587,6 +597,20 @@ function spawnHero(sim: Sim): void {
   sim.heroSpinAt = -9
 }
 
+/** The boss howls: later stages call チワワ to its side, and the last ones freeze shibas near it. */
+function howl(sim: Sim, boss: Unit): void {
+  sim.howlAt = sim.time
+  if (sim.stage >= BOSS_CALL_FROM) {
+    for (let k = 0; k < BOSS_CALL; k++) spawnCat(sim, 0, BREED_CHIHUAHUA, { x: boss.x - 28 + k * 28, y: boss.y + 14 + (k & 1) * 8 })
+  }
+  if (sim.stage >= BOSS_STUN_FROM) {
+    for (const u of [...sim.shibas, sim.hero]) {
+      if (!u?.alive || u.hp <= 0) continue
+      if (Math.hypot(u.x - boss.x, u.y - boss.y) <= BOSS_HOWL_R) u.stun = BOSS_STUN
+    }
+  }
+}
+
 /** The hero walks to its tap (or the nearest dog it can see), and spins at everything within HERO_RADIUS. */
 function stepHero(sim: Sim, dt: number, beat: number): void {
   const h = sim.hero
@@ -597,6 +621,10 @@ function stepHero(sim: Sim, dt: number, beat: number): void {
       spawnHero(sim)
       h.alive = true
     }
+    return
+  }
+  if (h.stun > 0) {
+    h.stun -= beat
     return
   }
   const go = sim.heroGo
@@ -665,6 +693,7 @@ function boot(sim: Sim): void {
   sim.sfxStrike = -1
   sim.rushT = 0
   sim.wanT = 0
+  sim.howlAt = -9
   spawnHero(sim)
   sim.sfxSpecial = -1
   sim.seq = 0
@@ -772,6 +801,7 @@ function spawnBoss(sim: Sim): void {
     unit.maxHp = unit.hp
     unit.dps = BOSS_DPS
     unit.speed = BOSS_SPEED
+    unit.cd = BOSS_HOWL_FIRST
     unit.x = (FIELD_W / LANE_COUNT) * (lane + 0.5)
     sim.bossIndex = i
     return
@@ -1384,6 +1414,10 @@ function moveFree(sim: Sim, rawDt: number): void {
       }
       continue
     }
+    if (shiba.stun > 0) {
+      shiba.stun -= rawDt
+      continue
+    }
     const hbeat = beat * hasteOf(sim, shiba)
     if (shiba.kind === KIND_WHITE) {
       mendFree(sim, shiba, dt, hbeat)
@@ -1466,6 +1500,13 @@ function moveFree(sim: Sim, rawDt: number): void {
     if (dog.stun > 0) {
       dog.stun -= rawDt
       continue
+    }
+    if (dog.kind === BREED_BOSS) {
+      dog.cd -= beat
+      if (dog.cd <= 0) {
+        dog.cd = BOSS_HOWL_EVERY
+        howl(sim, dog)
+      }
     }
     let foe = nearestTaunt(sim.shibas, dog, FREE_SIGHT_DOG)
     if (sim.hero.alive) {
