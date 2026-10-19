@@ -273,3 +273,6 @@ Play-test asked for high-quality 2D in the HD-2D manner. The pixel art is unchan
 - Shiba faces are back to the original smiling ones (the "brave" brows looked creepy); rivals keep their normal eyes and bandana.
 - Only 赤柴 starts. Each stage cleared unlocks the next coat (`COAT_UNLOCK` = [-1, 0, 1, 2, 3, 4, 5]). A deck holds `deckSize(sim)` coats: `DECK_SIZE`, or fewer while fewer are unlocked; `fillDeck` tops it up (on load and when a clear unlocks a coat), and the dock shows locked empty slots.
 - The title has a レベルリセット button under the stage tiles (`resetTarget`, `paintReset`): one tap arms it (red, もう一回タップ), a second within 3 s sends `Input.resetLevels`, which puts every level back to 1 and XP to 0. Stars, unlocks, deck and ホネ stay.
+
+## Play-test round 4
+- Kennels were too big: the rival kennel is 48×40 (was 64×52) and the 柴の家 42×35 (was 56×46), so the field reads as the stage.
