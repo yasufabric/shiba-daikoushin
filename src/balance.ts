@@ -295,6 +295,24 @@ export const STAGES: readonly StageSpec[] = [
       { x: 48, y: 350, r: 10 },
       { x: 146, y: 350, r: 10 },
     ] },
+  { count: 160, hp: 2.15, dps: 1.7, dachsEvery: 3, poodleEvery: 4, goldenEvery: 6, bulldogEvery: 5, rocks: [
+      { x: 40, y: 220, r: 22, pond: true },
+      { x: 154, y: 220, r: 22, pond: true },
+      { x: 97, y: 320, r: 12 },
+    ] },
+  { count: 170, hp: 2.45, dps: 1.85, dachsEvery: 3, poodleEvery: 3, goldenEvery: 5, bulldogEvery: 4, rocks: [
+      { x: 30, y: 170, r: 10 },
+      { x: 70, y: 260, r: 10 },
+      { x: 124, y: 260, r: 10 },
+      { x: 164, y: 170, r: 10 },
+      { x: 97, y: 360, r: 16, pond: true },
+    ] },
+  { count: 190, hp: 2.8, dps: 2, dachsEvery: 3, poodleEvery: 3, goldenEvery: 4, bulldogEvery: 4, rocks: [
+      { x: 97, y: 200, r: 30, pond: true },
+      { x: 30, y: 300, r: 18, pond: true },
+      { x: 164, y: 300, r: 18, pond: true },
+      { x: 97, y: 370, r: 10 },
+    ] },
 ]
 /** Home HP left (share of full) for 3 and 2 stars at a win; any win is at least 1. */
 export const STAR3_AT = 0.7
