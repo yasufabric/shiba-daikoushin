@@ -16,6 +16,9 @@ import {
   HERO_RADIUS,
   HERO_REVIVE,
   HERO_TAP_Y,
+  HERO_SKILL_R,
+  HERO_SKILL_HIT,
+  HERO_SKILL_CD,
   HOME_REACH,
   BREED_BULLDOG,
   BREED_DACHS,
@@ -228,6 +231,8 @@ export interface Input {
   recall?: { x: number; y: number }
   /** Free placement: send the ヒーロー柴 to this field-local point. */
   hero?: { x: number; y: number }
+  /** Free placement: fire the ヒーロー柴's big spin. */
+  heroSkill?: boolean
   /** Pick this card for the next field tap (-1 or left out for no change). */
   pick?: number
   /** 波を早く呼ぶ: send the next wave now for bonus ホネ. */
@@ -341,6 +346,9 @@ export interface Sim {
   heroGo: { x: number; y: number } | null
   /** Match time of its last spin, for the renderer. */
   heroSpinAt: number
+  /** Seconds until the big spin is ready again; match time it last fired. */
+  heroSkillT: number
+  heroSkillAt: number
   /** Coat whose special just fired this step, or -1. */
   sfxSpecial: number
   seq: number
@@ -479,6 +487,8 @@ export function createSim(opts?: SimOptions): Sim {
     heroUsed: false,
     heroGo: null,
     heroSpinAt: -9,
+    heroSkillT: 0,
+    heroSkillAt: -9,
     sfxSpecial: -1,
     seq: 0,
     horde: 0,
@@ -597,6 +607,20 @@ function spawnHero(sim: Sim): void {
   sim.heroT = 0
   sim.heroGo = null
   sim.heroSpinAt = -9
+  sim.heroSkillT = 0
+  sim.heroSkillAt = -9
+}
+
+/** The hero's big spin: every dog within HERO_SKILL_R takes HERO_SKILL_HIT. */
+function heroSkill(sim: Sim): void {
+  const h = sim.hero
+  sim.heroSkillT = HERO_SKILL_CD
+  sim.heroSkillAt = sim.time
+  sim.heroUsed = true
+  for (const dog of sim.cats) {
+    if (!dog?.alive || dog.fly === 1 || dog.hp <= 0) continue
+    if (Math.hypot(dog.x - h.x, dog.y - h.y) <= HERO_SKILL_R) dog.hp -= HERO_SKILL_HIT * (dog.kind === BREED_BOSS ? 1 : spec(sim).hp)
+  }
 }
 
 /** The boss howls: later stages call チワワ to its side, and the last ones freeze shibas near it. */
@@ -625,6 +649,7 @@ function stepHero(sim: Sim, dt: number, beat: number): void {
     }
     return
   }
+  if (sim.heroSkillT > 0) sim.heroSkillT -= beat
   if (h.stun > 0) {
     h.stun -= beat
     return
@@ -854,6 +879,7 @@ export function step(sim: Sim, dt: number, input: Input = NO_INPUT): void {
   }
 
   if (input.pick !== undefined && input.pick >= 0 && input.pick < KINDS && (!sim.free || sim.deck.includes(input.pick))) sim.picked = input.pick
+  if (input.heroSkill && sim.free && sim.hero.alive && sim.heroSkillT <= 0 && sim.hero.stun <= 0) heroSkill(sim)
   if (input.hero && sim.free && sim.hero.alive) sim.heroUsed = true
   if (input.hero && sim.free && sim.hero.alive) sim.heroGo = { x: Math.max(10, Math.min(FIELD_W - 10, input.hero.x)), y: Math.max(20, Math.min(HERO_TAP_Y, input.hero.y)) }
   if (input.recall && sim.free) recallAt(sim, input.recall.x, input.recall.y)

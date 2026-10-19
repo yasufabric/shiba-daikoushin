@@ -18,6 +18,8 @@ import {
   RECALL_LIFT,
   RECALL_TAP,
   HERO_TAP_Y,
+  HERO_TAP_R,
+  HERO_TAP_LIFT,
 } from './balance'
 import { createSim, dogsLeft, fillMarch, spawnCat, spawnShiba, NO_INPUT, step, type Input, type Outcome } from './sim'
 import { createRenderer, draw, muteTarget, pauseButtonTarget, pauseTarget, speedTarget, screenToWorld, shopTarget, titleTarget, type ScreenInsets } from './render'
@@ -142,6 +144,7 @@ interface ShibaDev {
   place: (side: 's' | 'c', kind: number, x: number, y: number) => void
   snapshot: () => {
     time: number
+    hero: { x: number; y: number; skillT: number; skillAt: number }
     shibas: number
     cats: number
     bones: number
@@ -196,6 +199,7 @@ if (devOn) {
     snapshot() {
       return {
         time: sim.time,
+        hero: { x: sim.hero.x, y: sim.hero.y, skillT: sim.heroSkillT, skillAt: sim.heroSkillAt },
         shibas: sim.aliveShibas,
         cats: sim.aliveCats,
         bones: sim.bones,
@@ -342,6 +346,10 @@ canvas.addEventListener('pointerdown', (ev) => {
     }
     if (p.y < FIELD_Y || p.y > FIELD_Y + FIELD_H || p.x < FIELD_X || p.x > FIELD_X + FIELD_W) return
     const local = { x: p.x - FIELD_X, y: p.y - FIELD_Y }
+    if (sim.hero.alive && Math.hypot(sim.hero.x - local.x, sim.hero.y - HERO_TAP_LIFT - local.y) < HERO_TAP_R) {
+      input.heroSkill = true
+      return
+    }
     if (shibaAt(local.x, local.y)) {
       input.recall = local
       return
@@ -397,6 +405,11 @@ function battleSounds(): void {
   if (sim.kills > soundKills) synth.pop()
   soundKills = sim.kills
   if (sim.callT > soundCallT) synth.call()
+  if (sim.heroSkillAt > soundMark && sim.heroSkillAt <= sim.time) {
+    synth.strike(1)
+    renderer.shakeUntil = sim.time + 0.3
+    renderer.hitstop = 0.05
+  }
   if (sim.howlAt > soundMark && sim.howlAt <= sim.time) {
     synth.hit(5)
     renderer.shakeUntil = sim.time + 0.3
@@ -461,6 +474,7 @@ function advance(dt: number): void {
   input.toggleDeck = undefined
   input.pickStage = undefined
   input.quit = undefined
+  input.heroSkill = undefined
   input.home = undefined
   if (sim.saveSeq !== savedSeq) {
     savedSeq = sim.saveSeq

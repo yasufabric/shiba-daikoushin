@@ -41,6 +41,8 @@ import {
   KIND_BIG,
   KIND_CHEER,
   CHEER_RADIUS,
+  HERO_SKILL_R,
+  HERO_SKILL_CD,
   BOSS_HOWL_R,
   KIND_DISC,
   KIND_SESAME,
@@ -1392,6 +1394,30 @@ function paintHero(ctx: CanvasRenderingContext2D, renderer: Renderer, sim: Sim):
   blitCrowd(ctx, renderer, FUR_RED, poseOf(moved, fighting), sim.time, 0, 0, false, dx, dy)
   drawCrown(ctx, cx, dy - 6, GOLD, GOLD_LIGHT)
   if (h.stun > 0) drawDizzy(ctx, cx, dy - 9, sim.time)
+  // The big spin's charge: a ring of dots under it fills as it recharges; when full it blinks gold.
+  {
+    const ready = sim.heroSkillT <= 0
+    const share = ready ? 1 : 1 - sim.heroSkillT / HERO_SKILL_CD
+    const n = 16
+    const lit = Math.floor(share * n)
+    const ry = dy + CROWD_PX - 1
+    for (let k = 0; k < n; k++) {
+      const a = (k / n) * Math.PI * 2 - Math.PI / 2
+      const on = k < lit
+      ctx.fillStyle = ready ? ((Math.floor(sim.time * 6) + k) % 4 === 0 ? WHITE : GOLD_LIGHT) : on ? GOLD : NIGHT_2
+      ctx.fillRect(cx + Math.round(Math.cos(a) * 13), ry + Math.round(Math.sin(a) * 5), 2, 1)
+    }
+  }
+  const skillAge = sim.time - sim.heroSkillAt
+  if (skillAge >= 0 && skillAge < 0.6) {
+    const r = Math.round(at(HERO_SKILL_R) * Math.min(1, skillAge / 0.3))
+    const my = dy + (CROWD_PX >> 1)
+    for (let k = 0; k < 36; k++) {
+      const a = (k / 36) * Math.PI * 2 + skillAge * 10
+      ctx.fillStyle = k % 3 === 0 ? WHITE : GOLD_LIGHT
+      ctx.fillRect(Math.round(cx + Math.cos(a) * r), Math.round(my + Math.sin(a) * r * 0.6), 3, 2)
+    }
+  }
   if (fighting) {
     const age = sim.time - sim.heroSpinAt
     const r = 10 + Math.floor(age * 36)

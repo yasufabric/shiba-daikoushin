@@ -387,3 +387,11 @@ export const BOSS_CALL = 3
 export const BOSS_STUN_FROM = 5
 export const BOSS_HOWL_R = 64
 export const BOSS_STUN = 1.5
+
+/** ヒーロー柴's own move (tap the hero): a big spin that hits every dog within HERO_SKILL_R for HERO_SKILL_HIT, then HERO_SKILL_CD s to recharge. Taps within HERO_TAP_R of it count. */
+export const HERO_SKILL_R = 62
+export const HERO_SKILL_HIT = 90
+export const HERO_SKILL_CD = 14
+export const HERO_TAP_R = 28
+/** The hero is aimed at a little above its feet, where the sprite is. */
+export const HERO_TAP_LIFT = 28

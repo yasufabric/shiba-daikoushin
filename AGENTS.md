@@ -214,3 +214,4 @@ A ❚❚ button sits left of 2× in the dock's top row (`pauseButtonTarget`). Wh
 
 ## Stage themes
 `themeOf`: stages 1-3 day, 4-6 dusk (pink/gold sky bands), 7-8 night (NIGHT_1 sky with twinkling stars). Dusk and night shade the grass with a palette dither (`dither(ctx, color, step)`, a cached 2×2/4×4 `CanvasPattern`) drawn right after the lanes, so units, rocks and effects on top stay bright. The pause overlay uses the same pattern instead of per-pixel rects.
+Tapping the hero itself (within `HERO_TAP_R` of a point `HERO_TAP_LIFT` above its feet, checked before recall and move) sends `Input.heroSkill`: a big spin for `HERO_SKILL_HIT` (scaled by the stage's dog hp, not on the boss) to every dog within `HERO_SKILL_R`, then `HERO_SKILL_CD` s to recharge (`sim.heroSkillT`). A ring of dots under the hero fills as it recharges and blinks when ready. `__shiba.snapshot().hero` reports its position and skill timers.
