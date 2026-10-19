@@ -215,6 +215,8 @@ import {
   DEFAULT_DECK,
   RUSH_TIME,
   SPECIAL_NEED,
+  SPECIAL_GAP,
+  PEROPERO_HEAL,
   SPEED_SESAME,
   STEP_SESAME,
 } from './balance'
@@ -388,6 +390,8 @@ export interface Sim {
   rushT: number
   /** ワンワン!! time left: every shiba attacks faster. */
   wanT: number
+  /** Seconds before another special may fire (SPECIAL_GAP after each one lands), so specials never chain. */
+  spGapT: number
   /** おやつ砲 charge in seconds (full at CANNON_CHARGE), and when it last fired. */
   cannonT: number
   cannonAt: number
@@ -554,6 +558,7 @@ export function createSim(opts?: SimOptions): Sim {
     sfxStrike: -1,
     rushT: 0,
     wanT: 0,
+    spGapT: 0,
     cannonT: 0,
     cannonAt: -9,
     howlAt: -9,
@@ -893,6 +898,7 @@ function boot(sim: Sim): void {
   sim.sfxStrike = -1
   sim.rushT = 0
   sim.wanT = 0
+  sim.spGapT = 0
   sim.cannonT = 0
   sim.cannonAt = -9
   sim.howlAt = -9
@@ -1104,6 +1110,7 @@ export function step(sim: Sim, dt: number, input: Input = NO_INPUT): void {
   reap(sim)
   if (sim.rushT > 0) sim.rushT -= tick
   if (sim.wanT > 0) sim.wanT -= tick
+  if (sim.spGapT > 0) sim.spGapT -= tick
   if (sim.free && CANNON_ENABLED && sim.cannonT < CANNON_CHARGE) sim.cannonT = Math.min(CANNON_CHARGE, sim.cannonT + tick)
   if (sim.fxT > 0) {
     sim.fxT -= tick
@@ -1118,7 +1125,7 @@ export function step(sim: Sim, dt: number, input: Input = NO_INPUT): void {
       reap(sim)
     }
   }
-  if (sim.cutT <= 0 && sim.fxT <= 0) {
+  if (sim.cutT <= 0 && sim.fxT <= 0 && sim.spGapT <= 0) {
     for (let kind = 0; kind < KINDS; kind++) {
       if ((sim.charge[kind] ?? 0) < (SPECIAL_NEED[kind] ?? Infinity)) continue
       fireSpecial(sim, kind)
@@ -2005,6 +2012,7 @@ export function strikeSpecial(sim: Sim, kind: number): void {
   if (kind < 0) return
   sim.fxKind = kind
   sim.fxT = FX_TIME
+  sim.spGapT = SPECIAL_GAP
   sim.fxId += 1
   sim.sfxStrike = kind
   sim.fxHits = []
@@ -2046,7 +2054,7 @@ export function strikeSpecial(sim: Sim, kind: number): void {
       const unit = sim.shibas[i]
       if (!unit?.alive || unit.hp <= 0) continue
       // ペロペロ!!: half of each shiba's health back (in free placement; ?lanes keeps the full heal).
-      const gain = sim.free ? Math.min(unit.maxHp * 0.5, unit.maxHp - unit.hp) : unit.maxHp - unit.hp
+      const gain = sim.free ? Math.min(unit.maxHp * PEROPERO_HEAL, unit.maxHp - unit.hp) : unit.maxHp - unit.hp
       note(unit, Math.round(gain), true)
       unit.hp += gain
       unit.mendAt = sim.time

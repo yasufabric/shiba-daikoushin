@@ -113,12 +113,16 @@ export const HEAVY_EVERY = 2.3
 export const HEAVY_HIT = 180
 
 /** Specials fire on their own once a coat has dealt this much damage (白: healed this much). Order: 赤, 黒, 胡麻, 白. */
-export const SPECIAL_NEED = [1400, 1100, 1900, 1250, 1700, 1400, 850] as const
+export const SPECIAL_NEED = [1750, 1400, 2400, 1600, 2100, 1750, 1100] as const
+/** After a special lands, no other special fires for this many seconds (play-test round 4: specials still too strong, they chained). */
+export const SPECIAL_GAP = 7
+/** ペロペロ!! in free placement gives back this share of each shiba's health. */
+export const PEROPERO_HEAL = 0.35
 export const CUT_TIME = 1.1
 /** After the cut-in the special strikes; its field effect plays for this long. */
 export const FX_TIME = 0.9
 /** 赤「サツマイモ!!」: every 赤 charges at double pace and double bite. */
-export const RUSH_TIME = 2.5
+export const RUSH_TIME = 2
 /** 黒「ジャーキー!!」: the front three dogs of every lane, the boss included. */
 export const JERKY_HIT = 80
 export const JERKY_DEPTH = 3
@@ -130,9 +134,9 @@ export const CHEESE_PUSH = 60
 /** Free placement 胡麻「チーズ!!」is crowd control: light damage, a big shove, and every dog but the boss freezes. */
 export const CHEESE_FREE_HIT = 6
 export const CHEESE_FREE_PUSH = 50
-export const CHEESE_STUN = 1.2
+export const CHEESE_STUN = 0.8
 /** Free placement 黒「ジャーキー!!」is a few heavy single hits on the dogs nearest the 柴の家 (per FREE_DOG_HP). */
-export const JERKY_FREE_HIT = 160
+export const JERKY_FREE_HIT = 130
 
 export const VIEW_W = 390
 export const VIEW_H = 844
@@ -344,7 +348,7 @@ export const DISC_RANGE = 190
 /** Half-width of the disc's path. */
 export const DISC_WIDTH = 13
 /** ぶち「ボーロ!!」: a sweep across the whole row of the most advanced dog. */
-export const BORO_HIT = 90
+export const BORO_HIT = 70
 export const BORO_BAND = 34
 
 /** どっしり柴: slow and sturdy; every beat it stomps everything within reach of its own paws. */
@@ -355,9 +359,9 @@ export const BIG_EVERY = 2.2
 export const BIG_HIT = 52
 export const BIG_RADIUS = 44
 /** どっしり「ミルク!!」: a heavy pound on the thickest knot of dogs, stunning them. */
-export const MILK_HIT = 95
+export const MILK_HIT = 75
 export const MILK_RADIUS = 72
-export const MILK_STUN = 1.5
+export const MILK_STUN = 1
 
 /** ヒーロー柴: one extra shiba the player steers. Tap the field above the deploy strip and it walks there, spinning at every dog in reach; when it falls it comes back at the 柴の家 after HERO_REVIVE seconds. */
 export const HERO_HP = 320
@@ -380,7 +384,7 @@ export const CHEER_RADIUS = 58
 export const CHEER_HASTE = 1.4
 export const CHEER_CHARGE = 24
 /** ワンワン!!: for WANWAN_T seconds every shiba on the field attacks WANWAN_HASTE× as often, and each gets 15% of its health back. */
-export const WANWAN_T = 4
+export const WANWAN_T = 3
 export const WANWAN_HASTE = 1.5
 
 /** The boss howls every BOSS_HOWL_EVERY s (first one BOSS_HOWL_FIRST s after it walks out). From stage BOSS_CALL_FROM (index) the howl calls BOSS_CALL チワワ to its side; from BOSS_STUN_FROM it also freezes every shiba within BOSS_HOWL_R for BOSS_STUN s. */
