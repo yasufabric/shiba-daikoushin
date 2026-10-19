@@ -310,6 +310,8 @@ export interface Sim {
   hero: Unit
   heroT: number
   heroOn: boolean
+  /** The player has steered the hero at least once (ever, via the save); until then the field shows a TAP! hint. */
+  heroUsed: boolean
   /** Where the last tap sent it; null when it holds. */
   heroGo: { x: number; y: number } | null
   /** Match time of its last spin, for the renderer. */
@@ -446,6 +448,7 @@ export function createSim(opts?: SimOptions): Sim {
     hero: makePool(1)[0] as Unit,
     heroT: 0,
     heroOn: opts?.hero === true,
+    heroUsed: false,
     heroGo: null,
     heroSpinAt: -9,
     sfxSpecial: -1,
@@ -788,6 +791,7 @@ export function step(sim: Sim, dt: number, input: Input = NO_INPUT): void {
   }
 
   if (input.pick !== undefined && input.pick >= 0 && input.pick < KINDS && (!sim.free || sim.deck.includes(input.pick))) sim.picked = input.pick
+  if (input.hero && sim.free && sim.hero.alive) sim.heroUsed = true
   if (input.hero && sim.free && sim.hero.alive) sim.heroGo = { x: Math.max(10, Math.min(FIELD_W - 10, input.hero.x)), y: Math.max(20, Math.min(HERO_TAP_Y, input.hero.y)) }
   if (input.recall && sim.free) recallAt(sim, input.recall.x, input.recall.y)
   if (input.callWave) callWave(sim)

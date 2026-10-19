@@ -68,7 +68,7 @@ import {
   MAX_SHIBAS,
   PANEL_Y,
 } from './balance'
-import { BANNER_POP, BANNER_REST, CLEAR_WORD, glyphBit, LEVEL_WORD, letterBit, LOSE_WORD, START_WORD, POP_COL, POP_ROW, RUMBLE_WORD, SELECT_WORD, SPECIAL_WORDS, STAGE_WORD, TITLE_WORD } from './font'
+import { BANNER_POP, BANNER_REST, CLEAR_WORD, glyphBit, LEVEL_WORD, letterBit, LOSE_WORD, START_WORD, POP_COL, POP_ROW, RUMBLE_WORD, SELECT_WORD, SPECIAL_WORDS, STAGE_WORD, TITLE_WORD, TAP_WORD } from './font'
 import {
   BOSS_H,
   BOSS_W,
@@ -1141,13 +1141,47 @@ function paintUnits(ctx: CanvasRenderingContext2D, renderer: Renderer, sim: Sim)
 }
 
 let heroSeenX = -1
+
+/** Crown, 11×8 with outline and three spikes; `top` is the tip row. */
+function drawCrown(ctx: CanvasRenderingContext2D, cx: number, top: number, fill: string, lit: string): void {
+  const rows = ['L....L....L', 'LL..LLL..LL', 'LfL.LfL.LfL', 'LffLLfLLffL', 'LfffffffffL', 'LfgfffffgfL', 'LfffffffffL', 'LLLLLLLLLLL']
+  for (let y = 0; y < rows.length; y++) {
+    const row = rows[y] ?? ''
+    for (let x = 0; x < row.length; x++) {
+      const ch = row[x]
+      if (ch === '.') continue
+      ctx.fillStyle = ch === 'L' ? LINE : ch === 'g' ? DANGER : y === 2 || y === 4 ? lit : fill
+      ctx.fillRect(cx - 5 + x, top + y, 1, 1)
+    }
+  }
+}
+
 let heroSeenY = -1
 
 /** ヒーロー柴: a red shiba with a gold crown and a gold ring under it, a spin ring when it swings, a marker where it is headed, and a bar of its own health. While it is down, a countdown tile where it fell. */
 function paintHero(ctx: CanvasRenderingContext2D, renderer: Renderer, sim: Sim): void {
   if (!sim.free) return
   const h = sim.hero
-  if (!h.alive) return
+  if (!sim.heroOn) return
+  if (!h.alive) {
+    // Down: a grey crown and the seconds left, where it will come back.
+    const cx = px(at(FIELD_X + FIELD_W / 2))
+    const cy = fpy(FREE_ZONE_Y - 24) - 14
+    drawCrown(ctx, cx, cy - 4, NIGHT_2, NIGHT_1)
+    drawNumber(ctx, renderer, Math.ceil(sim.heroT), cx - 4, cy + 2, false)
+    return
+  }
+  if (!sim.heroUsed && sim.outcome === 'play' && !sim.title) {
+    // First time: TAP! over the field above the strip, bobbing, with an arrow from the hero.
+    const tx = px(at(FIELD_X + h.x)) - 16
+    const ty = fpy(h.y) - CROWD_PX - 36 - (Math.floor(sim.time * 3) & 1) * 2
+    for (let i = 0; i < TAP_WORD.length; i++) drawLetter(ctx, TAP_WORD[i] ?? '', tx + i * 9, ty, 1, GOLD_LIGHT)
+    ctx.fillStyle = GOLD_LIGHT
+    const ax = px(at(FIELD_X + h.x))
+    ctx.fillRect(ax, ty + 12, 1, 8)
+    ctx.fillRect(ax - 1, ty + 13, 3, 1)
+    ctx.fillRect(ax - 2, ty + 14, 5, 1)
+  }
   const go = sim.heroGo
   if (go) {
     const gx = px(at(FIELD_X + go.x))
@@ -1173,18 +1207,7 @@ function paintHero(ctx: CanvasRenderingContext2D, renderer: Renderer, sim: Sim):
   ctx.fillStyle = NIGHT
   ctx.fillRect(dx + 3, dy + CROWD_PX - 1, CROWD_PX - 6, 2)
   blitCrowd(ctx, renderer, FUR_RED, poseOf(moved, fighting), sim.time, 0, 0, false, dx, dy)
-  // Crown, 7×4, outlined.
-  ctx.fillStyle = LINE
-  ctx.fillRect(cx - 4, dy - 5, 9, 1)
-  ctx.fillRect(cx - 4, dy - 4, 1, 4)
-  ctx.fillRect(cx + 4, dy - 4, 1, 4)
-  ctx.fillRect(cx - 4, dy - 1, 9, 1)
-  ctx.fillStyle = GOLD
-  ctx.fillRect(cx - 3, dy - 4, 7, 3)
-  ctx.fillStyle = GOLD_LIGHT
-  ctx.fillRect(cx - 3, dy - 4, 1, 1)
-  ctx.fillRect(cx, dy - 4, 1, 1)
-  ctx.fillRect(cx + 3, dy - 4, 1, 1)
+  drawCrown(ctx, cx, dy - 6, GOLD, GOLD_LIGHT)
   if (fighting) {
     const age = sim.time - sim.heroSpinAt
     const r = 10 + Math.floor(age * 36)
@@ -1195,7 +1218,7 @@ function paintHero(ctx: CanvasRenderingContext2D, renderer: Renderer, sim: Sim):
       ctx.fillRect(Math.round(cx + Math.cos(ang) * r), Math.round(my + Math.sin(ang) * r * 0.7), 2, 2)
     }
   }
-  if (h.hp < h.maxHp) drawHpBar(ctx, cx - 8, dy - 9, h.hp / h.maxHp, GOLD_DARK, GOLD, GOLD_LIGHT)
+  if (h.hp < h.maxHp) drawHpBar(ctx, cx - 8, dy - 11, h.hp / h.maxHp, GOLD_DARK, GOLD, GOLD_LIGHT)
 }
 
 function drawShiba(ctx: CanvasRenderingContext2D, renderer: Renderer, sim: Sim, index: number): void {
