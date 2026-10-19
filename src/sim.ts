@@ -161,6 +161,7 @@ import {
   FREE_SIGHT_DOG,
   FREE_SIGHT_SHIBA,
   FREE_SPACE,
+  FOE_SPACE,
   FREE_TURN,
   FREE_DOG_DPS,
   FREE_DOG_HP,
@@ -1678,7 +1679,7 @@ function spread(units: Unit[], dt: number): void {
       const d2 = dx * dx + dy * dy
       if (d2 >= FREE_SPACE * FREE_SPACE) continue
       const d = Math.sqrt(d2) || 0.01
-      const push = ((FREE_SPACE - d) / 2) * Math.min(1, dt * 8)
+      const push = ((FREE_SPACE - d) / 2) * Math.min(1, dt * 14)
       const nx = d2 > 0 ? dx / d : 1
       const ny = d2 > 0 ? dy / d : 0
       a.x -= nx * push
@@ -1692,6 +1693,29 @@ function spread(units: Unit[], dt: number): void {
     if (!u?.alive || u.fly === 1) continue
     u.x = Math.max(10, Math.min(FIELD_W - 10, u.x))
     u.y = Math.max(16, Math.min(FIELD_H - 4, u.y))
+  }
+}
+
+/** Keep shibas and dogs from standing on each other: each gives way by half the overlap. */
+function spreadFoes(sim: Sim, dt: number): void {
+  const k = Math.min(1, dt * 14)
+  for (const a of sim.shibas) {
+    if (!a?.alive || a.hp <= 0) continue
+    for (const b of sim.cats) {
+      if (!b?.alive || b.fly === 1 || b.hp <= 0) continue
+      const dx = b.x - a.x
+      const dy = b.y - a.y
+      const d2 = dx * dx + dy * dy
+      if (d2 >= FOE_SPACE * FOE_SPACE) continue
+      const d = Math.sqrt(d2) || 0.01
+      const push = ((FOE_SPACE - d) / 2) * k
+      const nx = d2 > 0 ? dx / d : 0
+      const ny = d2 > 0 ? dy / d : 1
+      a.x -= nx * push
+      a.y -= ny * push
+      b.x += nx * push
+      b.y += ny * push
+    }
   }
 }
 
@@ -1923,6 +1947,7 @@ function moveFree(sim: Sim, rawDt: number): void {
     sim.heroT = HERO_REVIVE
     sim.heroGo = null
   }
+  spreadFoes(sim, rawDt)
   spread(sim.shibas, rawDt)
   spread(sim.cats, rawDt)
   // Spreading must not shove anyone through a rock or a fence.
