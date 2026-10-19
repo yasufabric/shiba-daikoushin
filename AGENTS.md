@@ -276,3 +276,4 @@ Play-test asked for high-quality 2D in the HD-2D manner. The pixel art is unchan
 
 ## Play-test round 4
 - Kennels were too big: the rival kennel is 48×40 (was 64×52) and the 柴の家 42×35 (was 56×46), so the field reads as the stage.
+- Specials nerfed again: gauges ~1.25× longer, SPECIAL_GAP 7 s between specials so they never chain, and each effect trimmed (ダッシュ 2 s, ドリル 130, ペロペロ 35%, ブンブン 70, ドスン 75 / 1 s stun, トオボエ stun 0.8 s, ワンワン 3 s).
