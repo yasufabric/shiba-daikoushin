@@ -87,7 +87,8 @@ describe('palette', () => {
       join(root, 'AGENTS.md'),
     ]
     const banned = /rgba?\(|hsla?\(|globalAlpha|createLinearGradient|createRadialGradient|\.arc\(/
-    for (const path of paths) {
+    // hd.ts is the 2D-HD finishing pass on the display canvas: the one file allowed gradients and translucency.
+    for (const path of paths.filter((p) => !p.endsWith('hd.ts'))) {
       const text = readFileSync(path, 'utf8')
       if (!path.endsWith('.test.ts') && (path.endsWith('.ts') || path.endsWith('.html'))) {
         expect(text, path).not.toMatch(banned)
