@@ -172,7 +172,6 @@ import {
   HEAL_SEEK_SPAN,
   TAN_HASTE,
   TAN_BITE_EVERY,
-  FREE_RECHARGE,
   FREE_ZONE_Y,
   BITE_EVERY,
   RECHARGE,
@@ -241,6 +240,10 @@ import {
   SPEED_SESAME,
   STEP_SESAME,
   HUD_DROP,
+  RESPAWN,
+  RECALL_BACK,
+  SOLO,
+  SKILL_PASSIVE,
 } from './balance'
 
 export type Phase = 'grow' | 'clash'
@@ -348,8 +351,10 @@ export interface Sim {
   free: boolean
   /** The card a field tap will deploy. */
   picked: number
-  /** Seconds until each card can send another shiba; 0 when ready. */
+  /** Seconds until each card can send another shiba; 0 when ready. Free placement: the respawn wait after its shiba fell or was recalled. */
   recharge: number[]
+  /** The full length of each card's current wait, for the recharge dither (free placement respawns differ from RECHARGE). */
+  rechargeFull: number[]
   /** Coat levels, in card order. Kept across matches. */
   levels: number[]
   /** ホネ saved for levels. Kept across matches. */
@@ -601,6 +606,7 @@ export function createSim(opts?: SimOptions): Sim {
     free: opts?.free === true,
     picked: KIND_TAN,
     recharge: Array.from({ length: KINDS }, () => 0),
+    rechargeFull: Array.from({ length: KINDS }, () => 0),
     levels: Array.from({ length: KINDS + 1 }, (_, i) => Math.min(MAX_LEVEL, Math.max(1, Math.floor(opts?.levels?.[i] ?? 1)))),
     purse: Math.max(0, Math.floor(opts?.purse ?? 0)),
     earned: 0,
@@ -973,6 +979,7 @@ function boot(sim: Sim): void {
   sim.planCount = 0
   sim.deny.fill(0)
   sim.recharge.fill(0)
+  sim.rechargeFull.fill(0)
   sim.charge.fill(0)
   sim.cutKind = -1
   sim.cutT = 0
@@ -1022,9 +1029,9 @@ export function spawnShiba(sim: Sim, kind: number, lane: number, y: number): boo
   unit.alive = true
   unit.lane = lane
   unit.kind = k
-  unit.hp = Math.round((HP_OF[k] ?? HP_TAN) * power(sim, k))
+  unit.hp = Math.round((HP_OF[k] ?? HP_TAN) * unitPower(sim, k))
   unit.maxHp = unit.hp
-  unit.dps = (DPS_OF[k] ?? DPS_TAN) * power(sim, k)
+  unit.dps = (DPS_OF[k] ?? DPS_TAN) * unitPower(sim, k)
   unit.speed = SPEED_OF[k] ?? SPEED_TAN
   unit.fly = 0
   unit.cd = 0
@@ -1235,6 +1242,15 @@ export function step(sim: Sim, dt: number, input: Input = NO_INPUT): void {
     const left = sim.recharge[k] ?? 0
     if (left > 0) sim.recharge[k] = Math.max(0, left - tick)
   }
+  if (sim.free) {
+    // Skill gauges also fill slowly on their own while the coat's shiba is out, so a support coat gets its skill too.
+    for (const k of sim.deck) {
+      const need = SPECIAL_NEED[k] ?? Infinity
+      if ((sim.charge[k] ?? 0) >= need || !isOut(sim, k)) continue
+      sim.charge[k] = Math.min(need, (sim.charge[k] ?? 0) + (need / (SKILL_PASSIVE[k] ?? 40)) * tick)
+    }
+    if (isOut(sim, sim.picked)) advancePick(sim)
+  }
 
   if (sim.boss && sim.toSend <= 0 && sim.aliveCats <= 0) {
     sim.outcome = 'won'
@@ -1298,6 +1314,43 @@ export function levelCost(level: number): number {
 /** How much stronger a coat is for its level: 1 at level 1. */
 export function power(sim: Sim, kind: number): number {
   return 1 + LEVEL_STEP * ((sim.levels[kind] ?? 1) - 1)
+}
+
+/** A unit's own strength: level power × SOLO in free placement (one shiba per coat fights alone). Scales hp and every per-hit number, not skills. */
+export function unitPower(sim: Sim, kind: number): number {
+  return power(sim, kind) * (sim.free ? (SOLO[kind] ?? 1) : 1)
+}
+
+/** Free placement: is a shiba of this coat on the field (walking home after a recall counts)? */
+export function isOut(sim: Sim, kind: number): boolean {
+  if (!sim.free) return false
+  for (const u of sim.shibas) if (u?.alive && u.kind === kind) return true
+  return false
+}
+
+/** Free placement: a coat's shiba left the field (fell, or walked in the door after a recall). Its card waits `wait` s, drawn with the recharge UI. */
+function leftField(sim: Sim, kind: number, wait: number): void {
+  if (!sim.free || kind < 0 || kind >= KINDS) return
+  sim.recharge[kind] = wait
+  sim.rechargeFull[kind] = wait
+}
+
+/** Free placement: keep the pick on a coat that can go out. After a deploy (or when the picked coat is out) it moves to the next deck coat after it that isn't out, preferring one that is ready now. */
+function advancePick(sim: Sim): void {
+  if (!sim.free || sim.deck.length === 0) return
+  const at = Math.max(0, sim.deck.indexOf(sim.picked))
+  const n = sim.deck.length
+  let fallback = -1
+  for (let i = 1; i <= n; i++) {
+    const k = sim.deck[(at + i) % n] ?? -1
+    if (k < 0 || isOut(sim, k)) continue
+    if ((sim.recharge[k] ?? 0) <= 0) {
+      sim.picked = k
+      return
+    }
+    if (fallback < 0) fallback = k
+  }
+  if (fallback >= 0) sim.picked = fallback
 }
 
 /** Every coat (and the hero slot) back to level 1 with no XP. Stars, unlocks, the deck and ホネ stay. */
@@ -1367,7 +1420,8 @@ function tryDeploy(sim: Sim, card: number, chosen?: number, at?: { x: number; y:
     return
   }
   if (sim.free) {
-    if (sim.aliveShibas >= FIELD_CAP) {
+    // 1種1匹: one shiba per coat on the field.
+    if (isOut(sim, card) || sim.aliveShibas >= FIELD_CAP) {
       deny(sim, card)
       return
     }
@@ -1400,7 +1454,10 @@ function tryDeploy(sim: Sim, card: number, chosen?: number, at?: { x: number; y:
     return
   }
   if (!sim.free) sim.bones -= cost
-  sim.recharge[card] = (RECHARGE[card] ?? 0) * (sim.free ? FREE_RECHARGE : 1)
+  // Free placement: no recharge after a deploy; the card shows 出撃中 until its shiba leaves, then waits out RESPAWN.
+  sim.recharge[card] = sim.free ? 0 : (RECHARGE[card] ?? 0)
+  sim.rechargeFull[card] = sim.recharge[card] ?? 0
+  if (sim.free) advancePick(sim)
   const step = sim.free ? 0 : (STEP_OF[card] ?? STEP_TAN)
   sim.tutorial = false
   if (card === KIND_TAN) {
@@ -1755,7 +1812,7 @@ function mendFree(sim: Sim, healer: Unit, dt: number, beat: number): void {
   healer.cd -= beat
   if (healer.cd > 0) return
   let mended = 0
-  const amount = HEAL_AMOUNT * power(sim, KIND_WHITE)
+  const amount = HEAL_AMOUNT * unitPower(sim, KIND_WHITE)
   for (const u of sim.shibas) {
     if (!u?.alive || u.hp <= 0 || u.hp >= u.maxHp) continue
     if (Math.hypot(u.x - healer.x, u.y - healer.y) > HEAL_RADIUS * (perk(sim, KIND_WHITE, PERK_A) ? PERK_WIDE : 1)) continue
@@ -1848,7 +1905,7 @@ function throwDisc(sim: Sim, shiba: Unit, foe: Unit): void {
   const len = Math.max(1, Math.hypot(dx, dy))
   const ux = dx / len
   const uy = dy / len
-  const hit = DISC_HIT * power(sim, KIND_DISC)
+  const hit = DISC_HIT * unitPower(sim, KIND_DISC)
   for (const dog of sim.cats) {
     if (!dog?.alive || dog.fly === 1 || dog.hp <= 0) continue
     const rx = dog.x - shiba.x
@@ -1919,6 +1976,7 @@ function moveFree(sim: Sim, rawDt: number): void {
       if (d <= FREE_HOME_REACH * 0.5) {
         shiba.alive = false
         sim.aliveShibas -= 1
+        leftField(sim, shiba.kind, RECALL_BACK)
       } else {
         stepToward(shiba, homeX, homeY, Math.min(d, shiba.speed * RECALL_PACE * dt))
       }
@@ -1957,7 +2015,7 @@ function moveFree(sim: Sim, rawDt: number): void {
       shiba.cd -= hbeat
       if (shiba.cd <= 0) {
         shiba.cd = HEAVY_EVERY
-        hurt(sim, foe, HEAVY_HIT * power(sim, KIND_BLACK), KIND_BLACK)
+        hurt(sim, foe, HEAVY_HIT * unitPower(sim, KIND_BLACK), KIND_BLACK)
         if (perk(sim, KIND_BLACK, PERK_A) && foe.kind !== BREED_BOSS) foe.y = Math.max(16, foe.y - PERK_BLACK_PUSH)
         shiba.aimX = foe.x
         shiba.aimY = foe.y
@@ -1973,7 +2031,7 @@ function moveFree(sim: Sim, rawDt: number): void {
       shiba.cd -= hbeat
       if (shiba.cd <= 0) {
         shiba.cd = BIG_EVERY
-        const hit = BIG_HIT * power(sim, KIND_BIG)
+        const hit = BIG_HIT * unitPower(sim, KIND_BIG)
         for (const dog of sim.cats) {
           if (!dog?.alive || dog.fly === 1 || dog.hp <= 0) continue
           if (Math.hypot(dog.x - shiba.x, dog.y - shiba.y) > BIG_RADIUS) continue
@@ -1988,7 +2046,7 @@ function moveFree(sim: Sim, rawDt: number): void {
       shiba.cd -= hbeat
       if (shiba.cd <= 0) {
         shiba.cd = BARK_EVERY
-        const hit = BARK_HIT * power(sim, KIND_SESAME)
+        const hit = BARK_HIT * unitPower(sim, KIND_SESAME)
         for (const dog of sim.cats) {
           if (!dog?.alive || dog.fly === 1 || dog.hp <= 0) continue
           if (Math.hypot(dog.x - foe.x, dog.y - foe.y) <= BARK_SPLASH * (perk(sim, KIND_SESAME, PERK_A) ? PERK_SPLASH : 1)) hurt(sim, dog, hit, KIND_SESAME, dog === foe)
@@ -2317,6 +2375,11 @@ function tapCard(sim: Sim, kind: number): void {
       return
     }
   }
+  // 1種1匹: a coat already out can't be picked to go out again.
+  if (sim.free && isOut(sim, kind)) {
+    deny(sim, kind)
+    return
+  }
   sim.picked = kind
 }
 
@@ -2466,6 +2529,7 @@ function reap(sim: Sim): void {
     if (!unit?.alive || unit.hp > 0) continue
     unit.alive = false
     sim.aliveShibas -= 1
+    leftField(sim, unit.kind, RESPAWN[unit.kind] ?? 10)
   }
   const cats = sim.cats
   for (let i = 0; i < cats.length; i++) {

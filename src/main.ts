@@ -158,6 +158,8 @@ interface ShibaDev {
   special: (kind: number) => void
   /** Drop a shiba or a rival dog right where you want it, for screenshots. */
   place: (side: 's' | 'c', kind: number, x: number, y: number) => void
+  /** Knock out the shiba of this coat (its card starts the respawn wait), for screenshots. */
+  kill: (kind: number) => void
   snapshot: () => {
     time: number
     hero: { x: number; y: number; skillT: number; skillAt: number }
@@ -215,6 +217,9 @@ if (devOn) {
     },
     special(kind: number) {
       sim.charge[kind] = SPECIAL_NEED[kind] ?? 0
+    },
+    kill(kind) {
+      for (const u of sim.shibas) if (u.alive && u.kind === kind) u.hp = 0
     },
     place(side, kind, x, y) {
       if (side === 's') {

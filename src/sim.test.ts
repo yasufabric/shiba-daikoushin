@@ -104,6 +104,10 @@ import {
   KIND_CHEER as KIND_FLAG,
   KIND_WHITE as KIND_LICK,
   BREED_CORGI as CORGI,
+  RESPAWN,
+  RECALL_BACK,
+  SOLO,
+  SKILL_PASSIVE,
 } from './balance'
 import {
   costOf,
@@ -130,6 +134,9 @@ import {
   casterOf,
   spec,
   waveAhead,
+  isOut,
+  unitPower,
+  power,
   type Input,
   type Unit,
   type Sim,
@@ -418,8 +425,7 @@ describe('free placement trial', () => {
     step(sim, 1 / 30, { card: KIND_TAN, at: { x: 60, y: 500 }, restart: false })
     const placed = sim.shibas.filter((u) => u.alive && Math.abs(u.x - 60) < 12 && Math.abs(u.y - 500) < 12)
     expect(placed.length).toBe(1)
-    sim.recharge.fill(0)
-    step(sim, 1 / 30, { card: KIND_TAN, at: { x: 300, y: 40 }, restart: false })
+    step(sim, 1 / 30, { card: KIND_BLACK, at: { x: 300, y: 40 }, restart: false })
     const pulled = sim.shibas.find((u) => u.alive && Math.abs(u.x - 300) < 12)
     expect(pulled?.y ?? 0).toBeGreaterThanOrEqual(FREE_ZONE_Y - 2)
   })
@@ -433,6 +439,7 @@ describe('free placement trial', () => {
     if (!dog) return
     dog.x = 80
     dog.y = 400
+    dog.hp = dog.maxHp = 99999
     play(sim, 1, () => NO_INPUT)
     expect(dog.y).toBeGreaterThan(400)
     sim.bones = 500
@@ -546,8 +553,8 @@ describe('free placement roles', () => {
   it('has 胡麻 mend every hurt shiba inside its ring at once and none outside', () => {
     const sim = emptyField()
     const near = drop(sim, KIND_TAN, 150, 450)
-    const near2 = drop(sim, KIND_TAN, 210, 450)
-    const far = drop(sim, KIND_TAN, 40, 600)
+    const near2 = drop(sim, KIND_BLACK, 210, 450)
+    const far = drop(sim, KIND_SESAME, 40, 600)
     for (const u of [near, near2, far]) {
       u.speed = 0
       u.hp = 10
@@ -564,7 +571,7 @@ describe('free placement roles', () => {
   it('has 胡麻 walk to a hurt shiba outside its ring, passing a healthy one, and mend it', () => {
     const sim = emptyField()
     const fine = drop(sim, KIND_TAN, 120, 460)
-    const hurt = drop(sim, KIND_TAN, 300, 600)
+    const hurt = drop(sim, KIND_BLACK, 300, 600)
     for (const u of [fine, hurt]) u.speed = 0
     hurt.hp = 10
     const healer = drop(sim, KIND_WHITE, 120, 480)
@@ -1290,7 +1297,11 @@ describe('balance curve (free placement)', () => {
     spawnShiba(sim, KIND_TAN, 0, 0)
     const tan = sim.shibas.find((u) => u.alive)
     Object.assign(tan ?? {}, { x: 100, y: 300, speed: 0, hp: 1e6, maxHp: 1e6, dps: 0 })
-    for (let i = 0; i < CROWD_CAP; i++) spawnCat(sim, 0, BREED_CORGI, { x: 100 + (i - 0.5) * 30, y: 270 })
+    // Ring it from above, in bite reach.
+    for (let i = 0; i < CROWD_CAP; i++) {
+      const a = Math.PI * (0.15 + (0.7 * i) / Math.max(1, CROWD_CAP - 1))
+      spawnCat(sim, 0, BREED_CORGI, { x: 100 - Math.cos(a) * 26, y: 300 - Math.sin(a) * 26 })
+    }
     spawnCat(sim, 0, BREED_CORGI, { x: 100, y: 220 })
     const late = sim.cats.filter((c) => c.alive).at(-1)
     play(sim, 0.5, () => NO_INPUT)
@@ -1363,12 +1374,12 @@ describe('skills (free placement)', () => {
     step(sim, 1 / 30, { ...NO_INPUT, pick: KIND_TAN })
     expect(sim.castId).toBe(1)
     expect(sim.casts[0]?.kind).toBe(KIND_TAN)
-    expect(sim.charge[KIND_TAN]).toBe(0)
+    expect(sim.charge[KIND_TAN]).toBeLessThan(SPECIAL_NEED[KIND_TAN] / 100)
     expect(sim.sfxStrike).toBe(KIND_TAN)
     expect(sim.picked).toBe(KIND_BLACK)
     // A card that is not full just picks.
-    step(sim, 1 / 30, { ...NO_INPUT, pick: KIND_TAN })
-    expect(sim.picked).toBe(KIND_TAN)
+    step(sim, 1 / 30, { ...NO_INPUT, pick: KIND_SESAME })
+    expect(sim.picked).toBe(KIND_SESAME)
     expect(sim.castId).toBe(1)
   })
 
@@ -1518,7 +1529,7 @@ describe('ui polish (free placement)', () => {
     const sim = createSim({ tutorial: false, seed: 5, free: true, best: [3, 3, 3, 3, 3, 3, 3, 3] })
     sim.deck = [KIND_TAN, KIND_DISC, KIND_BIG, KIND_CHEER]
     step(sim, 1 / 30, { card: KIND_DISC, at: { x: 180, y: 520 }, restart: false })
-    expect(sim.recharge[KIND_DISC]).toBeGreaterThan(0)
+    expect(isOut(sim, KIND_DISC)).toBe(true)
     expect(sim.deny[KIND_DISC]).toBe(0)
     step(sim, 1 / 30, { card: KIND_DISC, at: { x: 120, y: 520 }, restart: false })
     expect(sim.deny[KIND_DISC]).toBeGreaterThan(0)
@@ -1564,5 +1575,118 @@ describe('ui polish (free placement)', () => {
     expect(boss).toBe(true)
     expect(sim.boss).toBe(true)
     expect(waveAhead(sim)).toBe(null)
+  })
+})
+
+describe('squad: one shiba per coat (free placement)', () => {
+  function squad(): Sim {
+    const sim = createSim({ tutorial: false, seed: 4, free: true, best: STAGES.map(() => 1) })
+    sim.deck = [KIND_TAN, KIND_BLACK, KIND_SESAME, KIND_WHITE]
+    for (const u of [...sim.shibas, ...sim.cats]) u.alive = false
+    sim.aliveShibas = 0
+    sim.aliveCats = 0
+    sim.nextCat = 1e9
+    sim.walls = []
+    sim.picked = KIND_TAN
+    return sim
+  }
+  const count = (sim: Sim, kind: number): number => sim.shibas.filter((u) => u.alive && u.kind === kind).length
+
+  it('denies a second deploy or a pick of a coat already out, with the card shake', () => {
+    const sim = squad()
+    step(sim, 1 / 30, { card: KIND_TAN, at: { x: 100, y: 500 }, restart: false })
+    expect(count(sim, KIND_TAN)).toBe(1)
+    expect(isOut(sim, KIND_TAN)).toBe(true)
+    expect(sim.deny[KIND_TAN] ?? 0).toBe(0)
+    step(sim, 1 / 30, { card: KIND_TAN, at: { x: 250, y: 500 }, restart: false })
+    expect(count(sim, KIND_TAN)).toBe(1)
+    expect(sim.deny[KIND_TAN] ?? 0).toBeGreaterThan(0)
+    play(sim, 0.5, () => NO_INPUT)
+    step(sim, 1 / 30, { ...NO_INPUT, pick: KIND_TAN })
+    expect(sim.picked).not.toBe(KIND_TAN)
+    expect(sim.deny[KIND_TAN] ?? 0).toBeGreaterThan(0)
+  })
+
+  it('moves the pick to the next coat in the deck that is not out after a deploy', () => {
+    const sim = squad()
+    step(sim, 1 / 30, { card: KIND_TAN, at: { x: 100, y: 500 }, restart: false })
+    expect(sim.picked).toBe(KIND_BLACK)
+    step(sim, 1 / 30, { card: sim.picked, at: { x: 200, y: 500 }, restart: false })
+    expect(sim.picked).toBe(KIND_SESAME)
+    // 白 waits out a respawn: the pick prefers a coat that is ready, wrapping round past the ones out.
+    sim.picked = KIND_SESAME
+    sim.recharge[KIND_WHITE] = 5
+    step(sim, 1 / 30, { card: KIND_SESAME, at: { x: 300, y: 560 }, restart: false })
+    expect(sim.picked).toBe(KIND_WHITE)
+    sim.recharge[KIND_WHITE] = 0
+    step(sim, 1 / 30, { card: KIND_WHITE, at: { x: 150, y: 600 }, restart: false })
+    expect(sim.deck.every((k) => isOut(sim, k))).toBe(true)
+    expect(sim.aliveShibas).toBe(4)
+  })
+
+  it('makes a fallen coat wait out its respawn, shown as a recharge', () => {
+    const sim = squad()
+    step(sim, 1 / 30, { card: KIND_BLACK, at: { x: 100, y: 500 }, restart: false })
+    const u = sim.shibas.find((v) => v.alive && v.kind === KIND_BLACK) as Unit
+    u.hp = 0
+    step(sim, 1 / 30, NO_INPUT)
+    expect(isOut(sim, KIND_BLACK)).toBe(false)
+    const wait = RESPAWN[KIND_BLACK]
+    expect(sim.recharge[KIND_BLACK]).toBeGreaterThan(wait - 0.1)
+    expect(sim.rechargeFull[KIND_BLACK]).toBe(wait)
+    play(sim, wait - 1, () => NO_INPUT)
+    step(sim, 1 / 30, { card: KIND_BLACK, at: { x: 100, y: 500 }, restart: false })
+    expect(count(sim, KIND_BLACK)).toBe(0)
+    expect(sim.deny[KIND_BLACK] ?? 0).toBeGreaterThan(0)
+    play(sim, 1.1, () => NO_INPUT)
+    expect(sim.recharge[KIND_BLACK]).toBe(0)
+    step(sim, 1 / 30, { card: KIND_BLACK, at: { x: 100, y: 500 }, restart: false })
+    expect(count(sim, KIND_BLACK)).toBe(1)
+  })
+
+  it('brings a recalled shiba back after RECALL_BACK, far sooner than a respawn', () => {
+    const sim = squad()
+    step(sim, 1 / 30, { card: KIND_TAN, at: { x: 195, y: 760 }, restart: false })
+    const u = sim.shibas.find((v) => v.alive && v.kind === KIND_TAN) as Unit
+    step(sim, 1 / 30, { ...NO_INPUT, recall: { x: u.x, y: u.y - 12 } })
+    expect(u.recall).toBe(true)
+    let t = 0
+    while (isOut(sim, KIND_TAN) && t < 10) {
+      step(sim, 1 / 30, NO_INPUT)
+      t += 1 / 30
+    }
+    expect(isOut(sim, KIND_TAN)).toBe(false)
+    expect(sim.recharge[KIND_TAN]).toBeLessThanOrEqual(RECALL_BACK)
+    expect(RECALL_BACK).toBeLessThan(RESPAWN[KIND_TAN] / 2)
+    play(sim, RECALL_BACK + 0.05, () => NO_INPUT)
+    step(sim, 1 / 30, { card: KIND_TAN, at: { x: 100, y: 500 }, restart: false })
+    expect(count(sim, KIND_TAN)).toBe(1)
+  })
+
+  it('fills a skill gauge slowly on its own while the coat is out, and keeps it through a respawn', () => {
+    const sim = squad()
+    play(sim, 3, () => NO_INPUT)
+    expect(sim.charge[KIND_WHITE]).toBe(0)
+    step(sim, 1 / 30, { card: KIND_WHITE, at: { x: 100, y: 600 }, restart: false })
+    play(sim, SKILL_PASSIVE[KIND_WHITE] / 2, () => NO_INPUT)
+    const half = sim.charge[KIND_WHITE] ?? 0
+    expect(half).toBeGreaterThan(SPECIAL_NEED[KIND_WHITE] * 0.45)
+    expect(half).toBeLessThan(SPECIAL_NEED[KIND_WHITE] * 0.55)
+    const u = sim.shibas.find((v) => v.alive && v.kind === KIND_WHITE) as Unit
+    u.hp = 0
+    play(sim, 3, () => NO_INPUT)
+    expect(sim.charge[KIND_WHITE]).toBeCloseTo(half, 0)
+    expect(SKILL_PASSIVE[KIND_WHITE]).toBeLessThanOrEqual(25)
+  })
+
+  it('makes each lone shiba SOLO× tougher and harder-hitting in free placement only', () => {
+    const free = squad()
+    const lanes = createSim({ tutorial: false, seed: 4 })
+    for (const k of [KIND_TAN, KIND_BLACK, KIND_WHITE]) {
+      expect(unitPower(free, k)).toBeCloseTo(power(free, k) * (SOLO[k] ?? 1), 5)
+      expect(unitPower(lanes, k)).toBe(power(lanes, k))
+      expect(SOLO[k]).toBeGreaterThanOrEqual(2.2)
+      expect(SOLO[k]).toBeLessThanOrEqual(2.8)
+    }
   })
 })
