@@ -76,9 +76,9 @@ export const CLASH_RAMP_FROM = 0.4
 /** A dog that reaches the 柴の家 in free placement lands one breach hit (this share of HOME_HP) and leaves the field. Order: the breeds, then the boss. */
 export const BREACH = [0.04, 0.04, 0.1, 0.04, 0.1, 0.04, 0.04, 0.3] as const
 /** Free placement: a dog heading for a shiba that already has this many dogs at its side gives up on shibas and slips by for the house, so a thin line leaks a little at a time instead of holding until it breaks. */
-export const CROWD_CAP = 2
+export const CROWD_CAP = 3
 /** 黒, the tank, holds this many. */
-export const CROWD_CAP_TANK = 3
+export const CROWD_CAP_TANK = 5
 
 export const COST_TAN = 34
 export const COST_BLACK = 90
@@ -236,7 +236,7 @@ export const FREE_HOME_REACH = 60
 /** A dog with nothing in sight walks straight down and turns for the door only this close to the bottom. */
 export const FREE_TURN = 150
 /** Shibas gang up on dogs in free placement, so dogs there get tougher and bite harder. */
-export const FREE_DOG_HP = 2.6
+export const FREE_DOG_HP = 1.5
 export const FREE_DOG_DPS = 2.2
 /** Waves come this many times slower in free placement, so fewer dogs crowd the field at once. */
 export const FREE_WAVE_SLOW = 1.4
@@ -245,8 +245,16 @@ export const FREE_PACE = 0.65
 /** Cards recharge this many times slower, and ホネ come in at this share, so shibas can't be spammed. */
 export const FREE_RECHARGE = 1.5
 export const FREE_INCOME = 0.8
-/** Free placement: no ホネ to spend on a shiba. The only gates are the card's recharge and this many shibas alive on the field at once. */
+/** ?lanes-era cap on shibas alive at once. Free placement is one per coat now (at most DECK_SIZE out), so it never bites there. */
 export const FIELD_CAP = 8
+/** 1種1匹 (free placement): seconds a coat's card waits after its shiba falls before it can go out again. Order: 赤, 黒, 胡麻, 白, ぶち, どっしり, 応援. */
+export const RESPAWN = [8, 13, 10, 11, 10, 14, 11] as const
+/** A shiba recalled home (long press) is back this many seconds after it walks in the door. */
+export const RECALL_BACK = 2
+/** Each coat fights alone, so its hp and every per-hit number (bites, slams, balls, discs, stomps, heals) are × this in free placement. Skills are not. */
+export const SOLO = [2.5, 2.3, 2.6, 2.4, 2.6, 2.2, 2.4] as const
+/** Seconds for a skill gauge to fill on its own while its shiba is on the field (damage and healing still add on top). */
+export const SKILL_PASSIVE = [50, 45, 50, 22, 50, 40, 22] as const
 export const MAX_SHIBAS = 600
 export const MARCH_COUNT = 240
 
@@ -352,17 +360,17 @@ export interface Rock {
   pond?: boolean
 }
 export const STAGES: readonly StageSpec[] = [
-  { count: 75, hp: 1.35, dps: 1.35, dachsEvery: 0, poodleEvery: 0, pomEvery: 0, goldenEvery: 0, bulldogEvery: 9, rocks: [] },
-  { count: 150, hp: 2.7, dps: 2.1, dachsEvery: 7, poodleEvery: 9, pomEvery: 0, goldenEvery: 14, bulldogEvery: 8, rocks: [
+  { count: 75, hp: 1.3, dps: 1.15, dachsEvery: 0, poodleEvery: 0, pomEvery: 0, goldenEvery: 0, bulldogEvery: 9, rocks: [] },
+  { count: 150, hp: 2.35, dps: 1.85, dachsEvery: 7, poodleEvery: 9, pomEvery: 0, goldenEvery: 14, bulldogEvery: 8, rocks: [
       { x: 58, y: 230, r: 10 },
       { x: 140, y: 300, r: 10 },
     ], walls: [{ x: 97, y: 370, w: 50 }] },
-  { count: 150, hp: 2.5, dps: 1.8, dachsEvery: 5, poodleEvery: 7, pomEvery: 0, goldenEvery: 9, bulldogEvery: 7, rocks: [
+  { count: 150, hp: 2.43, dps: 1.76, dachsEvery: 5, poodleEvery: 7, pomEvery: 0, goldenEvery: 9, bulldogEvery: 7, rocks: [
       { x: 97, y: 210, r: 22, pond: true },
       { x: 38, y: 330, r: 10 },
       { x: 158, y: 340, r: 10 },
     ], walls: [{ x: 40, y: 270, w: 44 }, { x: 155, y: 270, w: 44 }] },
-  { count: 150, hp: 2.6, dps: 1.8, dachsEvery: 4, poodleEvery: 6, pomEvery: 11, goldenEvery: 8, bulldogEvery: 6, rocks: [
+  { count: 150, hp: 2.75, dps: 1.9, dachsEvery: 4, poodleEvery: 6, pomEvery: 11, goldenEvery: 8, bulldogEvery: 6, rocks: [
       { x: 48, y: 190, r: 20, pond: true },
       { x: 148, y: 260, r: 20, pond: true },
       { x: 97, y: 350, r: 10 },
@@ -478,7 +486,7 @@ export const CHEST_STAR = 0.25
 export const HERO_SLOT = KINDS
 
 /** エンドレス: opens after the last stage. Stage 8's mix with no boss and no end; dogs get ENDLESS_RAMP× tougher and harder-biting every 100 s. The score is dogs beaten. */
-export const ENDLESS_STAGE: StageSpec = { count: 999999, hp: 2.4, dps: 1.8, dachsEvery: 3, poodleEvery: 3, pomEvery: 6, goldenEvery: 4, bulldogEvery: 4, rocks: [
+export const ENDLESS_STAGE: StageSpec = { count: 999999, hp: 3.5, dps: 2.2, dachsEvery: 3, poodleEvery: 3, pomEvery: 6, goldenEvery: 4, bulldogEvery: 4, rocks: [
   { x: 60, y: 230, r: 12 },
   { x: 134, y: 230, r: 12 },
 ], walls: [{ x: 97, y: 330, w: 56 }] }

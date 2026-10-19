@@ -16,7 +16,6 @@ import {
   BREED_POODLE,
   BREED_POM,
   POM_RADIUS,
-  FIELD_CAP,
   FREE_WAVE_SLOW,
   CALL_BONE,
   CALL_H,
@@ -132,7 +131,7 @@ import {
   WHITE_DARK,
   WHITE_MID,
 } from './palette'
-import { canCall, costOf, deckReady, deckSize, feedCost, isEndless, mvpOf, xpNeed, stageOpen, coatOpen, spec, dogsLeft, levelCost, skillReady, casterOf, boomPoint, waveAhead, type Cast, type Outcome, type Sim, type Unit } from './sim'
+import { canCall, costOf, deckReady, deckSize, feedCost, isEndless, mvpOf, xpNeed, stageOpen, coatOpen, spec, dogsLeft, levelCost, skillReady, casterOf, isOut, boomPoint, waveAhead, type Cast, type Outcome, type Sim, type Unit } from './sim'
 import { createSheets, type Sheets } from './sprites'
 
 const BUCKETS = 96
@@ -1417,8 +1416,10 @@ function paintWaveWarn(ctx: CanvasRenderingContext2D, renderer: Renderer, sim: S
   const bw = tw + 14
   const bh = 16
   const bx = (frame.internalW - bw) >> 1
-  const drop = age < 0.12 ? Math.round((1 - age / 0.12) * 12) : 0
-  const by = py(at(FIELD_Y + HUD_DROP)) + 6 - drop
+  // It sits clear below the call button (top left), and its drop-in never rises into it.
+  const rest = Math.max(py(at(FIELD_Y + HUD_DROP)) + 6, CALL_Y + frame.topDy + CALL_H + 6)
+  const drop = age < 0.12 ? Math.round((1 - age / 0.12) * 4) : 0
+  const by = rest - drop
   const blink = (Math.floor(sim.time * 6) & 1) === 0
   ctx.fillStyle = LINE
   ctx.fillRect(bx, by, bw, bh)
@@ -3170,9 +3171,7 @@ function paintDock(ctx: CanvasRenderingContext2D, renderer: Renderer, sim: Sim):
   paintMute(ctx, renderer, pyDock(at(BONE_Y)) - 2)
   paintSpeed(ctx, renderer, sim, pyDock(at(BONE_Y)) - 2)
   paintPauseButton(ctx, pyDock(at(BONE_Y)) - 2)
-  if (sim.free) {
-    paintFieldCap(ctx, sim, px(at(BONE_X)), pyDock(at(BONE_Y)) + 1)
-  } else {
+  if (!sim.free) {
     ctx.drawImage(renderer.sheets.bone, px(at(BONE_X)), pyDock(at(BONE_Y)))
     drawNumber(ctx, renderer, sim.bones | 0, px(at(BONE_X)) + 14, pyDock(at(BONE_Y)) + 1, false)
   }
@@ -3191,10 +3190,13 @@ function paintDock(ctx: CanvasRenderingContext2D, renderer: Renderer, sim: Sim):
     const deny = sim.deny[kind] ?? 0
     const cost = sim.free ? -1 : costOf(sim, kind)
     const x = px(at(CARD_XS[slot] ?? CARD_X0) + denyShift(deny))
-    const wait = (sim.recharge[kind] ?? 0) / (RECHARGE[kind] ?? 1)
-    const ready = sim.free ? sim.aliveShibas < FIELD_CAP : sim.bones >= cost
-    paintCard(ctx, renderer, x, kind, cost, ready && wait <= 0, false, sim.time, kind === sim.picked, wait, sim.recharge[kind] ?? 0)
-    paintGauge(ctx, x, kind, sim)
+    // Free placement waits out a respawn (rechargeFull long); ?lanes the card's RECHARGE.
+    const wait = (sim.recharge[kind] ?? 0) / ((sim.free ? sim.rechargeFull[kind] : RECHARGE[kind]) || 1)
+    const out = isOut(sim, kind)
+    const ready = sim.free ? !out : sim.bones >= cost
+    paintCard(ctx, renderer, x, kind, cost, ready && wait <= 0, false, sim.time, kind === sim.picked, wait, sim.recharge[kind] ?? 0, out)
+    paintGauge(ctx, x, kind, sim, out)
+    if (out && !skillReady(sim, kind)) paintOut(ctx, x, sim)
     if (sim.free && skillReady(sim, kind)) paintSkillReady(ctx, x, kind, sim, kind === sim.picked)
   }
 }
@@ -3216,22 +3218,25 @@ function paintCard(
   picked: boolean,
   wait: number,
   secs = 0,
+  out = false,
 ): void {
   const y = pyDock(at(CARD_Y)) - (picked ? 3 : 0)
   const w = at(CARD_W)
   const h = at(CARD_H)
-  ctx.fillStyle = affordable ? NIGHT_1 : NIGHT
+  // 出撃中 (free placement, its shiba is on the field): lit like a ready card, but framed in meadow green and standing still.
+  const lit = affordable || out
+  ctx.fillStyle = lit ? NIGHT_1 : NIGHT
   ctx.fillRect(x, y, w, h)
   const hx = x + ((w - HERO_PX) >> 1)
   const pad = Math.min(8, ((w - HERO_PX) >> 1) - 2)
-  ctx.fillStyle = affordable ? NIGHT_2 : NIGHT_1
+  ctx.fillStyle = out ? MEADOW_DARK : affordable ? NIGHT_2 : NIGHT_1
   ctx.fillRect(hx - pad + 2, y + 4, HERO_PX + pad * 2 - 4, HERO_PX + 2)
   ctx.fillRect(hx - pad, y + 6, HERO_PX + pad * 2, HERO_PX - 2)
-  ctx.fillStyle = affordable ? NIGHT_3 : NIGHT_2
+  ctx.fillStyle = out ? MEADOW : affordable ? NIGHT_3 : NIGHT_2
   ctx.fillRect(hx - 2, y + HERO_PX + 2, HERO_PX + 4, 2)
   const phase = Math.floor(time * 8) & 3
-  const border = hint ? (GOLD_CYCLE[phase] ?? GOLD_LIGHT) : affordable ? GOLD : NIGHT_2
-  const inner = hint ? (GOLD_CYCLE[(phase + 2) & 3] ?? GOLD) : affordable ? GOLD_DARK : NIGHT_1
+  const border = hint ? (GOLD_CYCLE[phase] ?? GOLD_LIGHT) : out ? MEADOW_LIGHT : affordable ? GOLD : NIGHT_2
+  const inner = hint ? (GOLD_CYCLE[(phase + 2) & 3] ?? GOLD) : out ? MEADOW_DARK : affordable ? GOLD_DARK : NIGHT_1
   frameRect(ctx, x, y, w, h, picked ? GOLD_HOT : border)
   frameRect(ctx, x + 1, y + 1, w - 2, h - 2, picked ? GOLD_LIGHT : inner)
   ctx.fillStyle = LINE
@@ -3262,39 +3267,42 @@ function paintCard(
   }
 }
 
-/** Free placement: one pip per shiba the field can hold, gold for each one out there, so the cap reads at a glance. */
-function paintFieldCap(ctx: CanvasRenderingContext2D, sim: Sim, x: number, y: number): void {
-  for (let i = 0; i < FIELD_CAP; i++) {
-    const px0 = x + i * 10
-    ctx.fillStyle = LINE
-    ctx.fillRect(px0, y, 9, 9)
-    const used = i < sim.aliveShibas
-    ctx.fillStyle = used ? GOLD : NIGHT_1
-    ctx.fillRect(px0 + 1, y + 1, 7, 7)
-    ctx.fillStyle = used ? GOLD_LIGHT : NIGHT_2
-    ctx.fillRect(px0 + 1, y + 1, 7, 2)
-    if (used) {
-      ctx.fillStyle = GOLD_DARK
-      ctx.fillRect(px0 + 1, y + 7, 7, 1)
-    }
-  }
+/** Free placement 出撃中: a meadow-green plate in the card's foot (a full gauge's skill plate draws over it), so which coats are on the field reads at a glance. */
+function paintOut(ctx: CanvasRenderingContext2D, x: number, sim: Sim): void {
+  const y = pyDock(at(CARD_Y))
+  const w = at(CARD_W)
+  const h = at(CARD_H)
+  ctx.fillStyle = LINE
+  ctx.fillRect(x + 2, y + h - 12, w - 4, 10)
+  ctx.fillStyle = MEADOW
+  ctx.fillRect(x + 3, y + h - 11, w - 6, 8)
+  ctx.fillStyle = MEADOW_LIGHT
+  ctx.fillRect(x + 3, y + h - 11, w - 6, 1)
+  // A little pennant on the plate's left, waving.
+  const wave = Math.floor(sim.time * 4) & 1
+  ctx.fillStyle = WHITE
+  ctx.fillRect(x + 5, y + h - 10, 1, 6)
+  ctx.fillRect(x + 6, y + h - 10 + wave, 3, 2)
+  ctx.fillRect(x + 6, y + h - 8 + wave, 2, 1)
+  queuePlain('出撃中', x + (w >> 1) + 3, y + h - 11, 7, WHITE, 'center', true, LINE)
 }
 
-/** Special gauge under the portrait. Full gauges flash through the golds until the cut-in plays. */
-function paintGauge(ctx: CanvasRenderingContext2D, x: number, kind: number, sim: Sim): void {
-  const y = pyDock(at(CARD_Y)) + 38
+/** Special gauge under the portrait. Full gauges flash through the golds. While the coat is out (`big`) the bar is twice as thick, since the skill is what that card does now. */
+function paintGauge(ctx: CanvasRenderingContext2D, x: number, kind: number, sim: Sim, big = false): void {
+  const y = pyDock(at(CARD_Y)) + 37
   const w = at(CARD_W) - 8
+  const tall = big ? 4 : 2
   const need = SPECIAL_NEED[kind] ?? 1
   const fill = Math.min(w, Math.floor((w * (sim.charge[kind] ?? 0)) / need))
   ctx.fillStyle = LINE
-  ctx.fillRect(x + 3, y - 1, w + 2, 4)
-  ctx.fillStyle = NIGHT_1
-  ctx.fillRect(x + 4, y, w, 2)
+  ctx.fillRect(x + 3, y - 1, w + 2, tall + 2)
+  ctx.fillStyle = big ? NIGHT_2 : NIGHT_1
+  ctx.fillRect(x + 4, y, w, tall)
   const full = fill >= w
-  ctx.fillStyle = full ? (GOLD_CYCLE[Math.floor(sim.time * 12) & 3] ?? GOLD) : GOLD
-  ctx.fillRect(x + 4, y, fill, 2)
+  ctx.fillStyle = full ? (GOLD_CYCLE[Math.floor(sim.time * 12) & 3] ?? GOLD) : big ? GOLD : GOLD_DARK
+  ctx.fillRect(x + 4, y, fill, tall)
   if (!full && fill > 0) {
-    ctx.fillStyle = GOLD_LIGHT
+    ctx.fillStyle = big ? GOLD_LIGHT : GOLD
     ctx.fillRect(x + 4, y, fill, 1)
   }
 }

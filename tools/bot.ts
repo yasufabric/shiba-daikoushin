@@ -6,7 +6,7 @@
  *   node --import $(npm root -g)/tsx/dist/esm/index.mjs tools/bot.ts [options]
  *
  * Options:
- *   --stages 1-8      stages to play (1-based; a range or a comma list)
+ *   --stages 1-8      stages to play (1-based; a range or a comma list; 9 is エンドレス, scored by dogs beaten in MAX_TIME)
  *   --levels 1,5,10   coat level for every coat in the deck
  *   --deck 0,1,2,3    coats in the deck (0 赤, 1 黒, 2 胡麻, 3 白, 4 ぶち, 5 どっしり, 6 応援)
  *   --seeds 3         seeds per cell
@@ -17,8 +17,8 @@
  *
  * tsconfig only includes src/, so this file is not part of the build or the typecheck.
  */
-import { createSim, step, NO_INPUT, skillReady, casterOf, type Input, type Sim } from '../src/sim'
-import { FIELD_W, FIELD_CAP, KINDS, HOME_HP, STAGES, KIND_SESAME, KIND_WHITE, KIND_CHEER } from '../src/balance'
+import { createSim, step, reset, NO_INPUT, skillReady, casterOf, isOut, type Input, type Sim } from '../src/sim'
+import { FIELD_W, KINDS, HOME_HP, STAGES, KIND_SESAME, KIND_WHITE, KIND_CHEER } from '../src/balance'
 
 function arg(name: string, fallback: string): string {
   const i = process.argv.indexOf(`--${name}`)
@@ -47,6 +47,7 @@ const MAX_TIME = 900
 export interface Result {
   won: boolean
   home: number
+  kills: number
   time: number
   specials: number[]
 }
@@ -77,6 +78,11 @@ export function play(stage: number, level: number, coats: readonly number[], see
   })
   // A fixed deck for the run, whatever the unlocks say.
   sim.deck = [...coats]
+  if (stage >= STAGES.length) {
+    // エンドレス: createSim clamps the stage, so step onto it by hand.
+    sim.stage = STAGES.length
+    reset(sim)
+  }
   const fired = new Array(KINDS).fill(0)
   let think = 0
   let rr = seed * 7919 + stage * 31 + 1
@@ -84,7 +90,7 @@ export function play(stage: number, level: number, coats: readonly number[], see
     let input: Input = NO_INPUT
     if (!specials) for (let k = 0; k < KINDS; k++) sim.charge[k] = 0
     think -= DT
-    if (think <= 0 && sim.aliveShibas < FIELD_CAP) {
+    if (think <= 0) {
       think = tapEvery
       // Aim at the dog nearest the house.
       let tx = FIELD_W / 2
@@ -93,13 +99,9 @@ export function play(stage: number, level: number, coats: readonly number[], see
         ty = c.y
         tx = c.x
       }
-      // Send the ready coat with the fewest on the field; one healer or cheerleader at a time is plenty.
-      const alive = new Array(KINDS).fill(0)
-      for (const s of sim.shibas) if (s?.alive) alive[s.kind] += 1
-      const order = [...sim.deck].sort((a, b) => alive[a] - alive[b])
-      for (const k of order) {
-        if ((sim.recharge[k] ?? 0) > 0) continue
-        if ((k === KIND_WHITE || k === KIND_CHEER) && alive[k] >= 1) continue
+      // 1種1匹: send whichever deck coat is not out and has waited out its respawn, in deck order.
+      for (const k of sim.deck) {
+        if (isOut(sim, k) || (sim.recharge[k] ?? 0) > 0) continue
         rr = (Math.imul(rr, 1103515245) + 12345) >>> 0
         const jitter = ((rr >>> 8) % 60) - 30
         const back = k === KIND_SESAME || k === KIND_WHITE || k === KIND_CHEER
@@ -122,7 +124,7 @@ export function play(stage: number, level: number, coats: readonly number[], see
     step(sim, DT, input)
     if (sim.castId > castBefore) fired[sim.casts[sim.casts.length - 1]?.kind ?? 0] += 1
   }
-  return { won: sim.outcome === 'won', home: Math.max(0, sim.homeHp) / HOME_HP, time: sim.time, specials: fired }
+  return { won: sim.outcome === 'won', home: Math.max(0, sim.homeHp) / HOME_HP, kills: sim.kills, time: sim.time, specials: fired }
 }
 
 const pct = (v: number): string => `${Math.round(v * 100)}`
@@ -141,7 +143,8 @@ if (isMain) {
       }
       const wins = runs.filter((r) => r.won).length
       const avg = runs.reduce((n, r) => n + r.home, 0) / runs.length
-      cells.push(`${wins}/${runs.length} ${pct(avg)}% [${runs.map((r) => pct(r.home)).join(',')}]`)
+      if (st > STAGES.length) cells.push(`∞ kills ${Math.round(runs.reduce((n, r) => n + r.kills, 0) / runs.length)} [${runs.map((r) => `${r.kills}@${r.time.toFixed(0)}s`).join(',')}]`)
+      else cells.push(`${wins}/${runs.length} ${pct(avg)}% [${runs.map((r) => pct(r.home)).join(',')}]`)
     }
     console.log([`${st}`, ...cells].map((s) => s.padEnd(30)).join(''))
   }
