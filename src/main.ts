@@ -564,6 +564,7 @@ function frame(now: number): void {
     buzz([20, 40, 20])
   }
   lastChest = sim.chest
+  synth.setMusic(sim.title ? 'title' : sim.outcome !== 'play' ? 'result' : sim.boss ? 'boss' : 'battle')
   renderer.fast = fast
   renderer.paused = paused
   renderer.muted = synth.isMuted()
