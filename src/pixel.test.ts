@@ -15,7 +15,7 @@ import {
   pawArt,
   type Seal,
 } from './art'
-import { BANNER_POP, BANNER_REST, CLEAR_WORD, GLYPHS, letterBit, LOSE_WORD, POP_COL, POP_ROW, RUMBLE_WORD, SPECIAL_WORDS } from './font'
+import { BANNER_POP, BANNER_REST, CLEAR_WORD, GLYPHS, letterBit, LOSE_WORD, POP_COL, POP_ROW, RUMBLE_WORD } from './font'
 import {
   BOSS_H,
   BOSS_W,
@@ -232,7 +232,7 @@ describe('sprites', () => {
     expect(GLYPH_H * BANNER_REST).toBe(20)
     expect(GLYPH_W * BANNER_POP).toBe(24)
     expect(GLYPH_H * BANNER_POP).toBe(30)
-    for (const word of [CLEAR_WORD, LOSE_WORD, ...SPECIAL_WORDS, RUMBLE_WORD]) {
+    for (const word of [CLEAR_WORD, LOSE_WORD, RUMBLE_WORD]) {
       expect(word.length).toBeGreaterThanOrEqual(3)
       for (const ch of word) {
         let on = 0

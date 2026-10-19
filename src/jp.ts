@@ -95,11 +95,12 @@ interface Plain {
   color: string
   align: CanvasTextAlign
   bold: boolean
+  outline: string
 }
 const plain: Plain[] = []
 
-export function queuePlain(text: string, x: number, y: number, size: number, color: string, align: CanvasTextAlign = 'left', bold = false): void {
-  plain.push({ text, x, y, size, color, align, bold })
+export function queuePlain(text: string, x: number, y: number, size: number, color: string, align: CanvasTextAlign = 'left', bold = false, outline = ''): void {
+  plain.push({ text, x, y, size, color, align, bold, outline })
 }
 
 /** Draw and clear the queue: internal (x, y) lands at (ox + x * scale, oy + y * scale) in CSS px on `ctx`. */
@@ -110,6 +111,13 @@ export function flushPlain(ctx: CanvasRenderingContext2D, ox: number, oy: number
   for (const p of plain) {
     ctx.font = `${p.bold ? 'bold' : '600'} ${Math.round(p.size * scale)}px ${FONT}`
     ctx.textAlign = p.align
+    if (p.outline) {
+      // A dark rim so the words read over grass and dogs.
+      ctx.lineJoin = 'round'
+      ctx.lineWidth = Math.max(2, scale * 1.5)
+      ctx.strokeStyle = p.outline
+      ctx.strokeText(p.text, ox + p.x * scale, oy + p.y * scale)
+    }
     ctx.fillStyle = p.color
     ctx.fillText(p.text, ox + p.x * scale, oy + p.y * scale)
   }
