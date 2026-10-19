@@ -206,7 +206,8 @@ The dock's top row has a ▶▶ button left of the speaker (`speedTarget`, `pain
 Golden きなこ coat (`KINAKO`, `FUR_KINAKO`) with a pink pennant (`drawPennant`). Deals no damage: trails the nearest non-support shiba (`cheerFree`), and every shiba within `CHEER_RADIUS` attacks `CHEER_HASTE`× as often (`hasteOf` scales the per-shiba beat as `hbeat` inside `moveFree`). Its gauge fills `CHEER_CHARGE`/s while a shiba is in range. Special ワンワン!! sets `sim.wanT` (`WANWAN_T` s of `WANWAN_HASTE`× attacks for the whole pack) and heals each shiba 15%. Unlocks after stage 6 (`COAT_UNLOCK[6] = 5`).
 Seven coats need four rows on the result screen: `shopLayout` goes compact and derives `cellH` from the space above START; short cells move the deck number onto the portrait and lay the buy button's bone and cost side by side.
 
-## Boss howl
+## Boss howl and 黒バーナード
+From stage index `BOSS_DARK_FROM` (4) on, and in エンドレス, the boss is drawn from `sheets.bossDark` (`bossDarkArt`: the same rows under `BOSS_DARK_MAP`, a night coat with a red barrel).
 In free placement the boss howls every `BOSS_HOWL_EVERY` s (first after `BOSS_HOWL_FIRST`; `cd` is its timer, `sim.howlAt` the last one). From stage index `BOSS_CALL_FROM` it calls `BOSS_CALL` チワワ beside it; from `BOSS_STUN_FROM` every shiba (and the hero) within `BOSS_HOWL_R` gets `stun` for `BOSS_STUN` s. Stunned shibas skip their turn in `moveFree` and show `drawDizzy` stars; the boss shakes and rolls rings out to the stun reach; `battleSounds` growls and shakes the screen.
 
 ## Pause

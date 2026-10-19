@@ -44,6 +44,7 @@ import {
   KIND_CHEER,
   CHEER_RADIUS,
   HERO_SLOT,
+  BOSS_DARK_FROM,
   HERO_SKILL_R,
   HERO_SKILL_CD,
   BOSS_HOWL_R,
@@ -1739,7 +1740,8 @@ function drawBoss(ctx: CanvasRenderingContext2D, renderer: Renderer, sim: Sim, b
   const flash = fighting && hitFrame(offbeat(sim.time, index))
   const howlAge = sim.time - sim.howlAt
   const shake = howlAge >= 0 && howlAge < 0.4 ? ((Math.floor(howlAge * 30) & 1) === 0 ? 1 : -1) : 0
-  ctx.drawImage(renderer.sheets.boss, frameNo * size, flash ? size : 0, size, size, dx + shake, dy, size, size)
+  const sheet = sim.free && sim.stage >= BOSS_DARK_FROM ? renderer.sheets.bossDark : renderer.sheets.boss
+  ctx.drawImage(sheet, frameNo * size, flash ? size : 0, size, size, dx + shake, dy, size, size)
   if (howlAge >= 0 && howlAge < 0.7) {
     // The howl: rings roll out from its mouth, as far as the stun reaches.
     const cx = dx + (size >> 1)

@@ -848,6 +848,10 @@ function bossRows(step: number): string[] {
 
 export const bossArt = [seal('boss-0', bossRows(0), BOSS_MAP), seal('boss-1', bossRows(1), BOSS_MAP)]
 
+/** 黒バーナード, the late-stage boss: the same dog in a night coat with a red barrel. */
+const BOSS_DARK_MAP: Record<string, string> = { ...BOSS_MAP, b: NIGHT_3, h: CAT_BODY, m: NIGHT_2, d: NIGHT, w: WHITE_MID, g: DANGER_LIGHT, G: DANGER, y: DANGER_DARK }
+export const bossDarkArt = [seal('boss-dark-0', bossRows(0), BOSS_DARK_MAP), seal('boss-dark-1', bossRows(1), BOSS_DARK_MAP)]
+
 const DOG_NAMES = ['chihuahua', 'corgi', 'bulldog', 'dachs', 'golden', 'poodle', 'pom'] as const
 
 /** One 10-frame strip per breed, in BREED_* order. */

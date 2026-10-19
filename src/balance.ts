@@ -420,3 +420,6 @@ export const ENDLESS_STAGE: StageSpec = { count: 999999, hp: 2.4, dps: 1.8, dach
   { x: 134, y: 230, r: 12 },
 ] }
 export const ENDLESS_RAMP = 0.5
+
+/** From this stage (index) on, and in エンドレス, the boss is the dark 黒バーナード. */
+export const BOSS_DARK_FROM = 4
