@@ -418,7 +418,8 @@ describe('free placement trial', () => {
 
 describe('free placement roles', () => {
   function emptyField(): Sim {
-    const sim = createSim({ tutorial: false, seed: 2, free: true })
+    const sim = createSim({ tutorial: false, seed: 2, free: true, best: [1, 1, 1, 1, 1, 1, 1, 1] })
+    sim.deck = [0, 1, 2, 3]
     for (const u of sim.shibas) u.alive = false
     for (const u of sim.cats) u.alive = false
     sim.aliveShibas = 0
@@ -821,7 +822,7 @@ describe('soldiers', () => {
   })
 
   it('keeps a four-coat deck: toggling swaps coats, an incomplete deck blocks START, and only deck coats deploy', () => {
-    const sim = createSim({ tutorial: false, seed: 4, free: true, best: [1, 1, 1, 1] })
+    const sim = createSim({ tutorial: false, seed: 4, free: true, best: [1, 1, 1, 1, 1], deck: [0, 1, 2, 3] })
     expect(sim.deck).toEqual([0, 1, 2, 3])
     expect(toggleDeck(sim, 4)).toBe(false)
     expect(toggleDeck(sim, 3)).toBe(true)
@@ -842,9 +843,9 @@ describe('soldiers', () => {
     expect(sim.aliveShibas).toBe(alive)
     step(sim, 1 / 30, { ...NO_INPUT, card: 4, at: { x: 100, y: 500 } })
     expect(sim.aliveShibas).toBe(alive + 1)
-    const saved = createSim({ tutorial: false, free: true, deck: [1, 2, 4, 5], best: [1, 1, 1, 1] })
+    const saved = createSim({ tutorial: false, free: true, deck: [1, 2, 4, 5], best: [1, 1, 1, 1, 1] })
     expect(saved.deck).toEqual([1, 2, 4, 5])
-    expect(createSim({ tutorial: false, free: true, deck: [1, 1, 4, 5] }).deck).toEqual([0, 1, 2, 3])
+    expect(createSim({ tutorial: false, free: true, deck: [1, 1, 4, 5] }).deck).toEqual([0])
     expect(createSim({ tutorial: false, deck: [1, 2, 4, 5] }).deck).toEqual([0, 1, 2, 3])
   })
 
@@ -986,14 +987,14 @@ describe('soldiers', () => {
     expect(sim.hero.hp).toBeGreaterThan(0)
   })
 
-  it('locks ぶち柴 and どっしり柴 until their stage is cleared, and flags the unlock as NEW', () => {
+  it('starts with 赤柴 alone and unlocks one coat per stage cleared, which joins the deck by itself', () => {
     const sim = createSim({ tutorial: false, seed: 4, free: true, deck: [0, 1, 4, 5] })
-    expect(sim.deck).toEqual([0, 1, 2, 3])
-    expect(coatOpen(sim, 4)).toBe(false)
-    toggleDeck(sim, 3)
-    expect(toggleDeck(sim, 4)).toBe(false)
+    expect(sim.deck).toEqual([0])
+    expect(deckReady(sim)).toBe(true)
+    expect(coatOpen(sim, 1)).toBe(false)
+    expect(toggleDeck(sim, 1)).toBe(false)
     expect(buyLevel(sim, 4)).toBe(false)
-    sim.stage = COAT_UNLOCK[4] ?? 1
+    sim.stage = COAT_UNLOCK[1] ?? 0
     for (const c of sim.cats) c.alive = false
     sim.aliveCats = 0
     sim.toSend = 0
@@ -1001,9 +1002,10 @@ describe('soldiers', () => {
     sim.bossIndex = -1
     for (let i = 0; i < 120 && sim.outcome === 'play'; i++) step(sim, 1 / 30, NO_INPUT)
     expect(sim.outcome).toBe('won')
-    expect(sim.newCoat).toBe(4)
-    expect(coatOpen(sim, 4)).toBe(true)
-    expect(toggleDeck(sim, 4)).toBe(true)
+    expect(sim.newCoat).toBe(1)
+    expect(coatOpen(sim, 1)).toBe(true)
+    expect(sim.deck).toEqual([0, 1])
+    expect(deckReady(sim)).toBe(true)
   })
 
   it('応援柴 makes nearby shibas bite faster, fills its gauge, and ワンワン!! fires the whole pack up', () => {

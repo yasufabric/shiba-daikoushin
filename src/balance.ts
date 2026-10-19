@@ -369,8 +369,8 @@ export const HERO_REVIVE = 16
 /** Field taps above this y (below FREE_ZONE_Y) steer the hero instead of deploying. */
 export const HERO_TAP_Y = 420
 
-/** にゃんこ-style unlocks: a coat joins once this stage (index) has a star; -1 is open from the start. ぶち柴 after stage 2, どっしり柴 after stage 4. */
-export const COAT_UNLOCK = [-1, -1, -1, -1, 1, 3, 5] as const
+/** にゃんこ-style unlocks: a coat joins once this stage (index) has a star; -1 is open from the start. Only 赤柴 starts; each stage cleared brings the next coat (黒 after stage 1, 胡麻 after 2, 白 after 3, ぶち after 4, どっしり after 5, 応援 after 6). */
+export const COAT_UNLOCK = [-1, 0, 1, 2, 3, 4, 5] as const
 
 /** 応援柴 stats. It trails the nearest shiba; every shiba within CHEER_RADIUS attacks CHEER_HASTE× as often. Its gauge fills CHEER_CHARGE per second while it has a shiba in range. */
 export const HP_CHEER = 70
@@ -455,3 +455,6 @@ export const PERK_BLACK_PUSH = 16
 export const PERK_WIDE = 1.3
 export const PERK_DISC_RANGE = 1.25
 export const PERK_BIG_STUN = 0.5
+
+/** おやつ砲 is switched off (play-test: tapping the house was not wanted). */
+export const CANNON_ENABLED = false

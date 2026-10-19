@@ -199,9 +199,8 @@ describe('sprites', () => {
     for (const coat of [red, black, sesame, cream]) {
       const colors = colorsOf(coat)
       expect(colors.has('#fffaf0'), `${coat?.name} urajiro`).toBe(true)
+      expect(colors.has('#ffb3cf'), `${coat?.name} smile`).toBe(true)
     }
-    // Faces are set and brave now; the pink tongue only shows on the bark frame.
-    expect(new Set((crowdArt[0]?.[7]?.color ?? []).filter(Boolean)).has('#ffb3cf'), 'bark tongue').toBe(true)
     expect(colorsOf(black).has('#f6c27a'), 'まろ眉').toBe(true)
     expect(colorsOf(black).has('#2c3a63')).toBe(true)
     expect(colorsOf(sesame).has('#6b2e12')).toBe(true)
