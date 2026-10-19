@@ -1358,13 +1358,19 @@ function paintAttacks(ctx: CanvasRenderingContext2D, sim: Sim): void {
       }
     } else if (age < 0.55) {
       // Three slash marks, one after another.
-      const shown = Math.min(3, 1 + Math.floor(age / 0.14))
+      const shown = Math.min(3, 1 + Math.floor(age / 0.12))
       for (let k = 0; k < shown; k++) {
-        const ox = (k - 1) * 6
+        const ox = (k - 1) * 7
         ctx.fillStyle = LINE
-        for (let i = 0; i < 11; i++) ctx.fillRect(tx + ox - 5 + i, ty - 6 + i, 3, 3)
+        for (let i = 0; i < 15; i++) ctx.fillRect(tx + ox - 7 + i, ty - 8 + i, 4, 4)
         ctx.fillStyle = k === shown - 1 ? WHITE : GOLD_LIGHT
-        for (let i = 0; i < 11; i++) ctx.fillRect(tx + ox - 5 + i, ty - 6 + i, 2, 2)
+        for (let i = 0; i < 15; i++) ctx.fillRect(tx + ox - 7 + i, ty - 8 + i, 3, 3)
+      }
+      if (age < 0.12) {
+        // The first instant: a white impact star where the claws land.
+        ctx.fillStyle = WHITE
+        ctx.fillRect(tx - 9, ty - 1, 19, 3)
+        ctx.fillRect(tx - 1, ty - 9, 3, 19)
       }
     }
   }
@@ -1392,7 +1398,20 @@ function paintBiteSparks(ctx: CanvasRenderingContext2D, sim: Sim): void {
     if (!dog?.alive || dog.fly === 1) continue
     const age = sim.time - dog.bitAt
     if (age < 0 || age >= 0.3) continue
-    drawSpark(ctx, px(at(FIELD_X + dog.x)), fpy(dog.y) + 2, age)
+    // A rival's bite: a red crossed slash at its jaws.
+    const bx = px(at(FIELD_X + dog.x))
+    const by = fpy(dog.y) + 2
+    const r = age < 0.12 ? 6 : 4
+    for (let i = -r; i <= r; i++) {
+      ctx.fillStyle = LINE
+      ctx.fillRect(bx + i - 1, by + i - 1, 3, 3)
+      ctx.fillRect(bx + i - 1, by - i - 1, 3, 3)
+    }
+    for (let i = -r; i <= r; i++) {
+      ctx.fillStyle = age < 0.12 ? WHITE : DANGER
+      ctx.fillRect(bx + i, by + i, 2, 2)
+      ctx.fillRect(bx + i, by - i, 2, 2)
+    }
   }
 }
 
@@ -1584,8 +1603,12 @@ function drawShiba(ctx: CanvasRenderingContext2D, renderer: Renderer, sim: Sim, 
   const fighting = sim.free ? sim.time - unit.bitAt < 1 : foeNear(sim, unit.lane, unit.y, true)
   const pose = poseOf(moved, fighting)
   const beat = offbeat(sim.time, index)
-  const flash = fighting && hitFrame(beat)
-  const dx = px(at(FIELD_X + unit.x)) - (CROWD_PX >> 1)
+  // Taking a hit: a white flash and a one-pixel jolt, so you can see who is being bitten.
+  const hurt = sim.time - unit.hurtAt
+  const struck = hurt >= 0 && hurt < 0.1
+  const flash = (fighting && hitFrame(beat)) || struck
+  const jolt = hurt >= 0 && hurt < 0.16 ? ((Math.floor(hurt * 50) & 1) === 0 ? 1 : -1) : 0
+  const dx = px(at(FIELD_X + unit.x)) - (CROWD_PX >> 1) + jolt
   const hop = celebrateHop(sim, index)
   const dy = fpy(unit.y) - CROWD_PX - hop - lunge(sim, unit.bitAt)
   ctx.fillStyle = NIGHT
@@ -1743,7 +1766,10 @@ function drawCat(ctx: CanvasRenderingContext2D, renderer: Renderer, sim: Sim, in
   const fighting = sim.free ? sim.time - cat.bitAt < 1 : foeNear(sim, cat.lane, cat.y, false)
   const pose = poseOf(moved, fighting)
   const beat = offbeat(sim.time, index)
-  blitCat(ctx, renderer, cat.kind, pose, fighting ? beat : sim.time, cat.lane, 0, fighting && hitFrame(beat), dx, dy)
+  const hurt = sim.time - cat.hurtAt
+  const struck = hurt >= 0 && hurt < 0.1
+  const jolt = hurt >= 0 && hurt < 0.16 ? ((Math.floor(hurt * 50) & 1) === 0 ? 1 : -1) : 0
+  blitCat(ctx, renderer, cat.kind, pose, fighting ? beat : sim.time, cat.lane, 0, (fighting && hitFrame(beat)) || struck, dx + jolt, dy)
   if (sim.time - cat.mendAt < 0.5 && sim.time >= cat.mendAt) {
     // Mended by a ポメラニアン: a pink plus rises off it.
     const rise = Math.floor((sim.time - cat.mendAt) * 20)

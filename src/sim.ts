@@ -248,6 +248,8 @@ export interface Unit {
   stun: number
   /** Free placement: ordered home; walks to the 柴の家 and leaves the field there. */
   recall: boolean
+  /** Match time this unit last took a hit, for the white flash and the jolt. */
+  hurtAt: number
 }
 
 export interface Input {
@@ -473,6 +475,7 @@ function makePool(max: number): Unit[] {
       mendAt: -9,
       stun: 0,
       recall: false,
+      hurtAt: -9,
     })
   }
   return units
@@ -918,6 +921,7 @@ export function spawnShiba(sim: Sim, kind: number, lane: number, y: number): boo
   unit.mendAt = -9
   unit.stun = 0
   unit.recall = false
+  unit.hurtAt = -9
   unit.y = y
   unit.x = laneW * (lane + 0.5) + ((lane * 7 + (y | 0) * 3) % 21) - 10
   sim.aliveShibas += 1
@@ -966,6 +970,7 @@ export function spawnCat(sim: Sim, lane: number, breed: number, at?: { x: number
   unit.bitAt = -9
   unit.mendAt = -9
   unit.stun = 0
+  unit.hurtAt = -9
   unit.y = 22 + (lane % 4) * 16
   unit.x = laneW * (lane + 0.5) + ((sim.aliveCats * 7 + lane * 5) % 17) - 8
   if (at) {
@@ -1808,6 +1813,7 @@ function moveFree(sim: Sim, rawDt: number): void {
     if (dog.bite <= 0) {
       dog.bite += every
       foe.hp -= dog.dps * every
+      foe.hurtAt = sim.time
       dog.bitAt = sim.time
       dog.aimX = foe.x
       dog.aimY = foe.y
@@ -1896,6 +1902,7 @@ function hurt(sim: Sim, cat: Unit, rawAmount: number, kind: number): number {
   const amount = cat.kind === BREED_GOLDEN ? Math.max(rawAmount / 3, rawAmount - GOLDEN_ARMOR) : rawAmount
   const landed = Math.min(Math.max(0, cat.hp), amount)
   cat.hp -= amount
+  cat.hurtAt = sim.time
   sim.charge[kind] = (sim.charge[kind] ?? 0) + landed * (perk(sim, kind, PERK_B) ? PERK_B_CHARGE : 1)
   sim.dealt[kind] = (sim.dealt[kind] ?? 0) + landed
   return landed
