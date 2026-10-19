@@ -528,7 +528,8 @@ const TITLE_TILE_H = 46
 const TITLE_TILE_GAP = 4
 const TITLE_ROW = 4
 /** Height of the result screen's info strip (coat name, level, what levelling does). */
-const SHOP_INFO_H = 26
+const SHOP_INFO_H = 46
+const SHOP_INFO_SHORT = 33
 /** Stage tiles plus one for エンドレス. */
 const TITLE_TILES = STAGES.length + 1
 
@@ -2902,7 +2903,7 @@ function drawLetter(
 
 /** Between matches: what the match paid, the purse, a row per coat to buy a level, and START. */
 /** Where the result screen puts things, in internal px from its top. Short phones get a tight header and START floats at the bottom edge so it is always on screen. */
-function shopLayout(): { compact: boolean; cellTop: number; startY: number; cellH: number } {
+function shopLayout(): { compact: boolean; cellTop: number; startY: number; cellH: number; infoH: number } {
   const room = frame.internalH - frame.topDy
   // Seven coats need four rows of cells, so the header goes compact and the cells shrink to fit above START.
   const rows = Math.ceil((KINDS + (HERO_ENABLED ? 1 : 0)) / 2)
@@ -2911,8 +2912,10 @@ function shopLayout(): { compact: boolean; cellTop: number; startY: number; cell
   const cellTop = compact ? 74 : at(SHOP_Y0)
   const startY = compact ? Math.min(room - bh - 4, at(START_Y) + 40) : at(START_Y)
   // Room for the info strip (what levelling a coat does) between the cells and START.
-  const fit = Math.floor((startY - 6 - SHOP_INFO_H - cellTop) / rows) - at(SHOP_GAP)
-  return { compact, cellTop, startY, cellH: Math.max(44, Math.min(at(SHOP_CELL_H), fit)) }
+  // Short phones drop its third line rather than squeeze the cells into it.
+  const fitFor = (info: number): number => Math.floor((startY - 6 - info - cellTop) / rows) - at(SHOP_GAP)
+  const infoH = fitFor(SHOP_INFO_H) >= 44 ? SHOP_INFO_H : SHOP_INFO_SHORT
+  return { compact, cellTop, startY, cellH: Math.max(44, Math.min(at(SHOP_CELL_H), fitFor(infoH))), infoH }
 }
 
 /** What a tap on the result screen hits, from a flat world point (see screenToWorld): START, a coat's deck zone, or its buy button. */
@@ -3130,7 +3133,7 @@ function paintShop(ctx: CanvasRenderingContext2D, renderer: Renderer, sim: Sim):
       drawNumber(ctx, renderer, cost, kx + ((kw - cw) >> 1), ky + kh - 15, false)
     }
   }
-  if (sim.free && sim.chest !== 1 && deckReady(sim)) paintCoatInfo(ctx, renderer, sim, py(lay.startY) - SHOP_INFO_H - 2)
+  if (sim.free && sim.chest !== 1 && deckReady(sim)) paintCoatInfo(ctx, renderer, sim, py(lay.startY) - lay.infoH - 2, lay.infoH)
   const bx = px(at(START_X))
   const by = py(lay.startY)
   const bw = at(START_W)
@@ -3186,7 +3189,7 @@ const COAT_NAMES = ['赤柴', '黒柴', '胡麻柴', '白柴', 'ぶち柴', 'ど
 const PERK_TEXT = ['かみつきが速くなる', 'かみつくと押し返す', 'ボールの範囲が広がる', '回復の範囲が広がる', 'フリスビーが遠くまで飛ぶ', 'ふみつけで少し止める', '応援の範囲が広がる'] as const
 
 /** The result screen's info strip, about the coat last tapped (or the first one that levelled up, else the first in the deck): its name and level, XP to go, and what the next level and the next perk give. */
-function paintCoatInfo(ctx: CanvasRenderingContext2D, renderer: Renderer, sim: Sim, y: number): void {
+function paintCoatInfo(ctx: CanvasRenderingContext2D, renderer: Renderer, sim: Sim, y: number, h: number): void {
   let kind = renderer.infoKind
   if (kind < 0 || kind >= KINDS) {
     kind = sim.gained.findIndex((g, k) => g > 0 && k < KINDS)
@@ -3195,25 +3198,23 @@ function paintCoatInfo(ctx: CanvasRenderingContext2D, renderer: Renderer, sim: S
   const w = frame.internalW - 8
   const x = 4
   ctx.fillStyle = LINE
-  ctx.fillRect(x, y, w, SHOP_INFO_H)
+  ctx.fillRect(x, y, w, h)
   ctx.fillStyle = NIGHT_1
-  ctx.fillRect(x + 1, y + 1, w - 2, SHOP_INFO_H - 2)
+  ctx.fillRect(x + 1, y + 1, w - 2, h - 2)
   const level = sim.levels[kind] ?? 1
   const maxed = level >= MAX_LEVEL
   const head = `${COAT_NAMES[kind] ?? ''} Lv${level}`
-  let tx = x + 4
-  tx += drawJP(ctx, head, tx, y + 2, 10, WHITE) + 6
-  if (!maxed) drawJP(ctx, `あと${Math.max(0, xpNeed(level) - (sim.xp[kind] ?? 0))}けいけん`, tx, y + 3, 8, SKY_LIGHT)
-  else drawJP(ctx, 'MAX', tx, y + 3, 8, GOLD_LIGHT)
-  // Second line: the next perk, else what a level gives.
+  // Three lines at sizes that stay legible on a phone (8px Japanese turned to mush): name and XP, the next perk, what a level gives.
+  let tx = x + 5
+  tx += drawJP(ctx, head, tx, y + 4, 12, WHITE) + 6
+  if (!maxed) drawJP(ctx, `あと${Math.max(0, xpNeed(level) - (sim.xp[kind] ?? 0))}EXP`, tx, y + 5, 11, SKY_LIGHT)
+  else drawJP(ctx, 'MAX', tx, y + 5, 11, GOLD_LIGHT)
   let line: string
   if (level < PERK_A) line = `Lv${PERK_A}: ${PERK_TEXT[kind] ?? ''}`
   else if (level < PERK_B) line = `Lv${PERK_B}: 必殺ゲージが早くたまる`
   else line = '全部の力を引き出した!'
-  const sub = `Lvごとに 体力・攻撃 +${Math.round(LEVEL_STEP * 100)}%`
-  const lw = jpWidth(line, 8)
-  drawJP(ctx, line, x + 4, y + 14, 8, level < PERK_A || level < PERK_B ? GOLD_LIGHT : GOLD)
-  if (lw + jpWidth(sub, 8) + 14 < w) drawJP(ctx, sub, x + w - 4 - jpWidth(sub, 8), y + 14, 8, NIGHT_3)
+  drawJP(ctx, line, x + 5, y + 19, 11, GOLD_LIGHT)
+  if (h >= SHOP_INFO_H) drawJP(ctx, `Lvごとに 体力・攻撃 +${Math.round(LEVEL_STEP * 100)}%`, x + 5, y + 32, 11, WHITE)
 }
 
 /** 宝箱, 30×22, sealed: a wooden chest with gold bands and a lock; it hops while it waits, and its lid flies up when opened. `bottom` is its base line. */
