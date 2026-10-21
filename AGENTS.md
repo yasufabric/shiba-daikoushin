@@ -302,7 +302,7 @@ Play-test asked for high-quality 2D in the HD-2D manner. The pixel art is unchan
 - See also: recharging cards (top of this file), wave warnings (Wave patterns), HP bars (Effects), long-press recall (Recall), the title's settings (Title screen), flashes (2D-HD finish).
 
 ## ホネ economy (free placement)
-The にゃんこ core loop (owner play-test: one-per-coat left too little to do, so it replaced the squad of PR #102).
+The にゃんこ core loop (owner play-test: one-per-coat left too little to do, so it replaced the squad of PR 102).
 - Battle ホネ come in at the おさいふ level's income (`WALLET_INCOME`) up to its cap (`WALLET_CAP`). The match starts with `START_BONES_FREE`. A bonus above the cap is kept; only income stops.
 - Cards cost `COAT_COST[kind]`, plus `COPY_STEP` of that per copy of the coat already on the field (`freeCost`). Copies are allowed again. After a deploy a card cools down `COOLDOWN[kind]` s (a sweep on the card, no seconds). Field cap `FIELD_CAP`.
 - おさいふ (wallet): the gold button at the dock's top left (`walletTarget`, `Input.wallet`). It buys the next level (Lv1–`WALLET_MAX`, `WALLET_COST`) for more income and a higher cap. Next to it: the ホネ amount, `/cap` and a fill bar (`paintPurse`).
