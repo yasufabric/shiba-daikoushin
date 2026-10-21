@@ -27,7 +27,7 @@ import {
   HERO_TAP_LIFT,
 } from './balance'
 import { createSim, dogsLeft, fillMarch, spawnCat, spawnShiba, NO_INPUT, step, type Input, type Outcome, type Unit } from './sim'
-import { createRenderer, draw, muteTarget, pauseButtonTarget, pauseTarget, speedTarget, titleMenuTarget, screenToWorld, shopTarget, titleTarget, type ScreenInsets } from './render'
+import { createRenderer, draw, muteTarget, pauseButtonTarget, pauseTarget, speedTarget, walletTarget, titleMenuTarget, screenToWorld, shopTarget, titleTarget, type ScreenInsets } from './render'
 
 const canvasEl = document.querySelector<HTMLCanvasElement>('#game')
 if (!canvasEl) throw new Error('canvas unavailable')
@@ -346,6 +346,11 @@ canvas.addEventListener('pointerdown', (ev) => {
     synth.tap()
     return
   }
+  if (!sim.title && sim.free && sim.outcome === 'play' && walletTarget(p.x, p.y)) {
+    input.wallet = true
+    synth.tap()
+    return
+  }
   if (!sim.title && sim.outcome === 'play' && speedTarget(p.x, p.y)) {
     fast = !fast
     try {
@@ -568,6 +573,7 @@ function battleSounds(): void {
 
 function playSounds(before: Outcome): void {
   if (sim.sfxDeploy === 1) synth.deploy()
+  if (sim.sfxWallet === 1) synth.unlock()
   if (sim.sfxSpecial >= 0) {
     synth.special(sim.sfxSpecial)
     renderer.shakeUntil = sim.time + 0.25
@@ -579,6 +585,7 @@ function playSounds(before: Outcome): void {
     renderer.shakeUntil = sim.time + 0.35
   }
   sim.sfxDeploy = 0
+  sim.sfxWallet = 0
   sim.sfxSpecial = -1
   sim.sfxStrike = -1
   if (sim.outcome !== before && sim.outcome !== 'play') {
@@ -619,6 +626,7 @@ function advance(dt: number): void {
   input.recall = undefined
   input.hero = undefined
   input.callWave = undefined
+  input.wallet = undefined
   input.pick = undefined
   input.levelUp = undefined
   input.toggleDeck = undefined
