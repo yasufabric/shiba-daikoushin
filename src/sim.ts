@@ -244,6 +244,54 @@ import {
   RECALL_BACK,
   SOLO,
   SKILL_PASSIVE,
+  KIND_MAME,
+  KIND_SHINOBI,
+  KIND_DAIKU,
+  ENDLESS_UNLOCK,
+  HP_MAME,
+  DPS_MAME,
+  SPEED_MAME,
+  MAME_HIT,
+  MAME_EVERY,
+  MAME_COMBO,
+  MAME_DODGE,
+  PERK_MAME_DODGE,
+  HP_SHINOBI,
+  DPS_SHINOBI,
+  SPEED_SHINOBI,
+  SHINOBI_SIGHT,
+  SHINOBI_HIT,
+  SHINOBI_EVERY,
+  LEAP_T,
+  PERK_SHINOBI_CD,
+  HP_DAIKU,
+  DPS_DAIKU,
+  SPEED_DAIKU,
+  DAIKU_KEEP,
+  DAIKU_NEAR,
+  DAIKU_EVERY,
+  DAIKU_FIRST,
+  DAIKU_AHEAD,
+  DAIKU_W,
+  DAIKU_FENCE_HP,
+  DAIKU_FENCE_T,
+  DAIKU_CAP,
+  DAIKU_REPAIR_R,
+  DAIKU_REPAIR,
+  PERK_DAIKU_HP,
+  DECOY_T,
+  DECOY_HP,
+  DECOY_TAUNT,
+  DECOY_SIDE,
+  KAGE_COUNT,
+  KAGE_HIT,
+  KAGE_STUN,
+  KAGE_HIDE,
+  FORT_T,
+  FORT_HP,
+  FORT_GROUP,
+  FORT_PAD,
+  FORT_MAX_HW,
 } from './balance'
 
 export type Phase = 'grow' | 'clash'
@@ -281,6 +329,14 @@ export interface Unit {
   /** Free placement. Shibas: dogs at its side this step. Dogs: passing by, past a crowded shiba, for the 柴の家. */
   crowd: number
   pass: boolean
+  /** 豆柴「ちょこまか分身」: a decoy (never attacks, not a card's shiba) until this match time; 0 for a real unit. */
+  decoy: number
+  /** 豆柴: share of a dodge carried over from bites so far (a bite is dodged each time it passes 1), and the last dodge's time. */
+  dodge: number
+  dodgeAt: number
+  /** 忍び柴: seconds left in the air (leaping to `mark`, or vanished for かげぬい when `mark` is null); dogs can't touch it meanwhile. */
+  leap: number
+  mark: Unit | null
 }
 
 export interface Input {
@@ -472,6 +528,12 @@ export interface Fence {
   /** Match time it falls by itself (Infinity for a stage fence). */
   until: number
   bone: boolean
+  /** Who built it: 0 the stage (or 黒's bone wall), 1 a 大工柴 fence, 2 a とりで segment. */
+  build: number
+  /** Runs down the field (a とりで side) instead of across: then `hw` is half its length in y. */
+  vert: boolean
+  /** Match time it went up, for the pop-up. */
+  at: number
 }
 
 /** A skill cast in free placement: who, when, from where to where, and what it did to each unit it touched. */
@@ -539,6 +601,22 @@ export interface SimOptions {
   title?: boolean
   /** Saved deck: coat numbers in dock order. */
   deck?: readonly number[]
+  /** How many coats the save's `levels` and `xp` were laid out for (the hero's slot follows them). Left out: an old save, see `savedSlots`. */
+  kinds?: number
+}
+
+/**
+ * Per-coat slots from a save (levels or XP), laid out for KINDS coats plus the hero's slot. A save written with fewer coats keeps
+ * each coat's value, gives the new coats `fill`, and moves its hero slot (index `kinds`) to HERO_SLOT. Saves from before `kinds`
+ * was stored held 7 coats, plus the hero's slot when they have 8 entries.
+ */
+export function savedSlots(saved: readonly number[] | undefined, kinds: number | undefined, fill: number): number[] {
+  const out = Array.from({ length: KINDS + 1 }, () => fill)
+  if (!saved) return out
+  const n = Math.max(0, Math.min(KINDS, kinds ?? Math.min(7, saved.length)))
+  for (let k = 0; k < n; k++) out[k] = saved[k] ?? fill
+  if (saved.length > n) out[HERO_SLOT] = saved[n] ?? fill
+  return out
 }
 
 const OPEN_Y = [430, 470, 510, 550, 400, 500, 540, 580, 620, 470]
@@ -574,6 +652,11 @@ function makePool(max: number): Unit[] {
       hurtAt: -9,
       crowd: 0,
       pass: false,
+      decoy: 0,
+      dodge: 0,
+      dodgeAt: -9,
+      leap: 0,
+      mark: null,
     })
   }
   return units
@@ -607,14 +690,14 @@ export function createSim(opts?: SimOptions): Sim {
     picked: KIND_TAN,
     recharge: Array.from({ length: KINDS }, () => 0),
     rechargeFull: Array.from({ length: KINDS }, () => 0),
-    levels: Array.from({ length: KINDS + 1 }, (_, i) => Math.min(MAX_LEVEL, Math.max(1, Math.floor(opts?.levels?.[i] ?? 1)))),
+    levels: savedSlots(opts?.levels, opts?.kinds, 1).map((n) => Math.min(MAX_LEVEL, Math.max(1, Math.floor(n)))),
     purse: Math.max(0, Math.floor(opts?.purse ?? 0)),
     earned: 0,
     saveSeq: 0,
     title: opts?.title === true,
     deck: [...DEFAULT_DECK],
     newCoat: -1,
-    xp: Array.from({ length: KINDS + 1 }, (_, i) => Math.max(0, Math.floor(opts?.xp?.[i] ?? 0))),
+    xp: savedSlots(opts?.xp, opts?.kinds, 0).map((n) => Math.max(0, Math.floor(n))),
     gained: Array.from({ length: KINDS + 1 }, () => 0),
     dealt: Array.from({ length: KINDS }, () => 0),
     endlessBest: Math.max(0, Math.floor(opts?.endlessBest ?? 0)),

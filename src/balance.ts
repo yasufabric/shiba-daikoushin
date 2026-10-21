@@ -86,7 +86,7 @@ export const STEP_TAN = 8
 export const STEP_BLACK = 16
 /** One shiba per tap, for every card. */
 /** Seconds a card needs before it can send another shiba. Order: 赤, 黒, 胡麻, 白. */
-export const RECHARGE = [2.5, 6, 4, 7, 5, 9, 8] as const
+export const RECHARGE = [2.5, 6, 4, 7, 5, 9, 8, 3, 6, 7] as const
 /** One shiba per tap, for every card. */
 export const COUNT_TAN = 1
 export const COUNT_BLACK = 1
@@ -128,8 +128,8 @@ export const HEAL_REACH = 180
 export const HEAVY_EVERY = 2.3
 export const HEAVY_HIT = 180
 
-/** Skill gauge per coat: damage it has landed (白: healed; 応援: cheered). Order: 赤, 黒, 胡麻, 白, ぶち, どっしり, 応援. ?lanes fires on its own at this; free placement waits for a tap on the full card. */
-export const SPECIAL_NEED = [2000, 1600, 3200, 1850, 2400, 2000, 1250] as const
+/** Skill gauge per coat: damage it has landed (白: healed; 応援: cheered; 大工: mended). Order: 赤, 黒, 胡麻, 白, ぶち, どっしり, 応援, 豆柴, 忍び, 大工. ?lanes fires on its own at this; free placement waits for a tap on the full card. */
+export const SPECIAL_NEED = [2000, 1600, 3200, 1850, 2400, 2000, 1250, 1800, 2200, 1500] as const
 /** Splash and pass-through hits (胡麻's ball, どっしり's stomp, ぶち's disc) fill the gauge at this share; only the dog aimed at counts in full. */
 export const SPLASH_CHARGE = 0.3
 /** ?lanes: after a special lands, no other special fires for this many seconds. */
@@ -149,7 +149,7 @@ export const CHEESE_HIT = 26
 export const CHEESE_PUSH = 60
 
 /** Free placement skills: one per coat, fired by tapping its card when the gauge is full. The unit of that coat nearest a dog casts it. */
-export const SKILL_NAMES = ['シバダッシュ', 'ホネのカベ', 'ボールの雨', 'ペロペロ', 'ブーメラン', 'ドスン', 'おうえん旗'] as const
+export const SKILL_NAMES = ['シバダッシュ', 'ホネのカベ', 'ボールの雨', 'ペロペロ', 'ブーメラン', 'ドスン', 'おうえん旗', 'ちょこまか分身', 'かげぬい', 'とりで'] as const
 /** No two skills within this many seconds. */
 export const SKILL_GAP = 2
 /** Skill damage is × the coat's level power × the stage's dog hp (× FREE_DOG_HP); the boss takes this share of it. */
@@ -185,6 +185,22 @@ export const FLAG_T = 10
 export const FLAG_RADIUS = 96
 export const FLAG_HASTE = 1.6
 export const FLAG_REGEN = 0.03
+/** 豆柴「ちょこまか分身」: two decoy 豆柴 stand beside the caster for DECOY_T s. They never attack, have DECOY_HP of the caster's max hp, and dogs see them DECOY_TAUNT as far as they are (黒 is TAUNT), so the bites go to them. */
+export const DECOY_T = 6
+export const DECOY_HP = 0.45
+export const DECOY_TAUNT = 0.35
+export const DECOY_SIDE = 26
+/** 忍び柴「かげぬい」: the caster vanishes for KAGE_HIDE s and strikes the KAGE_COUNT dogs furthest down the field (nearest the 柴の家) for KAGE_HIT, pinning them KAGE_STUN s. */
+export const KAGE_COUNT = 3
+export const KAGE_HIT = 70
+export const KAGE_STUN = 2.5
+export const KAGE_HIDE = 0.6
+/** 大工柴「とりで」: a U of three sturdier 柵 (top bar and two sides, open toward the 柴の家) around the caster and the shibas within FORT_GROUP of it, for FORT_T s. FORT_HP × stage hp × level power each. */
+export const FORT_T = 12
+export const FORT_HP = 520
+export const FORT_GROUP = 50
+export const FORT_PAD = 22
+export const FORT_MAX_HW = 70
 
 export const VIEW_W = 390
 export const VIEW_H = 844
@@ -248,13 +264,13 @@ export const FREE_INCOME = 0.8
 /** ?lanes-era cap on shibas alive at once. Free placement is one per coat now (at most DECK_SIZE out), so it never bites there. */
 export const FIELD_CAP = 8
 /** 1種1匹 (free placement): seconds a coat's card waits after its shiba falls before it can go out again. Order: 赤, 黒, 胡麻, 白, ぶち, どっしり, 応援. */
-export const RESPAWN = [8, 13, 10, 11, 10, 14, 11] as const
+export const RESPAWN = [8, 13, 10, 11, 10, 14, 11, 8, 11, 12] as const
 /** A shiba recalled home (long press) is back this many seconds after it walks in the door. */
 export const RECALL_BACK = 2
 /** Each coat fights alone, so its hp and every per-hit number (bites, slams, balls, discs, stomps, heals) are × this in free placement. Skills are not. */
-export const SOLO = [2.5, 2.3, 2.6, 2.4, 2.6, 2.2, 2.4] as const
+export const SOLO = [2.5, 2.3, 2.6, 2.4, 2.6, 2.2, 2.4, 2.5, 2.4, 2.4] as const
 /** Seconds for a skill gauge to fill on its own while its shiba is on the field (damage and healing still add on top). */
-export const SKILL_PASSIVE = [50, 45, 50, 22, 50, 40, 22] as const
+export const SKILL_PASSIVE = [50, 45, 50, 22, 50, 40, 22, 45, 50, 35] as const
 export const MAX_SHIBAS = 600
 export const MARCH_COUNT = 240
 
@@ -267,7 +283,11 @@ export const KIND_DISC = 4
 export const KIND_BIG = 5
 /** 応援柴: a golden shiba with a flag; it deals no damage, but every shiba near it bites faster. */
 export const KIND_CHEER = 6
-export const KINDS = 7
+/** 豆柴 (tiny, fast double-biter that dodges), 忍び柴 (leaps onto the backline), 大工柴 (builds little 柵). */
+export const KIND_MAME = 7
+export const KIND_SHINOBI = 8
+export const KIND_DAIKU = 9
+export const KINDS = 10
 /** Cards in a deck: the shop picks this many of the roster. */
 export const DECK_SIZE = 4
 export const DEFAULT_DECK = [0, 1, 2, 3] as const
@@ -443,8 +463,9 @@ export const HERO_REVIVE = 16
 /** Field taps above this y (below FREE_ZONE_Y) steer the hero instead of deploying. */
 export const HERO_TAP_Y = 420
 
-/** にゃんこ-style unlocks: a coat joins once this stage (index) has a star; -1 is open from the start. 赤柴 and 黒柴 start (a new player needs a tank); each stage cleared brings the next coat (胡麻 after stage 1, 白 after 2, ぶち after 3, どっしり after 4, 応援 after 5). */
-export const COAT_UNLOCK = [-1, -1, 0, 1, 2, 3, 4] as const
+/** にゃんこ-style unlocks: a coat joins once this stage (index) has a star; -1 is open from the start. 赤柴 and 黒柴 start (a new player needs a tank); each stage cleared brings the next coat (胡麻 after stage 1, 白 after 2, ぶち after 3, どっしり after 4, 応援 after 5, 豆柴 after 7, 忍び柴 after 8). STAGES.length (8) means エンドレス: the coat joins once a run there has beaten ENDLESS_UNLOCK dogs (大工柴). */
+export const COAT_UNLOCK = [-1, -1, 0, 1, 2, 3, 4, 6, 7, 8] as const
+export const ENDLESS_UNLOCK = 100
 
 /** 応援柴 stats. It trails the nearest shiba; every shiba within CHEER_RADIUS attacks CHEER_HASTE× as often. Its gauge fills CHEER_CHARGE per second while it has a shiba in range. */
 export const HP_CHEER = 70
@@ -453,6 +474,43 @@ export const SPEED_CHEER = 40
 export const CHEER_RADIUS = 58
 export const CHEER_HASTE = 1.4
 export const CHEER_CHARGE = 24
+
+/** 豆柴: tiny and quick. Bites twice in a row (MAME_COMBO s apart) every MAME_EVERY s, and dodges MAME_DODGE of the bites aimed at it (Lv5: PERK_MAME_DODGE). */
+export const HP_MAME = 30
+export const DPS_MAME = 0
+export const SPEED_MAME = 70
+export const MAME_HIT = 16
+export const MAME_EVERY = 1
+export const MAME_COMBO = 0.18
+export const MAME_DODGE = 0.3
+export const PERK_MAME_DODGE = 0.45
+
+/** 忍び柴: ignores the front line. With a dog in SHINOBI_SIGHT it leaps (LEAP_T s, untouchable) beside a プードル if one is in sight, else the dog with the least hp, and lands one SHINOBI_HIT; then SHINOBI_EVERY s before the next leap (Lv5: × PERK_SHINOBI_CD). In between it nips at DPS_SHINOBI. */
+export const HP_SHINOBI = 34
+export const DPS_SHINOBI = 7
+export const SPEED_SHINOBI = 50
+export const SHINOBI_SIGHT = 170
+export const SHINOBI_HIT = 85
+export const SHINOBI_EVERY = 3.4
+export const LEAP_T = 0.35
+export const PERK_SHINOBI_CD = 0.7
+
+/** 大工柴: a builder with a weak bite that keeps DAIKU_KEEP back from the dogs. Every DAIKU_EVERY s while a dog is within DAIKU_NEAR it builds a small 柵 DAIKU_AHEAD in front of itself (DAIKU_W wide on the 195 grid, DAIKU_FENCE_HP × stage hp × level power, gone after DAIKU_FENCE_T s); at most DAIKU_CAP of its fences stand. It mends every 柵 within DAIKU_REPAIR_R by DAIKU_REPAIR of its full hp per second. Lv5: fences × PERK_DAIKU_HP. */
+export const HP_DAIKU = 70
+export const DPS_DAIKU = 9
+export const SPEED_DAIKU = 40
+export const DAIKU_KEEP = 64
+export const DAIKU_NEAR = 150
+export const DAIKU_EVERY = 12
+export const DAIKU_FIRST = 3
+export const DAIKU_AHEAD = 32
+export const DAIKU_W = 28
+export const DAIKU_FENCE_HP = 300
+export const DAIKU_FENCE_T = 15
+export const DAIKU_CAP = 2
+export const DAIKU_REPAIR_R = 80
+export const DAIKU_REPAIR = 0.03
+export const PERK_DAIKU_HP = 1.5
 
 /** The boss howls every BOSS_HOWL_EVERY s (first one BOSS_HOWL_FIRST s after it walks out). From stage BOSS_CALL_FROM (index) the howl calls BOSS_CALL チワワ to its side; from BOSS_STUN_FROM it also freezes every shiba within BOSS_HOWL_R for BOSS_STUN s. */
 export const BOSS_HOWL_EVERY = 9
