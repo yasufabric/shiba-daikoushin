@@ -301,13 +301,10 @@ Play-test asked for high-quality 2D in the HD-2D manner. The pixel art is unchan
 - **Card shake:** `sim.deny` is one timer per coat (it was `deny0`..`deny3`, so coats 4-6 never shook).
 - See also: recharging cards (top of this file), wave warnings (Wave patterns), HP bars (Effects), long-press recall (Recall), the title's settings (Title screen), flashes (2D-HD finish).
 
-## Squad: 1種1匹 (free placement)
-The owner chose one shiba per coat: each deck coat is a single hero-like unit, so deck choice and skill timing are the game.
-- **One per coat:** a deploy or a card tap for a coat already on the field (`isOut`; walking home after a recall counts) is denied with the card shake. If its gauge is full the tap fires the skill as before. After a deploy the pick moves on by itself (`advancePick`) to the next deck coat that isn't out, preferring one that is ready now, so the player can keep tapping the field; the step also moves it off any coat that is out.
-- **Respawn:** there is no recharge after a deploy. When a shiba falls (`reap`) its card waits `RESPAWN[kind]` (8-14 s); one recalled by long press waits `RECALL_BACK` (2 s) after it walks in the door (`leftField`). The wait uses the recharge UI (night dither and big seconds), drawn against `sim.rechargeFull` because waits differ.
-- **出撃中:** a card whose shiba is out keeps a lit portrait (no hop) inside a meadow-green frame, with a green 出撃中 plate and a little pennant in its foot (`paintOut`) and a twice-as-thick skill gauge. A full gauge's skill plate replaces the 出撃中 plate. So the dock reads three ways: ready (gold frame, hopping), out (green), waiting (dither and seconds). The old field-cap pips are gone; `FIELD_CAP` stays as a harmless backstop.
-- **Stronger singles:** `unitPower` = level power × `SOLO[kind]` (2.2-2.6) in free placement only. It scales hp, bites (dps) and every per-hit number (黒's slam, 胡麻's ball, ぶち's disc, どっしり's stomp, 白's heal). Skills still use plain `power`.
-- **Skill gauge:** besides damage and healing, a deck coat's gauge fills on its own while its shiba is out, full in `SKILL_PASSIVE[kind]` s (22 s for 白 and 応援, 40-50 s for the fighters). It keeps its value through a respawn.
-- **Balance:** to fit four units instead of about eight, `FREE_DOG_HP` dropped to 1.5 and `CROWD_CAP` rose to 3 (黒 5). Stages 1-4 were retuned (stage 4 is a step harder again: it had got easier after the skills), and エンドレス now starts at stage 8's hp and dps (3.5/2.2, it was 2.4/1.8).
-- The bot sends whichever deck coat is not out and ready, in deck order, and taps a full card when a dog is within 120 of its caster. `__shiba.kill(kind)` knocks a coat's shiba out for screenshots.
-- The wave warning banner now always sits clear below the call button (its drop-in is 4 px), so it never covers the button's left on stage 1.
+## ホネ economy (free placement)
+The にゃんこ core loop (owner play-test: one-per-coat left too little to do, so it replaced the squad of PR 102).
+- Battle ホネ come in at the おさいふ level's income (`WALLET_INCOME`) up to its cap (`WALLET_CAP`). The match starts with `START_BONES_FREE`. A bonus above the cap is kept; only income stops.
+- Cards cost `COAT_COST[kind]`, plus `COPY_STEP` of that per copy of the coat already on the field (`freeCost`). Copies are allowed again. After a deploy a card cools down `COOLDOWN[kind]` s (a sweep on the card, no seconds). Field cap `FIELD_CAP`.
+- おさいふ (wallet): the gold button at the dock's top left (`walletTarget`, `Input.wallet`). It buys the next level (Lv1–`WALLET_MAX`, `WALLET_COST`) for more income and a higher cap. Next to it: the ホネ amount, `/cap` and a fill bar (`paintPurse`).
+- Coats keep their per-coat skills (tap a full card). `COAT_STAT` scales hp and per-hit numbers by price role: 赤 cheap and weak, どっしり dear and strong. `SKILL_PASSIVE` adds a slow passive fill while a copy is out.
+- The bot (`tools/bot.ts --wallet early|none`) shows the wallet matters: without it, stages 4+ are lost at Lv5. Stage 1 is won by a new 赤+黒 player even without touching the wallet.

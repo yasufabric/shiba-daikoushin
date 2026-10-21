@@ -104,10 +104,11 @@ import {
   KIND_CHEER as KIND_FLAG,
   KIND_WHITE as KIND_LICK,
   BREED_CORGI as CORGI,
-  RESPAWN,
-  RECALL_BACK,
-  SOLO,
-  SKILL_PASSIVE,
+  COAT_COST,
+  COOLDOWN,
+  WALLET_INCOME,
+  WALLET_CAP,
+  WALLET_COST,
 } from './balance'
 import {
   costOf,
@@ -135,8 +136,6 @@ import {
   spec,
   waveAhead,
   isOut,
-  unitPower,
-  power,
   type Input,
   type Unit,
   type Sim,
@@ -875,6 +874,7 @@ describe('soldiers', () => {
     step(sim, 1 / 30, { ...NO_INPUT, restart: true })
     expect(sim.outcome).toBe('play')
     expect(sim.deck).toEqual([1, 2, 4, 5])
+    sim.bones = 1000
     const alive = sim.aliveShibas
     step(sim, 1 / 30, { ...NO_INPUT, card: 3, at: { x: 100, y: 500 } })
     expect(sim.aliveShibas).toBe(alive)
@@ -1326,7 +1326,9 @@ describe('balance curve (free placement)', () => {
         }
         const blacks = s.shibas.filter((u) => u.alive && u.kind === KIND_BLACK).length
         const order = blacks === 0 ? [KIND_BLACK, KIND_TAN] : [KIND_TAN, KIND_BLACK]
-        const card = order.find((k) => (s.recharge[k] ?? 0) <= 0)
+        // Buy the first おさいふ level when it is affordable, then spend on what can be paid for.
+        if (s.wallet < 2 && s.bones >= (WALLET_COST[0] ?? 0)) return { ...NO_INPUT, wallet: true }
+        const card = order.find((k) => (s.recharge[k] ?? 0) <= 0 && s.bones >= costOf(s, k))
         return card === undefined ? NO_INPUT : { ...NO_INPUT, card, at: { x: Math.max(14, Math.min(FIELD_W - 14, x)), y: 470 } }
       })
       expect(sim.outcome).toBe('won')
@@ -1528,8 +1530,10 @@ describe('ui polish (free placement)', () => {
   it('shakes any coat\'s card on a denied tap, not only the first four', () => {
     const sim = createSim({ tutorial: false, seed: 5, free: true, best: [3, 3, 3, 3, 3, 3, 3, 3] })
     sim.deck = [KIND_TAN, KIND_DISC, KIND_BIG, KIND_CHEER]
+    sim.bones = 1000
     step(sim, 1 / 30, { card: KIND_DISC, at: { x: 180, y: 520 }, restart: false })
     expect(isOut(sim, KIND_DISC)).toBe(true)
+    // A second tap during the cooldown is denied with the shake.
     expect(sim.deny[KIND_DISC]).toBe(0)
     step(sim, 1 / 30, { card: KIND_DISC, at: { x: 120, y: 520 }, restart: false })
     expect(sim.deny[KIND_DISC]).toBeGreaterThan(0)
@@ -1578,8 +1582,8 @@ describe('ui polish (free placement)', () => {
   })
 })
 
-describe('squad: one shiba per coat (free placement)', () => {
-  function squad(): Sim {
+describe('ホネ economy (free placement)', () => {
+  function econ(): Sim {
     const sim = createSim({ tutorial: false, seed: 4, free: true, best: STAGES.map(() => 1) })
     sim.deck = [KIND_TAN, KIND_BLACK, KIND_SESAME, KIND_WHITE]
     for (const u of [...sim.shibas, ...sim.cats]) u.alive = false
@@ -1592,101 +1596,64 @@ describe('squad: one shiba per coat (free placement)', () => {
   }
   const count = (sim: Sim, kind: number): number => sim.shibas.filter((u) => u.alive && u.kind === kind).length
 
-  it('denies a second deploy or a pick of a coat already out, with the card shake', () => {
-    const sim = squad()
+  it('charges a coat its price, and each copy on the field raises the next one', () => {
+    const sim = econ()
+    sim.bones = 1000
+    const first = costOf(sim, KIND_TAN)
+    expect(first).toBe(COAT_COST[KIND_TAN])
     step(sim, 1 / 30, { card: KIND_TAN, at: { x: 100, y: 500 }, restart: false })
     expect(count(sim, KIND_TAN)).toBe(1)
-    expect(isOut(sim, KIND_TAN)).toBe(true)
-    expect(sim.deny[KIND_TAN] ?? 0).toBe(0)
-    step(sim, 1 / 30, { card: KIND_TAN, at: { x: 250, y: 500 }, restart: false })
-    expect(count(sim, KIND_TAN)).toBe(1)
-    expect(sim.deny[KIND_TAN] ?? 0).toBeGreaterThan(0)
-    play(sim, 0.5, () => NO_INPUT)
-    step(sim, 1 / 30, { ...NO_INPUT, pick: KIND_TAN })
-    expect(sim.picked).not.toBe(KIND_TAN)
-    expect(sim.deny[KIND_TAN] ?? 0).toBeGreaterThan(0)
+    expect(sim.bones).toBeLessThan(1000 - first + 1)
+    expect(costOf(sim, KIND_TAN)).toBeGreaterThan(first)
+    play(sim, 1.5, () => NO_INPUT)
+    step(sim, 1 / 30, { card: KIND_TAN, at: { x: 200, y: 500 }, restart: false })
+    expect(count(sim, KIND_TAN)).toBe(2)
   })
 
-  it('moves the pick to the next coat in the deck that is not out after a deploy', () => {
-    const sim = squad()
-    step(sim, 1 / 30, { card: KIND_TAN, at: { x: 100, y: 500 }, restart: false })
-    expect(sim.picked).toBe(KIND_BLACK)
-    step(sim, 1 / 30, { card: sim.picked, at: { x: 200, y: 500 }, restart: false })
-    expect(sim.picked).toBe(KIND_SESAME)
-    // 白 waits out a respawn: the pick prefers a coat that is ready, wrapping round past the ones out.
-    sim.picked = KIND_SESAME
-    sim.recharge[KIND_WHITE] = 5
-    step(sim, 1 / 30, { card: KIND_SESAME, at: { x: 300, y: 560 }, restart: false })
-    expect(sim.picked).toBe(KIND_WHITE)
-    sim.recharge[KIND_WHITE] = 0
-    step(sim, 1 / 30, { card: KIND_WHITE, at: { x: 150, y: 600 }, restart: false })
-    expect(sim.deck.every((k) => isOut(sim, k))).toBe(true)
-    expect(sim.aliveShibas).toBe(4)
-  })
-
-  it('makes a fallen coat wait out its respawn, shown as a recharge', () => {
-    const sim = squad()
-    step(sim, 1 / 30, { card: KIND_BLACK, at: { x: 100, y: 500 }, restart: false })
-    const u = sim.shibas.find((v) => v.alive && v.kind === KIND_BLACK) as Unit
-    u.hp = 0
-    step(sim, 1 / 30, NO_INPUT)
-    expect(isOut(sim, KIND_BLACK)).toBe(false)
-    const wait = RESPAWN[KIND_BLACK]
-    expect(sim.recharge[KIND_BLACK]).toBeGreaterThan(wait - 0.1)
-    expect(sim.rechargeFull[KIND_BLACK]).toBe(wait)
-    play(sim, wait - 1, () => NO_INPUT)
+  it('denies a deploy it cannot afford, with the card shake', () => {
+    const sim = econ()
+    sim.bones = 10
     step(sim, 1 / 30, { card: KIND_BLACK, at: { x: 100, y: 500 }, restart: false })
     expect(count(sim, KIND_BLACK)).toBe(0)
     expect(sim.deny[KIND_BLACK] ?? 0).toBeGreaterThan(0)
-    play(sim, 1.1, () => NO_INPUT)
-    expect(sim.recharge[KIND_BLACK]).toBe(0)
-    step(sim, 1 / 30, { card: KIND_BLACK, at: { x: 100, y: 500 }, restart: false })
-    expect(count(sim, KIND_BLACK)).toBe(1)
   })
 
-  it('brings a recalled shiba back after RECALL_BACK, far sooner than a respawn', () => {
-    const sim = squad()
-    step(sim, 1 / 30, { card: KIND_TAN, at: { x: 195, y: 760 }, restart: false })
-    const u = sim.shibas.find((v) => v.alive && v.kind === KIND_TAN) as Unit
-    step(sim, 1 / 30, { ...NO_INPUT, recall: { x: u.x, y: u.y - 12 } })
-    expect(u.recall).toBe(true)
-    let t = 0
-    while (isOut(sim, KIND_TAN) && t < 10) {
-      step(sim, 1 / 30, NO_INPUT)
-      t += 1 / 30
-    }
-    expect(isOut(sim, KIND_TAN)).toBe(false)
-    expect(sim.recharge[KIND_TAN]).toBeLessThanOrEqual(RECALL_BACK)
-    expect(RECALL_BACK).toBeLessThan(RESPAWN[KIND_TAN] / 2)
-    play(sim, RECALL_BACK + 0.05, () => NO_INPUT)
+  it('cools a card down for a moment after a deploy', () => {
+    const sim = econ()
+    sim.bones = 1000
     step(sim, 1 / 30, { card: KIND_TAN, at: { x: 100, y: 500 }, restart: false })
+    step(sim, 1 / 30, { card: KIND_TAN, at: { x: 200, y: 500 }, restart: false })
     expect(count(sim, KIND_TAN)).toBe(1)
+    play(sim, (COOLDOWN[KIND_TAN] ?? 1) + 0.1, () => NO_INPUT)
+    step(sim, 1 / 30, { card: KIND_TAN, at: { x: 200, y: 500 }, restart: false })
+    expect(count(sim, KIND_TAN)).toBe(2)
   })
 
-  it('fills a skill gauge slowly on its own while the coat is out, and keeps it through a respawn', () => {
-    const sim = squad()
-    play(sim, 3, () => NO_INPUT)
-    expect(sim.charge[KIND_WHITE]).toBe(0)
+  it('earns ホネ at the おさいふ income up to its cap, and a wallet level raises both', () => {
+    const sim = econ()
+    sim.bones = 0
+    play(sim, 2, () => NO_INPUT)
+    expect(sim.bones).toBeCloseTo((WALLET_INCOME[0] ?? 0) * 2, 0)
+    play(sim, 200, () => NO_INPUT)
+    expect(sim.bones).toBe(WALLET_CAP[0])
+    const price = WALLET_COST[0] ?? 0
+    step(sim, 1 / 30, { ...NO_INPUT, wallet: true })
+    expect(sim.wallet).toBe(2)
+    expect(sim.bones).toBeLessThan((WALLET_CAP[0] ?? 0) - price + 1)
+    play(sim, 200, () => NO_INPUT)
+    expect(sim.bones).toBe(WALLET_CAP[1])
+    sim.bones = 0
+    step(sim, 1 / 30, { ...NO_INPUT, wallet: true })
+    expect(sim.wallet).toBe(2)
+    expect(sim.walletDeny).toBeGreaterThan(0)
+  })
+
+  it('still fires a coat skill from a tap on its full card', () => {
+    const sim = econ()
+    sim.bones = 1000
     step(sim, 1 / 30, { card: KIND_WHITE, at: { x: 100, y: 600 }, restart: false })
-    play(sim, SKILL_PASSIVE[KIND_WHITE] / 2, () => NO_INPUT)
-    const half = sim.charge[KIND_WHITE] ?? 0
-    expect(half).toBeGreaterThan(SPECIAL_NEED[KIND_WHITE] * 0.45)
-    expect(half).toBeLessThan(SPECIAL_NEED[KIND_WHITE] * 0.55)
-    const u = sim.shibas.find((v) => v.alive && v.kind === KIND_WHITE) as Unit
-    u.hp = 0
-    play(sim, 3, () => NO_INPUT)
-    expect(sim.charge[KIND_WHITE]).toBeCloseTo(half, 0)
-    expect(SKILL_PASSIVE[KIND_WHITE]).toBeLessThanOrEqual(25)
-  })
-
-  it('makes each lone shiba SOLO× tougher and harder-hitting in free placement only', () => {
-    const free = squad()
-    const lanes = createSim({ tutorial: false, seed: 4 })
-    for (const k of [KIND_TAN, KIND_BLACK, KIND_WHITE]) {
-      expect(unitPower(free, k)).toBeCloseTo(power(free, k) * (SOLO[k] ?? 1), 5)
-      expect(unitPower(lanes, k)).toBe(power(lanes, k))
-      expect(SOLO[k]).toBeGreaterThanOrEqual(2.2)
-      expect(SOLO[k]).toBeLessThanOrEqual(2.8)
-    }
+    sim.charge[KIND_WHITE] = SPECIAL_NEED[KIND_WHITE]
+    step(sim, 1 / 30, { ...NO_INPUT, pick: KIND_WHITE })
+    expect(sim.charge[KIND_WHITE] ?? 0).toBeLessThan(SPECIAL_NEED[KIND_WHITE])
   })
 })

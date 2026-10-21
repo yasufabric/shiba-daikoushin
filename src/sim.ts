@@ -159,7 +159,6 @@ import {
   FREE_DOG_DPS,
   FREE_DOG_HP,
   FREE_WAVE_SLOW,
-  FREE_INCOME,
   FIELD_CAP,
   FREE_PACE,
   FREE_SHIBA_TOP,
@@ -240,10 +239,16 @@ import {
   SPEED_SESAME,
   STEP_SESAME,
   HUD_DROP,
-  RESPAWN,
-  RECALL_BACK,
-  SOLO,
   SKILL_PASSIVE,
+  COAT_COST,
+  COPY_STEP,
+  COOLDOWN,
+  COAT_STAT,
+  START_BONES_FREE,
+  WALLET_MAX,
+  WALLET_INCOME,
+  WALLET_CAP,
+  WALLET_COST,
 } from './balance'
 
 export type Phase = 'grow' | 'clash'
@@ -302,6 +307,8 @@ export interface Input {
   pick?: number
   /** 波を早く呼ぶ: send the next wave now for bonus ホネ. */
   callWave?: boolean
+  /** Free placement: spend battle ホネ on the next おさいふ level. */
+  wallet?: boolean
   /** On the title screen, play this stage. */
   pickStage?: number
   /** On the result screen, go back to the title. */
@@ -323,7 +330,12 @@ export const NO_INPUT: Input = { card: -1, restart: false }
 
 export interface Sim {
   time: number
+  /** Battle ホネ. Free placement: they come in at the おさいふ's income up to its cap and buy shibas. */
   bones: number
+  /** おさいふ level (free placement, 1..WALLET_MAX), reset each match. */
+  wallet: number
+  /** Card-shake timer for the おさいふ button (a buy it can't afford). */
+  walletDeny: number
   seed: number
   aliveShibas: number
   aliveCats: number
@@ -453,6 +465,8 @@ export interface Sim {
   /** Free placement: the latest breaches of the 柴の家 (where and when a dog hit it and left), newest last, for the puff. */
   breaches: Breach[]
   sfxDeploy: number
+  /** 1 on the step the おさいふ levelled up. */
+  sfxWallet: number
   laneS: Int16Array[]
   laneC: Int16Array[]
   laneSN: Int16Array
@@ -583,6 +597,8 @@ export function createSim(opts?: SimOptions): Sim {
   const sim: Sim = {
     time: 0,
     bones: START_BONES,
+    wallet: 1,
+    walletDeny: 0,
     seed: opts?.seed ?? 1,
     aliveShibas: 0,
     aliveCats: 0,
@@ -666,6 +682,7 @@ export function createSim(opts?: SimOptions): Sim {
     horde: 0,
     breaches: [],
     sfxDeploy: 0,
+    sfxWallet: 0,
     laneS: Array.from({ length: LANE_COUNT }, () => new Int16Array(MAX_SHIBAS)),
     laneC: Array.from({ length: LANE_COUNT }, () => new Int16Array(MAX_CATS)),
     laneSN: new Int16Array(LANE_COUNT),
@@ -955,7 +972,9 @@ function boot(sim: Sim): void {
   sim.chest = 0
   sim.chestBones = 0
   sim.time = 0
-  sim.bones = START_BONES
+  sim.bones = sim.free ? START_BONES_FREE : START_BONES
+  sim.wallet = 1
+  sim.walletDeny = 0
   sim.aliveShibas = 0
   sim.aliveCats = 0
   sim.costTan = COST_TAN
@@ -1002,6 +1021,7 @@ function boot(sim: Sim): void {
   sim.horde = 0
   sim.breaches = []
   sim.sfxDeploy = 0
+  sim.sfxWallet = 0
   clear(sim.shibas)
   clear(sim.cats)
   // Free placement starts with an empty field: the player sends the first shibas.
@@ -1178,11 +1198,16 @@ export function step(sim: Sim, dt: number, input: Input = NO_INPUT): void {
   if (input.hero && sim.free && sim.hero.alive) sim.heroGo = { x: Math.max(10, Math.min(FIELD_W - 10, input.hero.x)), y: Math.max(20, Math.min(HERO_TAP_Y, input.hero.y)) }
   if (input.recall && sim.free) recallAt(sim, input.recall.x, input.recall.y)
   if (input.callWave) callWave(sim)
+  if (input.wallet && sim.free) buyWallet(sim)
   if (input.card >= 0 && input.card < KINDS && (!sim.free || sim.deck.includes(input.card))) tryDeploy(sim, input.card, input.lane, input.at)
 
-  const income = (BONE_RATE + sim.aliveShibas * BONE_PER_SHIBA) * (sim.free ? FREE_INCOME : 1)
   const tick = dt
-  sim.bones += tick * income
+  if (sim.free) {
+    // おさいふ: income and cap by wallet level.
+    // Income stops at the cap; ホネ already above it (a bonus) are kept.
+    if (sim.bones < walletCap(sim)) sim.bones = Math.min(walletCap(sim), sim.bones + tick * walletIncome(sim))
+    if (sim.walletDeny > 0) sim.walletDeny -= tick
+  } else sim.bones += tick * (BONE_RATE + sim.aliveShibas * BONE_PER_SHIBA)
   sim.time += tick
 
   let waves = 0
@@ -1243,13 +1268,12 @@ export function step(sim: Sim, dt: number, input: Input = NO_INPUT): void {
     if (left > 0) sim.recharge[k] = Math.max(0, left - tick)
   }
   if (sim.free) {
-    // Skill gauges also fill slowly on their own while the coat's shiba is out, so a support coat gets its skill too.
+    // Skill gauges also fill slowly on their own while a shiba of that coat is out, so a support coat gets its skill too.
     for (const k of sim.deck) {
       const need = SPECIAL_NEED[k] ?? Infinity
       if ((sim.charge[k] ?? 0) >= need || !isOut(sim, k)) continue
       sim.charge[k] = Math.min(need, (sim.charge[k] ?? 0) + (need / (SKILL_PASSIVE[k] ?? 40)) * tick)
     }
-    if (isOut(sim, sim.picked)) advancePick(sim)
   }
 
   if (sim.boss && sim.toSend <= 0 && sim.aliveCats <= 0) {
@@ -1316,41 +1340,57 @@ export function power(sim: Sim, kind: number): number {
   return 1 + LEVEL_STEP * ((sim.levels[kind] ?? 1) - 1)
 }
 
-/** A unit's own strength: level power × SOLO in free placement (one shiba per coat fights alone). Scales hp and every per-hit number, not skills. */
+/** A unit's own strength: level power × COAT_STAT in free placement (cheap coats weak, dear coats strong). Scales hp and every per-hit number, not skills. */
 export function unitPower(sim: Sim, kind: number): number {
-  return power(sim, kind) * (sim.free ? (SOLO[kind] ?? 1) : 1)
+  return power(sim, kind) * (sim.free ? (COAT_STAT[kind] ?? 1) : 1)
 }
 
-/** Free placement: is a shiba of this coat on the field (walking home after a recall counts)? */
+/** Free placement: how many shibas of this coat are on the field (walking home after a recall counts). */
+export function copiesOut(sim: Sim, kind: number): number {
+  if (!sim.free) return 0
+  let n = 0
+  for (const u of sim.shibas) if (u?.alive && u.kind === kind) n += 1
+  return n
+}
+
+/** Free placement: is a shiba of this coat on the field? */
 export function isOut(sim: Sim, kind: number): boolean {
-  if (!sim.free) return false
-  for (const u of sim.shibas) if (u?.alive && u.kind === kind) return true
-  return false
+  return copiesOut(sim, kind) > 0
 }
 
-/** Free placement: a coat's shiba left the field (fell, or walked in the door after a recall). Its card waits `wait` s, drawn with the recharge UI. */
-function leftField(sim: Sim, kind: number, wait: number): void {
-  if (!sim.free || kind < 0 || kind >= KINDS) return
-  sim.recharge[kind] = wait
-  sim.rechargeFull[kind] = wait
+/** Free placement: a coat's price now, COAT_COST plus COPY_STEP of it for every copy on the field, rounded to 5. */
+export function freeCost(sim: Sim, kind: number): number {
+  const base = COAT_COST[kind] ?? 100
+  return Math.round((base * (1 + COPY_STEP * copiesOut(sim, kind))) / 5) * 5
 }
 
-/** Free placement: keep the pick on a coat that can go out. After a deploy (or when the picked coat is out) it moves to the next deck coat after it that isn't out, preferring one that is ready now. */
-function advancePick(sim: Sim): void {
-  if (!sim.free || sim.deck.length === 0) return
-  const at = Math.max(0, sim.deck.indexOf(sim.picked))
-  const n = sim.deck.length
-  let fallback = -1
-  for (let i = 1; i <= n; i++) {
-    const k = sim.deck[(at + i) % n] ?? -1
-    if (k < 0 || isOut(sim, k)) continue
-    if ((sim.recharge[k] ?? 0) <= 0) {
-      sim.picked = k
-      return
-    }
-    if (fallback < 0) fallback = k
+/** おさいふ: ホネ per second at the current wallet level. */
+export function walletIncome(sim: Sim): number {
+  return WALLET_INCOME[Math.max(0, Math.min(WALLET_MAX, sim.wallet) - 1)] ?? 0
+}
+
+/** おさいふ: the most ホネ it holds at the current level. */
+export function walletCap(sim: Sim): number {
+  return WALLET_CAP[Math.max(0, Math.min(WALLET_MAX, sim.wallet) - 1)] ?? 0
+}
+
+/** Price of the next おさいふ level, or -1 at WALLET_MAX. */
+export function walletPrice(sim: Sim): number {
+  return sim.wallet >= WALLET_MAX ? -1 : (WALLET_COST[sim.wallet - 1] ?? -1)
+}
+
+/** Spend battle ホネ on the next おさいふ level (more income, a higher cap). Denied with a shake when short or maxed. */
+function buyWallet(sim: Sim): boolean {
+  const price = walletPrice(sim)
+  if (price < 0 || sim.bones < price) {
+    sim.walletDeny = 0.18
+    return false
   }
-  if (fallback >= 0) sim.picked = fallback
+  sim.bones -= price
+  sim.wallet += 1
+  sim.tutorial = false
+  sim.sfxWallet = 1
+  return true
 }
 
 /** Every coat (and the hero slot) back to level 1 with no XP. Stars, unlocks, the deck and ホネ stay. */
@@ -1419,13 +1459,11 @@ function tryDeploy(sim: Sim, card: number, chosen?: number, at?: { x: number; y:
     deny(sim, card)
     return
   }
-  if (sim.free) {
-    // 1種1匹: one shiba per coat on the field.
-    if (isOut(sim, card) || sim.aliveShibas >= FIELD_CAP) {
-      deny(sim, card)
-      return
-    }
-  } else if (sim.bones < cost) {
+  if (sim.free && sim.aliveShibas >= FIELD_CAP) {
+    deny(sim, card)
+    return
+  }
+  if (sim.bones < cost) {
     deny(sim, card)
     return
   }
@@ -1453,11 +1491,10 @@ function tryDeploy(sim: Sim, card: number, chosen?: number, at?: { x: number; y:
     deny(sim, card)
     return
   }
-  if (!sim.free) sim.bones -= cost
-  // Free placement: no recharge after a deploy; the card shows 出撃中 until its shiba leaves, then waits out RESPAWN.
-  sim.recharge[card] = sim.free ? 0 : (RECHARGE[card] ?? 0)
+  sim.bones -= cost
+  // Free placement: a short per-card cooldown (COOLDOWN); ?lanes the card's RECHARGE.
+  sim.recharge[card] = sim.free ? (COOLDOWN[card] ?? 2) : (RECHARGE[card] ?? 0)
   sim.rechargeFull[card] = sim.recharge[card] ?? 0
-  if (sim.free) advancePick(sim)
   const step = sim.free ? 0 : (STEP_OF[card] ?? STEP_TAN)
   sim.tutorial = false
   if (card === KIND_TAN) {
@@ -1473,6 +1510,7 @@ function tryDeploy(sim: Sim, card: number, chosen?: number, at?: { x: number; y:
 }
 
 export function costOf(sim: Sim, card: number): number {
+  if (sim.free) return freeCost(sim, card)
   if (card === KIND_BLACK) return sim.costBlack
   if (card === KIND_SESAME) return sim.costWhite
   if (card === KIND_WHITE) return sim.costSesame
@@ -1976,7 +2014,6 @@ function moveFree(sim: Sim, rawDt: number): void {
       if (d <= FREE_HOME_REACH * 0.5) {
         shiba.alive = false
         sim.aliveShibas -= 1
-        leftField(sim, shiba.kind, RECALL_BACK)
       } else {
         stepToward(shiba, homeX, homeY, Math.min(d, shiba.speed * RECALL_PACE * dt))
       }
@@ -2375,11 +2412,6 @@ function tapCard(sim: Sim, kind: number): void {
       return
     }
   }
-  // 1種1匹: a coat already out can't be picked to go out again.
-  if (sim.free && isOut(sim, kind)) {
-    deny(sim, kind)
-    return
-  }
   sim.picked = kind
 }
 
@@ -2529,7 +2561,6 @@ function reap(sim: Sim): void {
     if (!unit?.alive || unit.hp > 0) continue
     unit.alive = false
     sim.aliveShibas -= 1
-    leftField(sim, unit.kind, RESPAWN[unit.kind] ?? 10)
   }
   const cats = sim.cats
   for (let i = 0; i < cats.length; i++) {

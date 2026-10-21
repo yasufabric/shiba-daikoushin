@@ -91,6 +91,7 @@ import {
   MAX_SHIBAS,
   PANEL_Y,
   gridX,
+  FIELD_CAP,
 } from './balance'
 import { drawJP, flushPlain, jpWidth, plainWidth, queuePlain } from './jp'
 import { finish as hdFinish, flash as hdFlash } from './hd'
@@ -131,7 +132,7 @@ import {
   WHITE_DARK,
   WHITE_MID,
 } from './palette'
-import { canCall, costOf, deckReady, deckSize, feedCost, isEndless, mvpOf, xpNeed, stageOpen, coatOpen, spec, dogsLeft, levelCost, skillReady, casterOf, isOut, boomPoint, waveAhead, type Cast, type Outcome, type Sim, type Unit } from './sim'
+import { canCall, costOf, deckReady, deckSize, feedCost, isEndless, mvpOf, xpNeed, stageOpen, coatOpen, spec, dogsLeft, levelCost, skillReady, casterOf, boomPoint, waveAhead, type Cast, type Outcome, type Sim, type Unit, walletPrice, walletCap } from './sim'
 import { createSheets, type Sheets } from './sprites'
 
 const BUCKETS = 96
@@ -902,6 +903,52 @@ function paintPause(ctx: CanvasRenderingContext2D, renderer: Renderer): void {
   ctx.fillStyle = NIGHT_2
   ctx.fillRect(hx + 1, hy + 1, PAUSE_BTN_W - 2, PAUSE_BTN_H - 2)
   paintHomeButton(ctx, hx + (PAUSE_BTN_W >> 1) - 11, hy + 7)
+}
+
+/** A tap on the おさいふ button, at the left of the dock's top row (free placement play only). */
+export function walletTarget(x: number, y: number): boolean {
+  const ix = x / 2
+  if (ix < 2 || ix > 52) return false
+  return y >= BONE_Y - 8 && y <= BONE_Y + 26
+}
+
+/**
+ * The dock's top-left in free placement: the おさいふ button (level, and the price of the next level, gold when it can be
+ * bought) and the battle ホネ with their cap and a fill bar. Money is the game's core choice, so it sits where the thumb is.
+ */
+function paintPurse(ctx: CanvasRenderingContext2D, renderer: Renderer, sim: Sim, y: number): void {
+  const price = walletPrice(sim)
+  const can = price >= 0 && sim.bones >= price
+  const bx = 4 + denyShift(sim.walletDeny)
+  const bw = 48
+  ctx.fillStyle = LINE
+  ctx.fillRect(bx, y, bw, 20)
+  ctx.fillStyle = can ? GOLD : NIGHT_2
+  ctx.fillRect(bx + 1, y + 1, bw - 2, 18)
+  ctx.fillStyle = can ? GOLD_LIGHT : NIGHT_3
+  ctx.fillRect(bx + 1, y + 1, bw - 2, 1)
+  if (can) {
+    ctx.fillStyle = GOLD_DARK
+    ctx.fillRect(bx + 1, y + 18, bw - 2, 1)
+  }
+  const ink = can ? LINE : WHITE
+  queuePlain(`さいふ Lv${sim.wallet}`, bx + bw / 2, y + 2, 7, ink, 'center', true)
+  queuePlain(price < 0 ? 'MAX' : `▲ ${price}`, bx + bw / 2, y + 10.5, 7, can ? LINE : GOLD_LIGHT, 'center', true)
+  // ホネ: icon, the amount big, the cap small, and a bar that fills to the cap.
+  const cap = walletCap(sim)
+  const n = Math.floor(sim.bones)
+  const hx = bx + bw + 5
+  ctx.drawImage(renderer.sheets.bone, hx, y + 1)
+  drawNumber(ctx, renderer, n, hx + 13, y + 1, false)
+  queuePlain(`/${cap}`, hx + 13 + digitCount(n) * 10 + 1, y + 3, 7, NIGHT_3)
+  const barW = 62
+  ctx.fillStyle = LINE
+  ctx.fillRect(hx, y + 14, barW, 5)
+  ctx.fillStyle = NIGHT_1
+  ctx.fillRect(hx + 1, y + 15, barW - 2, 3)
+  const full = n >= cap
+  ctx.fillStyle = full ? (GOLD_CYCLE[Math.floor(sim.time * 8) & 3] ?? GOLD) : GOLD
+  ctx.fillRect(hx + 1, y + 15, Math.round(((barW - 2) * Math.min(n, cap)) / Math.max(1, cap)), 3)
 }
 
 /** A tap on the 2× button, left of the speaker in the dock's top row (play only). */
@@ -3174,7 +3221,7 @@ function paintDock(ctx: CanvasRenderingContext2D, renderer: Renderer, sim: Sim):
   if (!sim.free) {
     ctx.drawImage(renderer.sheets.bone, px(at(BONE_X)), pyDock(at(BONE_Y)))
     drawNumber(ctx, renderer, sim.bones | 0, px(at(BONE_X)) + 14, pyDock(at(BONE_Y)) + 1, false)
-  }
+  } else paintPurse(ctx, renderer, sim, pyDock(at(BONE_Y)) - 3)
   for (let slot = 0; slot < CARD_XS.length; slot++) {
     if (sim.free && sim.deck[slot] === undefined) {
       // Not unlocked yet: an empty, dim slot.
@@ -3188,15 +3235,14 @@ function paintDock(ctx: CanvasRenderingContext2D, renderer: Renderer, sim: Sim):
     }
     const kind = sim.free ? (sim.deck[slot] ?? slot) : slot
     const deny = sim.deny[kind] ?? 0
-    const cost = sim.free ? -1 : costOf(sim, kind)
+    const cost = costOf(sim, kind)
     const x = px(at(CARD_XS[slot] ?? CARD_X0) + denyShift(deny))
-    // Free placement waits out a respawn (rechargeFull long); ?lanes the card's RECHARGE.
+    // Free placement: a short cooldown after a deploy (rechargeFull); ?lanes the card's RECHARGE.
     const wait = (sim.recharge[kind] ?? 0) / ((sim.free ? sim.rechargeFull[kind] : RECHARGE[kind]) || 1)
-    const out = isOut(sim, kind)
-    const ready = sim.free ? !out : sim.bones >= cost
-    paintCard(ctx, renderer, x, kind, cost, ready && wait <= 0, false, sim.time, kind === sim.picked, wait, sim.recharge[kind] ?? 0, out)
-    paintGauge(ctx, x, kind, sim, out)
-    if (out && !skillReady(sim, kind)) paintOut(ctx, x, sim)
+    const ready = sim.bones >= cost && (!sim.free || sim.aliveShibas < FIELD_CAP)
+    // Cooldowns are short, so the card shows a sweep without seconds.
+    paintCard(ctx, renderer, x, kind, cost, ready && wait <= 0, false, sim.time, kind === sim.picked, wait, sim.free ? 0 : (sim.recharge[kind] ?? 0))
+    paintGauge(ctx, x, kind, sim, false, kind === sim.picked ? -3 : 0)
     if (sim.free && skillReady(sim, kind)) paintSkillReady(ctx, x, kind, sim, kind === sim.picked)
   }
 }
@@ -3267,29 +3313,9 @@ function paintCard(
   }
 }
 
-/** Free placement 出撃中: a meadow-green plate in the card's foot (a full gauge's skill plate draws over it), so which coats are on the field reads at a glance. */
-function paintOut(ctx: CanvasRenderingContext2D, x: number, sim: Sim): void {
-  const y = pyDock(at(CARD_Y))
-  const w = at(CARD_W)
-  const h = at(CARD_H)
-  ctx.fillStyle = LINE
-  ctx.fillRect(x + 2, y + h - 12, w - 4, 10)
-  ctx.fillStyle = MEADOW
-  ctx.fillRect(x + 3, y + h - 11, w - 6, 8)
-  ctx.fillStyle = MEADOW_LIGHT
-  ctx.fillRect(x + 3, y + h - 11, w - 6, 1)
-  // A little pennant on the plate's left, waving.
-  const wave = Math.floor(sim.time * 4) & 1
-  ctx.fillStyle = WHITE
-  ctx.fillRect(x + 5, y + h - 10, 1, 6)
-  ctx.fillRect(x + 6, y + h - 10 + wave, 3, 2)
-  ctx.fillRect(x + 6, y + h - 8 + wave, 2, 1)
-  queuePlain('出撃中', x + (w >> 1) + 3, y + h - 11, 7, WHITE, 'center', true, LINE)
-}
-
 /** Special gauge under the portrait. Full gauges flash through the golds. While the coat is out (`big`) the bar is twice as thick, since the skill is what that card does now. */
-function paintGauge(ctx: CanvasRenderingContext2D, x: number, kind: number, sim: Sim, big = false): void {
-  const y = pyDock(at(CARD_Y)) + 37
+function paintGauge(ctx: CanvasRenderingContext2D, x: number, kind: number, sim: Sim, big = false, lift = 0): void {
+  const y = pyDock(at(CARD_Y)) + 37 + lift
   const w = at(CARD_W) - 8
   const tall = big ? 4 : 2
   const need = SPECIAL_NEED[kind] ?? 1

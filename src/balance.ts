@@ -129,7 +129,7 @@ export const HEAVY_EVERY = 2.3
 export const HEAVY_HIT = 180
 
 /** Skill gauge per coat: damage it has landed (白: healed; 応援: cheered). Order: 赤, 黒, 胡麻, 白, ぶち, どっしり, 応援. ?lanes fires on its own at this; free placement waits for a tap on the full card. */
-export const SPECIAL_NEED = [2000, 1600, 3200, 1850, 2400, 2000, 1250] as const
+export const SPECIAL_NEED = [2600, 2100, 4200, 2400, 3100, 2600, 1600] as const
 /** Splash and pass-through hits (胡麻's ball, どっしり's stomp, ぶち's disc) fill the gauge at this share; only the dog aimed at counts in full. */
 export const SPLASH_CHARGE = 0.3
 /** ?lanes: after a special lands, no other special fires for this many seconds. */
@@ -242,19 +242,27 @@ export const FREE_DOG_DPS = 2.2
 export const FREE_WAVE_SLOW = 1.4
 /** Everything walks this much slower in free placement, so each chase and bite reads. */
 export const FREE_PACE = 0.65
-/** Cards recharge this many times slower, and ホネ come in at this share, so shibas can't be spammed. */
-export const FREE_RECHARGE = 1.5
-export const FREE_INCOME = 0.8
-/** ?lanes-era cap on shibas alive at once. Free placement is one per coat now (at most DECK_SIZE out), so it never bites there. */
-export const FIELD_CAP = 8
-/** 1種1匹 (free placement): seconds a coat's card waits after its shiba falls before it can go out again. Order: 赤, 黒, 胡麻, 白, ぶち, どっしり, 応援. */
-export const RESPAWN = [8, 13, 10, 11, 10, 14, 11] as const
-/** A shiba recalled home (long press) is back this many seconds after it walks in the door. */
-export const RECALL_BACK = 2
-/** Each coat fights alone, so its hp and every per-hit number (bites, slams, balls, discs, stomps, heals) are × this in free placement. Skills are not. */
-export const SOLO = [2.5, 2.3, 2.6, 2.4, 2.6, 2.2, 2.4] as const
-/** Seconds for a skill gauge to fill on its own while its shiba is on the field (damage and healing still add on top). */
-export const SKILL_PASSIVE = [50, 45, 50, 22, 50, 40, 22] as const
+/** Free placement: at most this many shibas on the field at once; a deploy past it is denied. */
+export const FIELD_CAP = 13
+/**
+ * ホネ economy (free placement, after にゃんこ). Order: 赤, 黒, 胡麻, 白, ぶち, どっしり, 応援.
+ * COAT_COST: a coat's base price in battle ホネ. Each copy of that coat already on the field adds COPY_STEP of the base (rounded to 5).
+ */
+export const COAT_COST = [40, 120, 120, 200, 130, 300, 150] as const
+export const COPY_STEP = 0.25
+/** Seconds a card cools down after a deploy, so one tap can't spam. */
+export const COOLDOWN = [1, 2.5, 2, 3, 2, 3, 2.5] as const
+/** Each coat's hp and every per-hit number (bites, slams, balls, discs, stomps, heals) are × this in free placement: cheap coats weak and many, dear coats strong. Skills are not. */
+export const COAT_STAT = [1.3, 2.4, 2, 2.1, 2, 2.8, 2.1] as const
+/** Battle ホネ at the start of a match: enough for a 赤 right away. */
+export const START_BONES_FREE = 80
+/** おさいふ (wallet): its level (1..WALLET_MAX) sets ホネ income per second and the cap. WALLET_COST[i] buys level i+2. */
+export const WALLET_MAX = 8
+export const WALLET_INCOME = [10, 14, 18, 23, 28, 33, 39, 45] as const
+export const WALLET_CAP = [300, 450, 600, 750, 900, 1050, 1250, 1500] as const
+export const WALLET_COST = [80, 140, 200, 260, 330, 400, 480] as const
+/** Seconds for a skill gauge to fill on its own while a shiba of that coat is on the field (damage and healing add on top). */
+export const SKILL_PASSIVE = [90, 90, 90, 40, 90, 80, 40] as const
 export const MAX_SHIBAS = 600
 export const MARCH_COUNT = 240
 
@@ -360,7 +368,7 @@ export interface Rock {
   pond?: boolean
 }
 export const STAGES: readonly StageSpec[] = [
-  { count: 75, hp: 1.3, dps: 1.15, dachsEvery: 0, poodleEvery: 0, pomEvery: 0, goldenEvery: 0, bulldogEvery: 9, rocks: [] },
+  { count: 75, hp: 1.2, dps: 1.1, dachsEvery: 0, poodleEvery: 0, pomEvery: 0, goldenEvery: 0, bulldogEvery: 9, rocks: [] },
   { count: 150, hp: 2.35, dps: 1.85, dachsEvery: 7, poodleEvery: 9, pomEvery: 0, goldenEvery: 14, bulldogEvery: 8, rocks: [
       { x: 58, y: 230, r: 10 },
       { x: 140, y: 300, r: 10 },
@@ -370,12 +378,12 @@ export const STAGES: readonly StageSpec[] = [
       { x: 38, y: 330, r: 10 },
       { x: 158, y: 340, r: 10 },
     ], walls: [{ x: 40, y: 270, w: 44 }, { x: 155, y: 270, w: 44 }] },
-  { count: 150, hp: 2.75, dps: 1.9, dachsEvery: 4, poodleEvery: 6, pomEvery: 11, goldenEvery: 8, bulldogEvery: 6, rocks: [
+  { count: 150, hp: 2.6, dps: 1.85, dachsEvery: 4, poodleEvery: 6, pomEvery: 11, goldenEvery: 8, bulldogEvery: 6, rocks: [
       { x: 48, y: 190, r: 20, pond: true },
       { x: 148, y: 260, r: 20, pond: true },
       { x: 97, y: 350, r: 10 },
     ], walls: [{ x: 52, y: 320, w: 50 }] },
-  { count: 160, hp: 2.8, dps: 1.9, dachsEvery: 4, poodleEvery: 5, pomEvery: 9, goldenEvery: 6, bulldogEvery: 5, rocks: [
+  { count: 160, hp: 3, dps: 2, dachsEvery: 4, poodleEvery: 5, pomEvery: 9, goldenEvery: 6, bulldogEvery: 5, rocks: [
       { x: 97, y: 250, r: 26, pond: true },
       { x: 34, y: 180, r: 10 },
       { x: 160, y: 180, r: 10 },
@@ -394,7 +402,7 @@ export const STAGES: readonly StageSpec[] = [
       { x: 164, y: 170, r: 10 },
       { x: 97, y: 360, r: 16, pond: true },
     ], walls: [{ x: 40, y: 320, w: 40 }, { x: 155, y: 320, w: 40 }] },
-  { count: 190, hp: 3.5, dps: 2.2, dachsEvery: 3, poodleEvery: 3, pomEvery: 6, goldenEvery: 4, bulldogEvery: 4, rocks: [
+  { count: 190, hp: 3.7, dps: 2.3, dachsEvery: 3, poodleEvery: 3, pomEvery: 6, goldenEvery: 4, bulldogEvery: 4, rocks: [
       { x: 97, y: 200, r: 30, pond: true },
       { x: 30, y: 300, r: 18, pond: true },
       { x: 164, y: 300, r: 18, pond: true },
